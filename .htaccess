@@ -1,0 +1,13 @@
+# /admin/.htaccess
+#Options -Indexes
+#<FilesMatch "^.*\.(php|php3|php4|php5|php7|phtml)$">
+    #Order Deny,Allow
+    #Deny from all
+    #Allow from 127.0.0.1
+#</FilesMatch>
+
+# Özel dosyaları engelle
+#<FilesMatch "^\.">
+   # Order allow,deny
+   # Deny from all
+#</FilesMatch>
