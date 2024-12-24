@@ -12,25 +12,29 @@ if(!$product) {
 }
 
 if(isset($_POST['update_product'])) {
-   $name = cleanInput($_POST['name']);
-   $description = cleanInput($_POST['description']);
-   $price = floatval($_POST['price']);
-   $category_id = (int)$_POST['category_id'];
-   $status = isset($_POST['status']) ? 1 : 0;
-   $image = $product['image'];
-   
-   if(isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-       $image = secureUpload($_FILES['image']);
-   }
-   
-   $db->query("UPDATE products SET name = ?, description = ?, price = ?, 
-               category_id = ?, image = ?, status = ? WHERE id = ?", 
-              [$name, $description, $price, $category_id, $image, $status, $id]);
-              
-   $_SESSION['message'] = 'Ürün güncellendi.';
-   $_SESSION['message_type'] = 'success';
-   header('Location: products.php');
-   exit;
+    $name = cleanInput($_POST['name']);
+    $description = cleanInput($_POST['description']);
+    $price = floatval($_POST['price']);
+    $category_id = (int)$_POST['category_id'];
+    $status = isset($_POST['status']) ? 1 : 0;
+    
+    // Resim kontrolü
+    $image = $_POST['image'] ?? $product['image']; // Hidden input'tan veya mevcut resimden al
+    
+    $db->query("UPDATE products SET 
+                name = ?, 
+                description = ?, 
+                price = ?, 
+                category_id = ?, 
+                image = ?,
+                status = ? 
+                WHERE id = ?", 
+               [$name, $description, $price, $category_id, $image, $status, $id]);
+               
+    $_SESSION['message'] = 'Ürün başarıyla güncellendi.';
+    $_SESSION['message_type'] = 'success';
+    header('Location: products.php');
+    exit;
 }
 
 $categories = $db->query("SELECT * FROM categories")->fetchAll();
@@ -90,10 +94,19 @@ include 'navbar.php';
                        <?php endif; ?>
                    </div>
                    <div class="mb-3">
-                       <label>Yeni Resim</label>
-                       <input type="file" name="image" class="form-control">
-                       <small class="text-muted">Yeni resim yüklemezseniz mevcut resim kullanılmaya devam edecek.</small>
-                   </div>
+                        <div class="mb-2">
+                            <img id="productImagePreview" src="<?= !empty($product['image']) ? '../uploads/'.$product['image'] : '' ?>" 
+                                    style="max-height:100px;<?= empty($product['image']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="productImage" name="image" value="<?= $product['image'] ?? '' ?>">
+                            <input type="text" class="form-control" id="productImageDisplay" 
+                                    value="<?= $product['image'] ?? '' ?>" readonly>
+                            <button type="button" class="btn btn-primary" onclick="openMediaModal('productImage')">
+                                <i class="fas fa-image"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
                    <div class="mb-3">
                        <div class="form-check">
                            <input type="checkbox" name="status" class="form-check-input"
@@ -113,5 +126,6 @@ include 'navbar.php';
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<?php include '../includes/media-modal.php'; ?>
 </body>
 </html>

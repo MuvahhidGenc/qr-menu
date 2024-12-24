@@ -11,7 +11,7 @@ if(!isset($_SESSION['admin'])) {
 // Kategori İşlemleri
 if(isset($_POST['add_category'])) {
    $name = cleanInput($_POST['name']);
-   $image = '';
+   $image = $_POST['image'] ?? '';
    
    if(isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
        $image = secureUpload($_FILES['image']);
@@ -112,9 +112,19 @@ include 'navbar.php';
                        <input type="text" name="name" class="form-control" required>
                    </div>
                    <div class="mb-3">
-                       <label>Kategori Resmi</label>
-                       <input type="file" name="image" class="form-control">
-                   </div>
+                        <div class="mb-2">
+                            <img id="categoryImagePreview" src="<?= !empty($category['image']) ? '../uploads/'.$category['image'] : '' ?>" 
+                                style="max-height:100px;<?= empty($category['image']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="categoryImage" name="image" value="<?= $category['image'] ?? '' ?>">
+                            <input type="text" class="form-control" id="categoryImageDisplay" 
+                                value="<?= $category['image'] ?? '' ?>" readonly>
+                            <button type="button" class="btn btn-primary" onclick="openMediaModal('categoryImage')">
+                                <i class="fas fa-image"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
                </div>
                <div class="modal-footer">
                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -127,5 +137,6 @@ include 'navbar.php';
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<?php include '../includes/media-modal.php'; ?>
 </body>
 </html>

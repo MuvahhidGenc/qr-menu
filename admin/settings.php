@@ -6,32 +6,18 @@ $db = new Database();
 if(isset($_POST['save_settings'])) {
     $settings = [
         'restaurant_name' => cleanInput($_POST['restaurant_name']),
+        'logo' => $_POST['logo'] ?? $settings['logo'] ?? '', // Logo için hidden input'tan al
+        'header_bg' => $_POST['header_bg'] ?? $settings['header_bg'] ?? '', // Header bg için hidden input'tan al
         'theme_color' => $_POST['theme_color'],
         'currency' => $_POST['currency']
     ];
-    
-    // Logo yüklemesi
-    if(isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
-        $logo = secureUpload($_FILES['logo']);
-        $settings['logo'] = $logo;
-    }
-
-     // Header background için
-     if(!empty($_POST['header_bg'])) {
-        $settings['header_bg'] = $_POST['header_bg'];
-    }
-
-    // Debug için
-    echo "<pre>";
-    print_r($_POST);
-    print_r($settings);
-    echo "</pre>";
     
     foreach($settings as $key => $value) {
         $db->query("INSERT INTO settings (setting_key, setting_value) 
                    VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
                    [$key, $value, $value]);
     }
+ 
     
     $_SESSION['message'] = 'Ayarlar kaydedildi.';
     $_SESSION['message_type'] = 'success';
@@ -65,14 +51,20 @@ include 'navbar.php';
                    </div>
                    
                    <div class="mb-3">
-                       <label>Mevcut Logo</label>
-                       <?php if(isset($settings['logo']) && $settings['logo']): ?>
-                           <div class="mb-2">
-                               <img src="../uploads/<?= $settings['logo'] ?>" style="max-height:100px">
-                           </div>
-                       <?php endif; ?>
-                       <input type="file" name="logo" class="form-control">
-                   </div>
+                        <label>Logo</label>
+                        <div class="mb-2">
+                            <img id="logoPreview" src="<?= !empty($settings['logo']) ? '../uploads/'.$settings['logo'] : '' ?>" 
+                                    style="max-height:100px;<?= empty($settings['logo']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="logo" name="logo" value="<?= $settings['logo'] ?? '' ?>">
+                            <input type="text" class="form-control" id="logoDisplay" 
+                                    value="<?= $settings['logo'] ?? '' ?>" readonly>
+                            <button type="button" class="btn btn-primary" onclick="openMediaModal('logo')">
+                                <i class="fas fa-image"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
                    <div class="mb-3">
                         <label>Header Arkaplan Resmi</label>
                         <div class="mb-2">

@@ -10,26 +10,17 @@ if(!isset($_SESSION['admin'])) {
 
 // Ürün İşlemleri
 if(isset($_POST['add_product'])) {
-   $name = cleanInput($_POST['name']);
-   $description = cleanInput($_POST['description']);
-   $price = floatval($_POST['price']);
-   $category_id = (int)$_POST['category_id'];
-   $status = isset($_POST['status']) ? 1 : 0;
-   
-   $image = '';
-   if(isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-       $image = secureUpload($_FILES['image']);
-   }
-   
-   $db->query("INSERT INTO products (name, description, price, category_id, image, status) 
-               VALUES (?, ?, ?, ?, ?, ?)", 
-              [$name, $description, $price, $category_id, $image, $status]);
-              
-   $_SESSION['message'] = 'Ürün başarıyla eklendi.';
-   $_SESSION['message_type'] = 'success';
-   header('Location: products.php');
-   exit;
-}
+    $name = cleanInput($_POST['name']);
+    $description = cleanInput($_POST['description']);
+    $price = floatval($_POST['price']);
+    $category_id = (int)$_POST['category_id'];
+    $status = isset($_POST['status']) ? 1 : 0;
+    $image = $_POST['image'] ?? '';
+    
+    $db->query("INSERT INTO products (name, description, price, category_id, image, status) 
+                VALUES (?, ?, ?, ?, ?, ?)", 
+               [$name, $description, $price, $category_id, $image, $status]);
+ }
 
 if(isset($_POST['delete_product'])) {
    $id = (int)$_POST['id'];
@@ -155,9 +146,19 @@ include 'navbar.php';
                                <input type="number" step="0.01" name="price" class="form-control" required>
                            </div>
                            <div class="mb-3">
-                               <label>Ürün Resmi</label>
-                               <input type="file" name="image" class="form-control">
-                           </div>
+                                <div class="mb-2">
+                                    <img id="productImagePreview" src="<?= !empty($product['image']) ? '../uploads/'.$product['image'] : '' ?>" 
+                                        style="max-height:100px;<?= empty($product['image']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                                </div>
+                                <div class="input-group">
+                                    <input type="hidden" id="productImage" name="image" value="<?= $product['image'] ?? '' ?>">
+                                    <input type="text" class="form-control" id="productImageDisplay" 
+                                        value="<?= $product['image'] ?? '' ?>" readonly>
+                                    <button type="button" class="btn btn-primary" onclick="openMediaModal('productImage')">
+                                        <i class="fas fa-image"></i> Dosya Seç
+                                    </button>
+                                </div>
+                            </div>
                            <div class="mb-3">
                                <div class="form-check">
                                    <input type="checkbox" name="status" class="form-check-input" checked>

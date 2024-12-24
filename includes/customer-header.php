@@ -33,17 +33,19 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
         font-family: 'Poppins', sans-serif;
         background-color: #f8f9fa;
     }
-
+    .load{
+        margin-bottom: 50px;
+    }
     .hero-section {
         background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), <?= $header_bg ?> !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
-        padding: 40px 0;
+        padding: 60px 0px !important;
         color: white;
         text-align: center;
-        margin-bottom: 30px;
-        height: 150px;
+        margin-bottom: 0px !important;
+        height: 200px !important;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -53,7 +55,7 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
         position: relative;
         border-radius: 15px;
         overflow: hidden;
-        margin-bottom: 30px;
+        margin-bottom: 0px;
         cursor: pointer;
         transition: transform 0.3s;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
@@ -165,6 +167,16 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
         font-size: 0.8rem;
         font-weight: 500;
     }
+    .logo-img {
+   width: 100px;  /* Genişlik */
+   height: 100px; /* Yükseklik */
+   object-fit: contain; /* Resmi oranını koruyarak sığdır */
+   margin: 0 auto 0px; /* Ortalama için */
+   display: block; /* Block element yap */
+  
+}
+
+
 </style>
 </head>
 <body>

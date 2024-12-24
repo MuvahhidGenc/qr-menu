@@ -13,7 +13,7 @@ if(!$category) {
 
 if(isset($_POST['update_category'])) {
     $name = cleanInput($_POST['name']);
-    $image = $category['image'];
+    $image = $_POST['image'] ?? $category['image'];
     
     if(isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
         $image = secureUpload($_FILES['image']);
@@ -59,9 +59,18 @@ include 'navbar.php';
                         <?php endif; ?>
                     </div>
                     <div class="mb-3">
-                        <label>Yeni Resim</label>
-                        <input type="file" name="image" class="form-control">
-                        <small class="text-muted">Yeni resim yüklemezseniz mevcut resim kullanılmaya devam edecek.</small>
+                        <div class="mb-2">
+                            <img id="categoryImagePreview" src="<?= !empty($category['image']) ? '../uploads/'.$category['image'] : '' ?>" 
+                                    style="max-height:100px;<?= empty($category['image']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="categoryImage" name="image" value="<?= $category['image'] ?? '' ?>">
+                            <input type="text" class="form-control" id="categoryImageDisplay" 
+                                    value="<?= $category['image'] ?? '' ?>" readonly>
+                            <button type="button" class="btn btn-primary" onclick="openMediaModal('categoryImage')">
+                                <i class="fas fa-image"></i> Dosya Seç
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" name="update_category" class="btn btn-primary">
                         <i class="fas fa-save"></i> Güncelle
