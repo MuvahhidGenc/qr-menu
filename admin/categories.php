@@ -43,7 +43,7 @@ $categories = $db->query("
 
 include 'navbar.php';
 ?>
-
+<div class="main-content">
 <div class="card">
    <div class="card-header d-flex justify-content-between align-items-center">
        <h5 class="mb-0">Kategoriler</h5>
@@ -124,3 +124,8 @@ include 'navbar.php';
        </div>
    </div>
 </div>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

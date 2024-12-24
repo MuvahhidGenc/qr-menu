@@ -53,6 +53,7 @@ $categories = $db->query("SELECT * FROM categories")->fetchAll();
 include 'navbar.php';
 ?>
 
+<div class="main-content">
 <div class="card">
    <div class="card-header d-flex justify-content-between align-items-center">
        <h5 class="mb-0">Ürünler</h5>
@@ -189,3 +190,10 @@ function updateStatus(id, status) {
    });
 }
 </script>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<?php include '../includes/media-modal.php'; ?>
+</body>
+</html>

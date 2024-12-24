@@ -26,6 +26,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
+<?php include 'navbar.php'; ?>
+<div class="main-content">
     <div class="container mt-4">
         <form method="POST" enctype="multipart/form-data">
             <div class="mb-3">

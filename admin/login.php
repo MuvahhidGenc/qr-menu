@@ -28,6 +28,8 @@ if(isset($_POST['login'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
+
+<div class="main-content">
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-6">
@@ -50,5 +52,8 @@ if(isset($_POST['login'])) {
             </div>
         </div>
     </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

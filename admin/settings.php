@@ -4,27 +4,39 @@ require_once '../includes/config.php';
 $db = new Database();
 
 if(isset($_POST['save_settings'])) {
-   $settings = [
-       'restaurant_name' => cleanInput($_POST['restaurant_name']),
-       'theme_color' => $_POST['theme_color'],
-       'currency' => $_POST['currency']
-   ];
-   
-   if(isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
-       $logo = secureUpload($_FILES['logo']);
-       $settings['logo'] = $logo;
-   }
-   
-   foreach($settings as $key => $value) {
-       $db->query("INSERT INTO settings (setting_key, setting_value) 
-                  VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
-                  [$key, $value, $value]);
-   }
-   
-   $_SESSION['message'] = 'Ayarlar kaydedildi.';
-   $_SESSION['message_type'] = 'success';
-   header('Location: settings.php');
-   exit;
+    $settings = [
+        'restaurant_name' => cleanInput($_POST['restaurant_name']),
+        'theme_color' => $_POST['theme_color'],
+        'currency' => $_POST['currency']
+    ];
+    
+    // Logo yüklemesi
+    if(isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
+        $logo = secureUpload($_FILES['logo']);
+        $settings['logo'] = $logo;
+    }
+
+     // Header background için
+     if(!empty($_POST['header_bg'])) {
+        $settings['header_bg'] = $_POST['header_bg'];
+    }
+
+    // Debug için
+    echo "<pre>";
+    print_r($_POST);
+    print_r($settings);
+    echo "</pre>";
+    
+    foreach($settings as $key => $value) {
+        $db->query("INSERT INTO settings (setting_key, setting_value) 
+                   VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+                   [$key, $value, $value]);
+    }
+    
+    $_SESSION['message'] = 'Ayarlar kaydedildi.';
+    $_SESSION['message_type'] = 'success';
+    header('Location: settings.php');
+    exit;
 }
 
 $result = $db->query("SELECT setting_key, setting_value FROM settings")->fetchAll();
@@ -36,6 +48,7 @@ foreach($result as $row) {
 include 'navbar.php';
 ?>
 
+<div class="main-content">
 <div class="row">
    <div class="col-md-8">
        <div class="card">
@@ -60,16 +73,34 @@ include 'navbar.php';
                        <?php endif; ?>
                        <input type="file" name="logo" class="form-control">
                    </div>
-                   
                    <div class="mb-3">
-                       <label>Tema Rengi</label>
-                       <div class="d-flex align-items-center">
-                           <input type="color" name="theme_color" 
-                                  value="<?= $settings['theme_color'] ?? '#000000' ?>" 
-                                  class="form-control form-control-color me-2">
-                           <span class="text-muted">Seçilen renk: <?= $settings['theme_color'] ?? '#000000' ?></span>
-                       </div>
-                   </div>
+                        <label>Header Arkaplan Resmi</label>
+                        <div class="mb-2">
+                            <img id="headerBgPreview" src="<?= !empty($settings['header_bg']) ? '../uploads/'.$settings['header_bg'] : '' ?>" 
+                                style="max-height:100px;<?= empty($settings['header_bg']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="headerBg" name="header_bg" value="<?= $settings['header_bg'] ?? '' ?>">
+                            <input type="text" class="form-control" id="headerBgDisplay" 
+                                value="<?= $settings['header_bg'] ?? '' ?>" readonly>
+                            <button type="button" class="btn btn-primary" onclick="openMediaModal('headerBg')">
+                                <i class="fas fa-image"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
+                   <div class="mb-3">
+                        <label>Tema Rengi</label>
+                        <div class="d-flex align-items-center">
+                            <input type="color" name="theme_color" 
+                                value="<?= $settings['theme_color'] ?? '#e74c3c' ?>" 
+                                class="form-control form-control-color me-2"
+                                onchange="updateColorPreview(this.value)">
+                            <span id="colorPreview" class="text-muted">
+                                Seçilen renk: <?= $settings['theme_color'] ?? '#e74c3c' ?>
+                            </span>
+                        </div>
+                        <small class="text-muted">Bu renk sitenin genel tema rengi olarak kullanılacaktır.</small>
+                    </div>
                    
                    <div class="mb-3">
                        <label>Para Birimi</label>
@@ -107,9 +138,19 @@ include 'navbar.php';
        </div>
    </div>
 </div>
+</div>
+</div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    function updateColorPreview(color) {
+    document.getElementById('colorPreview').textContent = 'Seçilen renk: ' + color;
+}
 document.querySelector('input[name="theme_color"]').addEventListener('input', function(e) {
    document.querySelector('.text-muted').textContent = 'Seçilen renk: ' + e.target.value;
 });
 </script>
+<?php include '../includes/media-modal.php'; ?>
+</body>
+</html>

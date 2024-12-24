@@ -47,6 +47,7 @@ if(isset($_POST['change_password'])) {
 include 'navbar.php';
 ?>
 
+<div class="main-content">
 <div class="row">
    <div class="col-md-6">
        <div class="card mb-4">
@@ -102,3 +103,9 @@ include 'navbar.php';
        </div>
    </div>
 </div>
+
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
