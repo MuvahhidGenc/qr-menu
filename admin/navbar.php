@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+
 /* Topbar her zaman görünsün */
 .mobile-nav {
    display: flex;
@@ -54,13 +55,12 @@
    width: 100%;
 }
 
-/* Responsive davranışı kaldırdık */
 .btn-toggle {
-   padding: 0.5rem 0.75rem;
-   border: none;
-   background: transparent;
-   color: white;
-   cursor: pointer;
+    cursor: pointer;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: white;
 }
 
 .btn-toggle:hover {
@@ -112,6 +112,59 @@
    color: #fff;
    background: rgba(255,255,255,0.1);
 }
+
+/* Masaüstü */
+@media (min-width: 769px) {
+    .sidebar {
+        left: 0;
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.closed {
+        transform: translateX(-280px);
+    }
+    
+    .main-content {
+        margin-left: 280px;
+        width: calc(100% - 280px);
+        transition: all 0.3s ease;
+    }
+
+    /* Toggle butonu stilini düzelt */
+    .btn-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-toggle:hover {
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+    }
+}
+
+/* Mobil */
+@media (max-width: 768px) {
+    .sidebar {
+        left: -280px;
+        transform: none;
+    }
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Toggle buton animasyonu */
+.btn-toggle {
+    transition: transform 0.3s ease;
+}
+
     </style>
 </head>
 <body>
@@ -172,24 +225,36 @@
         </div>
        
         <script>
-// Script
 document.addEventListener('DOMContentLoaded', function() {
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebar = document.querySelector('.sidebar');
-    
-    // Menü toggle
-    sidebarToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar.classList.toggle('active');
-    });
+   const sidebarToggle = document.getElementById('sidebarToggle');
+   const sidebar = document.querySelector('.sidebar');
 
-    // Dışarı tıklandığında menüyü kapat
-    document.addEventListener('click', function(e) {
-        if (!sidebar.contains(e.target) && 
-            !sidebarToggle.contains(e.target) && 
-            sidebar.classList.contains('active')) {
-            sidebar.classList.remove('active');
-        }
-    });
+   function handleSidebarToggle(e) {
+       e.stopPropagation();
+       
+       if (window.innerWidth > 768) {
+           // Masaüstü
+           sidebar.classList.toggle('closed');
+       } else {
+           // Mobil
+           sidebar.classList.toggle('active');
+       }
+   }
+
+   // Tüm toggle butonları için event listener ekle
+   document.querySelectorAll('.btn-toggle').forEach(button => {
+       button.addEventListener('click', handleSidebarToggle);
+   });
+
+   // Mobilde dışarı tıklama
+   document.addEventListener('click', function(e) {
+       if (window.innerWidth <= 768) {
+           if (!sidebar.contains(e.target) && 
+               !e.target.classList.contains('btn-toggle') && 
+               sidebar.classList.contains('active')) {
+               sidebar.classList.remove('active');
+           }
+       }
+   });
 });
 </script>
