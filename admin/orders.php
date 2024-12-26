@@ -47,13 +47,14 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
             <!-- Filtreler -->
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <select class="form-select" id="statusFilter">
-                        <option value="all" <?= $status == 'all' ? 'selected' : '' ?>>Tüm Durumlar</option>
-                        <option value="pending" <?= $status == 'pending' ? 'selected' : '' ?>>Beklemede</option>
-                        <option value="preparing" <?= $status == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
-                        <option value="completed" <?= $status == 'completed' ? 'selected' : '' ?>>Tamamlandı</option>
-                        <option value="cancelled" <?= $status == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
-                    </select>
+                <select class="form-select" id="statusFilter">
+                    <option value="all">Tümü</option>
+                    <option value="pending" <?= isset($_GET['status']) && $_GET['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
+                    <option value="preparing" <?= isset($_GET['status']) && $_GET['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
+                    <option value="ready" <?= isset($_GET['status']) && $_GET['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
+                    <option value="delivered" <?= isset($_GET['status']) && $_GET['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                    <option value="cancelled" <?= isset($_GET['status']) && $_GET['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
+                </select>
                 </div>
                 <div class="col-md-3">
                     <select class="form-select" id="tableFilter">
@@ -95,14 +96,13 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
                                 <td><?= htmlspecialchars($order['table_no']) ?></td>
                                 <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
                                 <td>
-                                    <select class="form-select form-select-sm status-select" 
-                                            data-order-id="<?= $order['id'] ?>"
-                                            style="width: 150px;">
-                                        <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
-                                        <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
-                                        <option value="completed" <?= $order['status'] == 'completed' ? 'selected' : '' ?>>Tamamlandı</option>
-                                        <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
-                                    </select>
+                                <select class="form-select form-select-sm status-select" data-order-id="<?= $order['id'] ?>">
+                                    <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
+                                    <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
+                                    <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
+                                    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
+                                </select>
                                 </td>
                                 <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
                                 <td>

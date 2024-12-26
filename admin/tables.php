@@ -5,6 +5,18 @@ include 'navbar.php';
 $db = new Database();
 $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    
+
 
 <div class="main-content">
     <div class="card">
@@ -75,6 +87,28 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
     </div>
 </div>
 
+<!-- Edit Modal -->
+<div class="modal fade" id="editTableModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Masa Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTableForm">
+                    <input type="hidden" name="table_id" id="editTableId">
+                    <div class="mb-3">
+                        <label>Masa Adı</label>
+                        <input type="text" class="form-control" name="table_no" id="editTableNo" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Güncelle</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- QR Kod Modal -->
 <div class="modal fade" id="qrModal">
     <div class="modal-dialog">
@@ -94,4 +128,21 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
         </div>
     </div>
 </div>
+<script>
+// Modal işlemleri için Bootstrap'i kullan
+document.querySelectorAll('.edit-table').forEach(button => {
+    button.addEventListener('click', function() {
+        let tableId = this.getAttribute('data-id');
+        let tableName = this.getAttribute('data-table');
+        
+        document.querySelector('#editTableId').value = tableId;
+        document.querySelector('#editTableNo').value = tableName;
+        
+        let modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+        modal.show();
+    });
+});
+</script>
+</body>
+</html>
 

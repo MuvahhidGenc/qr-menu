@@ -166,6 +166,47 @@
     transition: transform 0.3s ease;
 }
 
+
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 10px;
+    display: none;
+}
+
+.notification-dropdown .dropdown-menu {
+    width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.notification-list .notification-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+
+.notification-list .notification-item:hover {
+    background: #f8f9fa;
+}
+
+.notification-item.unread {
+    background: #f0f7ff;
+}
+
     </style>
 
     <!-- Diğer head içerikleri -->
@@ -184,12 +225,30 @@
     </button>
     
     <span class="brand-text">QR Menü Admin</span>
-    
+    <div class="d-flex align-items-center">
+    <!-- Bildirim Ikonu -->
+    <div class="nav-item dropdown notification-dropdown me-3">
+        <a class="nav-link" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge" id="notificationCount">0</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown">
+            <div class="notification-header">
+                <h6 class="mb-0">Bildirimler</h6>
+                <button class="btn btn-sm btn-link mark-all-read">Tümünü Okundu İşaretle</button>
+            </div>
+            <div class="notification-list" id="notificationList">
+                <!-- Bildirimler AJAX ile yüklenecek -->
+            </div>
+        </div>
+    </div>
     <div class="dropdown profile-dropdown">
         <button class="btn-toggle" data-bs-toggle="dropdown">
             <i class="fas fa-user fa-lg"></i>
         </button>
+
         <ul class="dropdown-menu dropdown-menu-end">
+            
             <li>
                 <a class="dropdown-item" href="profile.php">
                     <i class="fas fa-user-cog"></i> Profil
@@ -207,7 +266,12 @@
                 </a>
             </li>
         </ul>
+
+
+
+   
     </div>
+</div>
 </div>
 
     <div class="wrapper">

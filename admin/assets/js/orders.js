@@ -13,6 +13,8 @@ $(document).ready(function() {
         let orderId = $(this).data('order-id');
         let newStatus = $(this).val();
         
+        console.log('Updating status:', orderId, newStatus); // Debug
+    
         $.ajax({
             url: 'ajax/update_order_status.php',
             type: 'POST',
@@ -21,6 +23,7 @@ $(document).ready(function() {
                 status: newStatus
             },
             success: function(response) {
+                console.log('Response:', response); // Debug
                 if(response.success) {
                     Swal.fire({
                         toast: true,

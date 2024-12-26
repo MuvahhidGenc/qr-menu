@@ -116,3 +116,30 @@ modal.show();*/
         });
     });
 });
+
+// Edit modal açma
+$('.edit-table').click(function() {
+    let tableId = $(this).data('id');
+    let tableName = $(this).data('table');
+    
+    $('#editTableId').val(tableId);
+    $('#editTableNo').val(tableName);
+    $('#editTableModal').modal('show');
+});
+
+// Edit form submit
+$('#editTableForm').submit(function(e) {
+    e.preventDefault();
+    
+    $.ajax({
+        url: 'ajax/edit_table.php',
+        type: 'POST',
+        data: $(this).serialize(),
+        success: function(response) {
+            if(response.success) {
+                $('#editTableModal').modal('hide');
+                location.reload();
+            }
+        }
+    });
+});

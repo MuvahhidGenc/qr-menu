@@ -4,16 +4,20 @@ require_once 'includes/config.php';
 require_once 'includes/cart.php';
 // Session ve sepeti başlat
 initCart();
+
 $db = new Database();
 // Debug için
 error_log('Session ID: ' . session_id());
 error_log('Cart Contents: ' . print_r($_SESSION['cart'], true));
 
-// Masa ID'sini al (QR koddan gelecek)
-$_SESSION['table_id'] = $_GET['table'] ?? 1; // Şimdilik test için 1 verdik
 // Kategorileri çek
 $stmt = $db->query("SELECT * FROM categories WHERE status = 1");
 $categories = $stmt->fetchAll();
+// URL'den table parametresini al
+
+$table_id = isset($_GET['table']) ? (int)$_GET['table'] : 1;
+$_SESSION['table_id'] = $table_id; // Session'a kaydet
+
 
 // Ayarları çek
 $settingsResult = $db->query("SELECT * FROM settings");
@@ -346,7 +350,7 @@ include 'includes/customer-header.php';
                 <div class="row">
                     <?php foreach($categories as $category): ?>
                         <div class="col-md-4">
-                            <a href="?category=<?= $category['id'] ?>" class="text-decoration-none">
+                            <a href="?category=<?= $category['id'] ?>&table=<?= $table_id ?>" class="text-decoration-none">
                                 <div class="category-card">
                                     <img src="uploads/<?= $category['image'] ?>" class="category-image" alt="<?= $category['name'] ?>">
                                     <div class="category-overlay">
@@ -363,7 +367,7 @@ include 'includes/customer-header.php';
         <?php else: ?>
         <!-- Kategori Ürünleri -->
         <div class="container mt-4">
-            <a href="index.php" class="back-button text-decoration-none">
+            <a href="index.php?table=<?= $table_id ?>" class="back-button text-decoration-none">
                 <i class="fas fa-arrow-left"></i> Kategorilere Dön
             </a>
 

@@ -2,8 +2,6 @@
 require_once '../includes/config.php';
 $db = new Database();
 
-session_start();
-
 if(isset($_POST['login'])) {
     $username = cleanInput($_POST['username']);
     $password = $_POST['password'];

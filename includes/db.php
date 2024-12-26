@@ -17,11 +17,16 @@ class Database {
     
     public function query($sql, $params = []) {
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
+        $result = $stmt->execute($params);
+        if(!$result) {
+            error_log('SQL Error: ' . print_r($stmt->errorInfo(), true));
+        }
         return $stmt;
     }
     // Son eklenen ID'yi almak için metod ekledik
     public function lastInsertId() {
         return $this->db->lastInsertId();
     }
+    // includes/config.php içinde Database sınıfına ekleyin:
+    
 }
