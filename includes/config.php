@@ -1,4 +1,10 @@
 <?php
+// Session aktif değilse başlat
+if (session_status() === PHP_SESSION_NONE) {
+    // Session'ı başlat
+    session_start();
+}
+
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');

@@ -6,6 +6,7 @@
     <title>QR Menü Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <style>
 
 /* Topbar her zaman görünsün */
@@ -166,6 +167,14 @@
 }
 
     </style>
+
+    <!-- Diğer head içerikleri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="assets/js/tables.js"></script>
 </head>
 <body>
 <!-- navbar.php -->
@@ -208,6 +217,12 @@
             <div class="nav flex-column">
                 <a href="dashboard.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">
                     <i class="fas fa-home me-2"></i>Ana Sayfa
+                </a>
+                <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
+                    <i class="fas fa-clipboard-list"></i> Siparişler
+                </a>
+                    <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
+                    <i class="fas fa-chair"></i> Masalar
                 </a>
                 <a href="categories.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : '' ?>">
                     <i class="fas fa-list me-2"></i>Kategoriler
