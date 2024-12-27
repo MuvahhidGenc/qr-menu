@@ -1,0 +1,1 @@
+<tr data-table-id="<?php echo $table['id']; ?>"> 

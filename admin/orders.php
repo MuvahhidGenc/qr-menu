@@ -17,6 +17,13 @@ $query = "SELECT o.*, t.table_no
 
 $params = [];
 
+// Seçili masa varsa filtreleme yap
+if(isset($_GET['table']) && $_GET['table'] != 'all') {
+    $table_id = (int)$_GET['table'];
+    $where[] = "o.table_id = ?";
+    $params[] = $table_id;
+}
+
 if($status != 'all') {
     $query .= " AND o.status = ?";
     $params[] = $status;
@@ -37,6 +44,18 @@ $query .= " ORDER BY o.created_at DESC";
 $orders = $db->query($query, $params)->fetchAll();
 $tables = $db->query("SELECT * FROM tables")->fetchAll();
 ?>
+
+<!-- CSS kısmına ekle -->
+<style>
+.highlighted-order {
+    animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+    0% { background-color: rgba(231, 76, 60, 0.2); }
+    100% { background-color: transparent; }
+}
+</style>
 
 <div class="main-content">
     <div class="card">
@@ -91,7 +110,7 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
                     </thead>
                     <tbody>
                         <?php foreach($orders as $order): ?>
-                            <tr>
+                            <tr data-table-id="<?= $order['table_id'] ?>">
                                 <td>#<?= $order['id'] ?></td>
                                 <td><?= htmlspecialchars($order['table_no']) ?></td>
                                 <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
@@ -137,3 +156,20 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
 <!-- Sayfanın en altında, body kapanmadan önce -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/orders.js"></script>
+
+<!-- JavaScript kısmına ekle -->
+<script>
+$(document).ready(function() {
+    // URL'den highlight parametresini kontrol et
+    const urlParams = new URLSearchParams(window.location.search);
+    if(urlParams.get('highlight') === 'true' && urlParams.get('table')) {
+        // İlgili masanın siparişlerini vurgula
+        $('tr[data-table-id="' + urlParams.get('table') + '"]').addClass('highlighted-order');
+        
+        // Sayfayı ilgili siparişe kaydır
+        $('html, body').animate({
+            scrollTop: $('tr[data-table-id="' + urlParams.get('table') + '"]').offset().top - 100
+        }, 1000);
+    }
+});
+</script>

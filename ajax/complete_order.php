@@ -51,6 +51,14 @@ try {
                    VALUES (?, ?, ?, ?)",
                    [$order_id, $item['product_id'], $item['quantity'], $item['price']]);
     }
+    // Bildirim oluştur
+        $table_info = $db->query("SELECT table_no FROM tables WHERE id = ?", [$table_id])->fetch();
+        $table_no = $table_info['table_no'];
+
+        $notification_message = "Masa {$table_no}'dan yeni sipariş geldi!";
+        $db->query("INSERT INTO notifications (order_id, type, message) 
+                VALUES (?, 'new_order', ?)", 
+                [$order_id, $notification_message]);
 
     // Sepeti temizle
     $_SESSION['cart'] = [];

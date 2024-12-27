@@ -227,18 +227,27 @@
     <span class="brand-text">QR Menü Admin</span>
     <div class="d-flex align-items-center">
     <!-- Bildirim Ikonu -->
+    <!-- Navbar içinde bildirim dropdown'ı -->
     <div class="nav-item dropdown notification-dropdown me-3">
-        <a class="nav-link" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
+        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="fas fa-bell"></i>
-            <span class="notification-badge" id="notificationCount">0</span>
+            <span class="notification-badge" id="notificationCount"></span>
         </a>
-        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown">
-            <div class="notification-header">
+        <div class="dropdown-menu dropdown-menu-end notification-menu">
+                    <div class="dropdown-header d-flex justify-content-between align-items-center p-3">
                 <h6 class="mb-0">Bildirimler</h6>
-                <button class="btn btn-sm btn-link mark-all-read">Tümünü Okundu İşaretle</button>
+                <div>
+                    <button type="button" class="btn btn-sm btn-link" id="toggleSound">
+                        <i class="fas fa-volume-up" id="soundIcon"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-link mark-all-read">
+                        Tümünü Okundu İşaretle
+                    </button>
+                </div>
             </div>
+
             <div class="notification-list" id="notificationList">
-                <!-- Bildirimler AJAX ile yüklenecek -->
+                <!-- Bildirimler buraya gelecek -->
             </div>
         </div>
     </div>
@@ -303,37 +312,110 @@
             </div>
         </div>
        
-        <script>
-document.addEventListener('DOMContentLoaded', function() {
-   const sidebarToggle = document.getElementById('sidebarToggle');
-   const sidebar = document.querySelector('.sidebar');
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+// Ses objesi oluştur
+// Global değişkenler
+const notificationSound = new Audio('/qr-menu/admin/assets/sounds/notification.mp3');
+let lastNotificationCount = null; // İlk kontrolde ses çalmasın diye null başlatıyoruz
+let soundEnabled = localStorage.getItem('notificationSound') !== 'false';
 
-   function handleSidebarToggle(e) {
-       e.stopPropagation();
-       
-       if (window.innerWidth > 768) {
-           // Masaüstü
-           sidebar.classList.toggle('closed');
-       } else {
-           // Mobil
-           sidebar.classList.toggle('active');
-       }
-   }
+$('#toggleSound').click(function() {
+    soundEnabled = !soundEnabled;
+    $('#soundIcon').toggleClass('fa-volume-up fa-volume-mute');
+    
+    // Tercihi localStorage'a kaydet
+    localStorage.setItem('notificationSound', soundEnabled);
+});
 
-   // Tüm toggle butonları için event listener ekle
-   document.querySelectorAll('.btn-toggle').forEach(button => {
-       button.addEventListener('click', handleSidebarToggle);
-   });
+function checkNotifications() {
+    $.ajax({
+        url: 'ajax/get_notifications.php',
+        type: 'GET',
+        success: function(response) {
+            if(response.success) {
+                $('#notificationList').html(response.html);
+                
+                // İlk yükleme değilse ve yeni bildirim varsa ses çal
+                if(lastNotificationCount !== null && 
+                   response.unread_count > lastNotificationCount && 
+                   soundEnabled) {
+                    notificationSound.play().catch(e => console.log('Ses çalma hatası:', e));
+                }
+                
+                // Bildirim sayısını güncelle
+                lastNotificationCount = response.unread_count;
+                
+                if(response.unread_count > 0) {
+                    $('#notificationCount').text(response.unread_count).show();
+                } else {
+                    $('#notificationCount').hide();
+                }
+            }
+        }
+    });
+}
 
-   // Mobilde dışarı tıklama
-   document.addEventListener('click', function(e) {
-       if (window.innerWidth <= 768) {
-           if (!sidebar.contains(e.target) && 
-               !e.target.classList.contains('btn-toggle') && 
-               sidebar.classList.contains('active')) {
-               sidebar.classList.remove('active');
-           }
-       }
-   });
+// Bildirime tıklama
+$(document).on('click', '.notification-item', function() {
+    let notificationId = $(this).data('id');
+    let tableId = $(this).data('table-id');
+    
+    // Önce bildirimi okundu olarak işaretle
+    $.ajax({
+        url: 'ajax/mark_notification_read.php',
+        type: 'POST',
+        data: { notification_id: notificationId },
+        success: function(response) {
+            if(response.success) {
+                // Bildirimi okundu yap ve masalar sayfasına yönlendir
+                window.location.href = 'orders.php?table=' + tableId + '&highlight=true';
+            }
+        }
+    });
+});
+
+// Sayfa yüklendiğinde başlangıç kontrolü
+$(document).ready(function() {
+    soundEnabled = localStorage.getItem('notificationSound') !== 'false';
+       // Ses icon durumunu ayarla
+       $('#soundIcon').toggleClass('fa-volume-up', soundEnabled)
+                  .toggleClass('fa-volume-mute', !soundEnabled);
+    
+    // İlk kontrol
+    checkNotifications();
+    
+    // Periyodik kontrol
+    setInterval(checkNotifications, 10000);
+});
+
+
+// Bildirimi okundu olarak işaretle
+$(document).on('click', '.notification-item', function() {
+    let notificationId = $(this).data('id');
+    $.ajax({
+        url: 'ajax/mark_notification_read.php',
+        type: 'POST',
+        data: { notification_id: notificationId },
+        success: function(response) {
+            if(response.success) {
+                checkNotifications();
+            }
+        }
+    });
+});
+
+// Tüm bildirimleri okundu olarak işaretle
+$(document).on('click', '.mark-all-read', function(e) {
+    e.preventDefault();
+    $.ajax({
+        url: 'ajax/mark_all_read.php',
+        type: 'POST',
+        success: function(response) {
+            if(response.success) {
+                checkNotifications();
+            }
+        }
+    });
 });
 </script>
