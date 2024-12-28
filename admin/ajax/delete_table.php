@@ -1,34 +1,31 @@
 <?php
 require_once '../../includes/config.php';
-header('Content-Type: application/json');
+require_once '../../includes/session.php';
+checkAuth();
+
+$db = new Database();
 
 try {
-    if(!isset($_POST['table_id'])) {
-        throw new Exception('Masa ID gerekli');
-    }
+    $id = $_POST['id'];
 
-    $db = new Database();
-    $table_id = (int)$_POST['table_id'];
+    // Aktif siparişleri kontrol et
+    $activeOrders = $db->query(
+        "SELECT COUNT(*) as count FROM orders WHERE table_id = ? AND status != 'completed'",
+        [$id]
+    )->fetch();
 
-    // Masaya ait aktif sipariş var mı kontrol et
-    $active_orders = $db->query("SELECT COUNT(*) as count FROM orders WHERE table_id = ? AND status IN ('pending', 'preparing')", 
-                               [$table_id])->fetch();
-
-    if($active_orders['count'] > 0) {
-        throw new Exception('Bu masaya ait aktif siparişler var. Önce siparişleri tamamlayın.');
+    if ($activeOrders['count'] > 0) {
+        throw new Exception('Bu masada aktif siparişler var!');
     }
 
     // Masayı sil
-    $db->query("DELETE FROM tables WHERE id = ?", [$table_id]);
+    $db->query("DELETE FROM tables WHERE id = ?", [$id]);
 
-    echo json_encode([
-        'success' => true,
-        'message' => 'Masa başarıyla silindi'
-    ]);
+    echo json_encode(['success' => true]);
 
-} catch(Exception $e) {
+} catch (Exception $e) {
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Bir hata oluştu: ' . $e->getMessage()
     ]);
 }

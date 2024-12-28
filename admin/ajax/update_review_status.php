@@ -1,0 +1,25 @@
+<?php
+require_once '../../includes/config.php';
+require_once '../../includes/session.php';
+checkAuth();
+
+$db = new Database();
+
+try {
+    $id = $_POST['id'];
+    $status = $_POST['status'];
+
+    // Durum güncelle
+    $db->query(
+        "UPDATE reviews SET status = ? WHERE id = ?",
+        [$status, $id]
+    );
+
+    echo json_encode(['success' => true]);
+
+} catch (Exception $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Bir hata oluştu: ' . $e->getMessage()
+    ]);
+} 

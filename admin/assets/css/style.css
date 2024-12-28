@@ -1,0 +1,106 @@
+/* Üst menü */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Ana içerik - tüm sayfalar için temel stil */
+.main-content {
+    margin-top: 60px;
+    padding: 15px;
+}
+
+/* Masalar sayfası */
+.tables-content .category-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Ürünler sayfası */
+.products-page .main-content {
+    position: relative;
+    z-index: 1;
+}
+
+.products-page .category-content {
+    position: relative;
+    z-index: 1;
+    margin-top: 60px;
+}
+
+/* Kategoriler sayfası */
+.categories-page .main-content {
+    position: relative;
+    z-index: 1;
+}
+
+.categories-page .category-content {
+    position: relative;
+    z-index: 1;
+    margin-top: 60px;
+}
+
+/* Siparişler sayfası */
+.orders-page .main-content {
+    position: relative;
+    z-index: 1;
+}
+
+.orders-page .category-content {
+    position: relative;
+    z-index: 1;
+    margin-top: 60px;
+}
+
+/* Kategori butonları - tüm sayfalar için */
+.categories-wrapper,
+.payment-categories {
+    position: sticky;
+    top: 60px;
+    background: #fff;
+    padding: 10px;
+    z-index: 99;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* İçerik alanları - tüm sayfalar için */
+.category-products,
+.product-list,
+.order-list,
+.category-list {
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    margin-top: 10px;
+}
+
+/* Kartlar ve tablolar */
+.card,
+.table-responsive {
+    position: relative;
+    z-index: 1;
+}
+
+/* Modal ve Dropdown */
+.modal {
+    z-index: 99999;
+}
+
+.modal-backdrop {
+    z-index: 99998;
+}
+
+.dropdown-menu {
+    z-index: 9999;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    z-index: 9998;
+}

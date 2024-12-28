@@ -10,7 +10,12 @@ if(isset($_POST['login'])) {
     $user = $stmt->fetch();
     
     if($user && verifyPassword($password, $user['password'])) {
+        session_regenerate_id(true);
+        
         $_SESSION['admin'] = $user['id'];
+        $_SESSION['last_activity'] = time();
+        $_SESSION['last_regeneration'] = time();
+        
         header('Location: dashboard.php');
         exit;
     }

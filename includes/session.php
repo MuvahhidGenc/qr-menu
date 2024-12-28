@@ -1,18 +1,28 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Oturum güvenliği için
+function regenerateSession() {
+    if (!isset($_SESSION['last_regeneration'])) {
+        session_regenerate_id(true);
+        $_SESSION['last_regeneration'] = time();
+    } else {
+        $regeneration_time = 3600; // 1 saat
+        if (time() - $_SESSION['last_regeneration'] > $regeneration_time) {
+            session_regenerate_id(true);
+            $_SESSION['last_regeneration'] = time();
+        }
+    }
 }
-session_regenerate_id(true);
 
+// Oturum kontrolü
 function checkAuth() {
+    regenerateSession();
     if (!isset($_SESSION['admin'])) {
         header('Location: login.php');
         exit();
     }
 }
 
-function secureSession() {
-    ini_set('session.cookie_httponly', 1);
-    ini_set('session.use_only_cookies', 1);
-    ini_set('session.cookie_secure', 1);
+// Her sayfa yüklendiğinde son aktivite zamanını güncelle
+if (isset($_SESSION['admin'])) {
+    $_SESSION['last_activity'] = time();
 }

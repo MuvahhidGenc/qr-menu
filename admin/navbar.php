@@ -6,6 +6,7 @@
     <title>QR Menü Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../admin/assets/css/style.css">
 
     <style>
 
@@ -31,29 +32,58 @@
 
 /* Sidebar */
 .sidebar {
-   width: 280px;
+   width: 250px;
    height: 100vh;
    position: fixed;
-   left: -280px; /* Varsayılan olarak gizli */
+   left: 0;
    top: 0;
    background: #1a1c23;
-   padding: 1.5rem;
-   padding-top: 70px;
-   transition: 0.3s;
+   color: #fff;
+   padding: 1rem;
    z-index: 1000;
-   overflow-y: auto;
 }
 
-.sidebar.active {
-   left: 0;
+.sidebar-header {
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 1rem;
 }
 
-/* Ana içerik */
+.sidebar-nav .nav-link {
+    color: rgba(255,255,255,0.7);
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    transition: all 0.3s;
+}
+
+.sidebar-nav .nav-link:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+}
+
+.sidebar-nav .nav-link.active {
+    color: #fff;
+    background: #0d6efd;
+}
+
 .main-content {
-   padding: 20px;
-   padding-top: 70px;
-   transition: 0.3s;
-   width: 100%;
+    margin-left: 250px;
+    padding: 2rem;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+    }
+    
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
 }
 
 .btn-toggle {
@@ -285,31 +315,63 @@
 
     <div class="wrapper">
         <div class="sidebar">
-            <!--<h4 class="mb-4">QR Menü Admin</h4>-->
-            
-            <div class="nav flex-column">
-                <a href="dashboard.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">
-                    <i class="fas fa-home me-2"></i>Ana Sayfa
-                </a>
-                <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
-                    <i class="fas fa-clipboard-list"></i> Siparişler
-                </a>
-                    <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
-                    <i class="fas fa-chair"></i> Masalar
-                </a>
-                <a href="categories.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : '' ?>">
-                    <i class="fas fa-list me-2"></i>Kategoriler
-                </a>
-                <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
-                    <i class="fas fa-utensils me-2"></i>Ürünler
-                </a>
-                <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
-                    <i class="fas fa-cog me-2"></i>Ayarlar
-                </a>
-                <a href="logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt me-2"></i>Çıkış
-                </a>
+            <div class="sidebar-header">
+                <h3 class="mb-0">QR Menü Admin</h3>
             </div>
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a href="dashboard.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">
+                            <i class="fas fa-home me-2"></i>Ana Sayfa
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
+                            <i class="fas fa-shopping-cart me-2"></i>Siparişler
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
+                            <i class="fas fa-chair me-2"></i>Masalar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="categories.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : '' ?>">
+                            <i class="fas fa-tags me-2"></i>Kategoriler
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
+                            <i class="fas fa-utensils me-2"></i>Ürünler
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="reports.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : '' ?>">
+                            <i class="fas fa-chart-bar me-2"></i>Raporlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="kitchen.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'kitchen.php' ? 'active' : '' ?>">
+                            <i class="fas fa-fire me-2"></i>Mutfak
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="reservations.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reservations.php' ? 'active' : '' ?>">
+                            <i class="fas fa-calendar-alt me-2"></i>Rezervasyonlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
+                            <i class="fas fa-cog me-2"></i>Ayarlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="reviews.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reviews.php' ? 'active' : '' ?>">
+                            <i class="fas fa-star me-2"></i>Değerlendirmeler
+                        </a>
+                    </li>
+                </ul>
+            </nav>
         </div>
        
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

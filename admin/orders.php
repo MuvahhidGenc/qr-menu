@@ -1,5 +1,8 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/session.php';
+checkAuth();
+
 include 'navbar.php';
 
 $db = new Database();
@@ -16,13 +19,6 @@ $query = "SELECT o.*, t.table_no
           WHERE 1=1";
 
 $params = [];
-
-// Seçili masa varsa filtreleme yap
-if(isset($_GET['table']) && $_GET['table'] != 'all') {
-    $table_id = (int)$_GET['table'];
-    $where[] = "o.table_id = ?";
-    $params[] = $table_id;
-}
 
 if($status != 'all') {
     $query .= " AND o.status = ?";

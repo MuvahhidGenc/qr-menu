@@ -1,35 +1,52 @@
 <?php
 class Database {
-    private $db;
-    
+    private $pdo;
+
     public function __construct() {
         try {
-            $this->db = new PDO(
-                "mysql:host=".DB_HOST.";dbname=".DB_NAME,
+            $this->pdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
                 DB_USER,
                 DB_PASS,
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+03:00'"
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
         } catch(PDOException $e) {
-            die("Bağlantı hatası: " . $e->getMessage());
+            die("Veritabanı bağlantı hatası: " . $e->getMessage());
         }
     }
-    
-    public function query($sql, $params = []) {
-        $stmt = $this->db->prepare($sql);
-        $result = $stmt->execute($params);
-        if(!$result) {
-            error_log('SQL Error: ' . print_r($stmt->errorInfo(), true));
+
+    public function query($query, $params = []) {
+        try {
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute($params);
+            return $stmt;
+        } catch(PDOException $e) {
+            throw new Exception("Sorgu hatası: " . $e->getMessage());
         }
-        return $stmt;
     }
-    // Son eklenen ID'yi almak için metod ekledik
+
     public function lastInsertId() {
-        return $this->db->lastInsertId();
+        return $this->pdo->lastInsertId();
     }
-    // includes/config.php içinde Database sınıfına ekleyin:
-    
+
+    // Transaction metodları
+    public function beginTransaction() {
+        return $this->pdo->beginTransaction();
+    }
+
+    public function commit() {
+        return $this->pdo->commit();
+    }
+
+    public function rollBack() {
+        return $this->pdo->rollBack();
+    }
+
+    public function inTransaction() {
+        return $this->pdo->inTransaction();
+    }
 }
