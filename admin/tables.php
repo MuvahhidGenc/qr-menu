@@ -29,7 +29,16 @@ error_log('Active Categories: ' . $dbCheck['active_categories']);
 error_log('Active Products: ' . $dbCheck['active_products']);
 ?>
 <head>
-    <link rel="stylesheet" href="../admin/assets/css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masalar - QR Menü Admin</title>
+    
+    <!-- CSS Dosyaları -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    
+    
 </head>
 <div class="main-content">
 <div class="category-content">
@@ -39,8 +48,8 @@ error_log('Active Products: ' . $dbCheck['active_products']);
             <h2 class="mb-0">
                 <i class="fas fa-chair me-2"></i>Masalar
             </h2>
-            <button class="btn btn-primary" onclick="openAddTableModal()">
-                <i class="fas fa-plus me-2"></i>Yeni Masa
+            <button type="button" class="btn btn-primary" onclick="showAddTableModal()">
+                <i class="fas fa-plus"></i> Yeni Masa
             </button>
         </div>
 
@@ -93,13 +102,13 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                                     <i class="fas fa-cash-register me-2"></i>Satış Ekranı
                                 </button>
                                 <div class="btn-group">
-                                    <button class="btn btn-info" onclick="showQRCode(<?= $table['id'] ?>)">
+                                    <button class="btn btn-info btn-sm" onclick="showQRCode(<?= $table['id'] ?>)">
                                         <i class="fas fa-qrcode"></i>
                                     </button>
-                                    <button class="btn btn-warning" onclick="editTable(<?= $table['id'] ?>)">
+                                    <button class="btn btn-primary btn-sm" onclick="editTable(<?= $table['id'] ?>)">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-danger" onclick="deleteTable(<?= $table['id'] ?>)">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteTable(<?= $table['id'] ?>)">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -251,6 +260,28 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal yapısını düzeltelim -->
+<div class="modal fade" id="addTableModal" tabindex="-1" aria-labelledby="addTableModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addTableModalLabel">Yeni Masa Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="tableNumber" class="form-label">Masa Numarası</label>
+                    <input type="number" class="form-control" id="tableNumber" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="saveTable()">Kaydet</button>
             </div>
         </div>
     </div>
@@ -579,7 +610,7 @@ function saveNewItems() {
     // Debug için
     console.log('Sending Order Data:', orderData);
 
-    // URL yolunu d��zelttik
+    // URL yolunu düzelttik
     fetch('../ajax/save_order.php', {  // URL yolunu düzelttik
         method: 'POST',
         headers: {
@@ -599,7 +630,7 @@ function saveNewItems() {
     })
     .then(data => {
         if (data.success) {
-            updateModalAfterSave();  // Yeni fonksiyonu çağır
+            updateModalAfterSave();  // Yeni fonksiyonu ça��ır
         } else {
             throw new Error(data.message || 'Bir hata oluştu');
         }
@@ -836,10 +867,219 @@ function removeNewItem(productId) {
         updateNewOrderItems();
     }
 }
+
+// Yeni masa modalını göster
+function showAddTableModal() {
+    const modalElement = document.getElementById('addTableModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+
+// Yeni masa kaydet
+function saveTable() {
+    const tableNumber = document.getElementById('tableNumber').value;
+    
+    if (!tableNumber) {
+        Swal.fire('Hata!', 'Masa numarası giriniz', 'error');
+        return;
+    }
+
+    fetch('api/add_table.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            table_number: tableNumber
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            Swal.fire('Başarılı!', 'Masa eklendi', 'success')
+            .then(() => location.reload());
+        } else {
+            throw new Error(data.message || 'Bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Hata!', error.message, 'error');
+    });
+}
+
+// QR kod oluştur
+function showQRCode(tableId) {
+    if (typeof qrcode === 'undefined') {
+        console.error('QR Code kütüphanesi yüklenemedi!');
+        return;
+    }
+    
+    const url = `${window.location.origin}/menu.php?table=${tableId}`;
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    
+    Swal.fire({
+        title: 'Masa QR Kodu',
+        html: `
+            <div class="text-center">
+                ${qr.createImgTag(5)}
+                <div class="mt-3">
+                    <button class="btn btn-primary me-2" onclick="downloadQR('png', '${tableId}')">
+                        <i class="fas fa-download"></i> PNG İndir
+                    </button>
+                    <button class="btn btn-success" onclick="downloadQR('svg', '${tableId}')">
+                        <i class="fas fa-download"></i> SVG İndir
+                    </button>
+                </div>
+            </div>
+        `,
+        showConfirmButton: false,
+        width: 400
+    });
+}
+
+// QR kodu indir
+function downloadQR(format, tableId) {
+    const url = `${window.location.origin}/menu.php?table=${tableId}`;
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+
+    if (format === 'svg') {
+        // SVG indir
+        // SVG indir
+const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + qr.createSvgTag(5, 0);
+        
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `masa_${tableId}_qr.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } else {
+        // PNG indir
+        const canvas = document.createElement('canvas');
+        const qrImage = new Image();
+        // SVG indir
+const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + qr.createSvgTag(5, 0);
+            
+        
+        qrImage.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+        qrImage.onload = function() {
+            canvas.width = qrImage.width;
+            canvas.height = qrImage.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(qrImage, 0, 0);
+            
+            canvas.toBlob(function(blob) {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `masa_${tableId}_qr.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 'image/png');
+        };
+    }
+}
+
+// Masa düzenle
+function editTable(tableId) {
+    Swal.fire({
+        title: 'Masa Numarası',
+        input: 'number',
+        inputLabel: 'Yeni masa numarasını giriniz',
+        showCancelButton: true,
+        confirmButtonText: 'Güncelle',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            fetch('api/update_table.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: tableId,
+                    table_number: result.value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    Swal.fire('Başarılı!', 'Masa güncellendi', 'success')
+                    .then(() => location.reload());
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
+}
+
+// Masa sil
+function deleteTable(tableId) {
+    Swal.fire({
+        title: 'Emin misiniz?',
+        text: "Bu masa silinecek!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Evet, sil!',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('api/delete_table.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: tableId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    Swal.fire('Silindi!', 'Masa silindi', 'success')
+                    .then(() => location.reload());
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
+}
 </script>
+
+<!-- QR Code kütüphanesi -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+<!-- JavaScript Dosyaları -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 
 <!-- Bootstrap ve diğer gerekli scriptler -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/js/tables.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+
+</body>
+</html>
 
