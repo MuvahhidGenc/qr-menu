@@ -40,10 +40,132 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <style>
-.nav-link {
-    display: -webkit-box !important;
-    color: #ffff;
-}</style>
+/* Ana Container */
+.container-fluid {
+    padding: 2rem;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Başlık Alanı */
+.header-section {
+    margin-bottom: 2rem;
+}
+
+.header-section h2 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* Kartlar */
+.card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    background: white;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+/* Tablo Tasarımı */
+.table {
+    margin: 0;
+}
+
+.table th {
+    background: #f8f9fa;
+    color: #2c3e50;
+    font-weight: 600;
+    border: none;
+}
+
+.table td {
+    vertical-align: middle;
+    border-color: #f1f1f1;
+    padding: 1rem;
+}
+
+/* Durum Badge'leri */
+.badge {
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+/* Butonlar */
+.btn {
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.btn-group .btn {
+    border-radius: 8px;
+    margin: 0 2px;
+}
+
+/* Modal Tasarımı */
+.modal-content {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    color: white;
+    border: none;
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem;
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-footer {
+    border-top: 1px solid #f1f1f1;
+    padding: 1.5rem;
+}
+
+/* Form Elemanları */
+.form-control, .form-select {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 0.8rem 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+/* Animasyonlar */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Responsive Düzenlemeler */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .table td {
+        padding: 0.75rem;
+    }
+}
+</style>
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Rezervasyonlar</h2>

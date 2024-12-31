@@ -1,4 +1,3 @@
-
 <?php
 require_once '../includes/config.php';
 $db = new Database();
@@ -33,6 +32,189 @@ foreach($result as $row) {
 
 include 'navbar.php';
 ?>
+
+<style>
+/* Ana Container */
+.settings-container {
+    padding: 2rem;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Kartlar */
+.card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    background: white;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.card-header {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    color: white;
+    padding: 1.5rem;
+    border: none;
+}
+
+.card-header h5 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+/* Form Elemanları */
+.form-control {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 0.8rem 1.2rem;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    background: white;
+}
+
+/* Renk Seçici */
+.form-control-color {
+    width: 60px;
+    height: 40px;
+    padding: 0.3rem;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+/* Resim Önizleme */
+.img-thumbnail {
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    padding: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Dosya Seçme Butonu */
+.btn-file-select {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0.8rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-file-select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+/* QR Kod Kartı */
+.qr-card {
+    text-align: center;
+}
+
+.qr-card img {
+    max-width: 200px;
+    margin: 1.5rem 0;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.qr-card img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* İndirme Butonları */
+.btn-download {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-download.primary {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+}
+
+.btn-download.outline {
+    background: white;
+    border: 2px solid #3498db;
+    color: #3498db;
+}
+
+.btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Para Birimi Seçici */
+.currency-select {
+    background-image: url('data:image/svg+xml,...');
+    background-position: right 1rem center;
+    background-repeat: no-repeat;
+    background-size: 1em;
+}
+
+/* Kaydet Butonu */
+.btn-save {
+    background: linear-gradient(45deg, #2ecc71, #27ae60);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+}
+
+/* Responsive Düzenlemeler */
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 1rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    .btn-save {
+        width: 100%;
+        padding: 0.8rem;
+    }
+}
+
+/* Animasyonlar */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-out;
+}
+</style>
 
 <div class="row">
    <div class="col-md-8">

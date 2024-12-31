@@ -116,24 +116,189 @@ function updateStatus(orderId, status) {
 </script>
 
 <style>
-.order-card {
+/* Ana Container */
+.container-fluid {
+    background: #f8f9fa;
+    min-height: 100vh;
+    padding: 2rem !important;
+}
+
+/* Başlık Alanı */
+.header-section {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    padding: 1.5rem;
+    border-radius: 15px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.header-section h2 {
+    color: white;
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.btn-refresh {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
     transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.btn-refresh:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+/* Sipariş Kartları */
+.order-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    background: white;
+    overflow: hidden;
 }
 
 .order-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+/* Kart Başlığı */
+.card-header {
+    background: #fff;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1.2rem;
+}
+
+.card-header h5 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Durum Badge'leri */
+.badge {
+    padding: 0.6rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.bg-danger {
+    background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
+}
+
+.bg-warning {
+    background: linear-gradient(45deg, #f1c40f, #f39c12) !important;
+}
+
+/* Kart İçeriği */
+.card-body {
+    padding: 1.5rem;
 }
 
 .order-items {
     font-size: 1.1rem;
     line-height: 1.8;
+    color: #2c3e50;
 }
 
+/* Sipariş Notları */
+.alert-info {
+    background: #f1f9ff;
+    border: none;
+    border-radius: 10px;
+    color: #3498db;
+}
+
+/* Aksiyon Butonları */
+.card-footer {
+    background: #fff;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding: 1.2rem;
+}
+
+.btn-warning {
+    background: linear-gradient(45deg, #f1c40f, #f39c12);
+    border: none;
+    color: white;
+}
+
+.btn-success {
+    background: linear-gradient(45deg, #2ecc71, #27ae60);
+    border: none;
+}
+
+.btn-sm {
+    padding: 0.7rem 1rem;
+    font-weight: 500;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Sipariş Zamanı */
+.text-muted {
+    color: #7f8c8d !important;
+}
+
+/* Animasyonlar */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.order-card {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Responsive Düzenlemeler */
 @media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem !important;
+    }
+    
+    .header-section {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
     .order-items {
         font-size: 1rem;
         line-height: 1.6;
     }
+    
+    .card-header h5 {
+        font-size: 1.1rem;
+    }
+}
+
+/* Yeni Sipariş Animasyonu */
+@keyframes highlight {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.order-card[data-status="new"] {
+    animation: highlight 1s ease infinite;
+    border-left: 4px solid #e74c3c;
 }
 </style> 

@@ -44,7 +44,353 @@ error_log('Active Products: ' . $dbCheck['active_products']);
 .nav-link {
     display: -webkit-box !important;
     color: #ffff;
-}</style>
+}
+
+/* Ana container stilleri */
+.tables-container {
+    padding: 2rem;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Başlık alanı */
+.tables-header {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 2rem;
+}
+
+.tables-header h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Masa kartları grid */
+.tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Masa kartı */
+.table-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.table-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+/* Masa başlığı */
+.table-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Durum badge'leri */
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-free {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-occupied {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Masa içeriği */
+.table-content {
+    padding: 1.25rem;
+}
+
+.table-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+/* Butonlar */
+.btn-primary {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-action {
+    padding: 0.5rem;
+    border-radius: 8px;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+}
+
+/* Modal stilleri */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #f8f9fa, #fff);
+    border-radius: 15px 15px 0 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Responsive düzenlemeler */
+@media (max-width: 768px) {
+    .tables-container {
+        padding: 1rem;
+    }
+    
+    .tables-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Satış Ekranı Modal Stilleri */
+.sales-modal .modal-content {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.sales-modal .modal-header {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    color: white;
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem;
+    border: none;
+}
+
+.sales-modal .modal-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sales-modal .modal-body {
+    padding: 1.5rem;
+}
+
+/* Ürün Listesi */
+.product-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.product-item {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.product-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.product-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.product-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.product-price {
+    color: #2ecc71;
+    font-weight: 600;
+}
+
+/* Miktar Kontrolleri */
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-quantity {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.btn-decrease {
+    background: #ffebee;
+    color: #e53935;
+}
+
+.btn-increase {
+    background: #e8f5e9;
+    color: #43a047;
+}
+
+.quantity {
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Toplam Kısmı */
+.total-section {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.total-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.total-amount {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2ecc71;
+}
+
+/* Modal Footer */
+.sales-modal .modal-footer {
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding: 1.5rem;
+}
+
+/* Butonlar */
+.btn-payment {
+    background: linear-gradient(45deg, #2ecc71, #27ae60);
+    color: white;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-payment:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2);
+}
+
+.btn-cancel {
+    background: #f8f9fa;
+    color: #2c3e50;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+    background: #e9ecef;
+}
+
+/* Scrollbar Stilleri */
+.product-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.product-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.product-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.product-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Animasyonlar */
+@keyframes slideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.sales-modal .modal-content {
+    animation: slideIn 0.3s ease-out;
+}
+</style>
 <div class="category-content">
     <div class="container-fluid p-3">
         <!-- Başlık ve Yeni Masa Butonu -->

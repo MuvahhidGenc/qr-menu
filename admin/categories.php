@@ -42,6 +42,216 @@ $categories = $db->query("
 
 include 'navbar.php';
 ?>
+
+<style>
+/* Kategoriler Container */
+.categories-container {
+    padding: 1.5rem;
+    background: #f8f9fa;
+}
+
+/* Başlık Kartı */
+.header-card {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.header-card h5 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.btn-add-category {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.btn-add-category:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+/* Kategori Tablosu */
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    background: white;
+}
+
+.table {
+    margin: 0;
+}
+
+.table th {
+    border-bottom: 2px solid #f1f1f1;
+    color: #2c3e50;
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+/* Kategori Resmi */
+.category-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.category-image:hover {
+    transform: scale(1.1);
+}
+
+/* Ürün Sayısı Badge */
+.product-count {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Aksiyon Butonları */
+.btn-action {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin: 0 0.2rem;
+}
+
+.btn-edit {
+    background: #f1f9f1;
+    color: #27ae60;
+}
+
+.btn-delete {
+    background: #fee7e7;
+    color: #e74c3c;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+}
+
+/* Modal Tasarımı */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    color: white;
+    border-radius: 15px 15px 0 0;
+    padding: 1.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Form Elemanları */
+.form-control {
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+/* Resim Önizleme */
+.img-thumbnail {
+    border-radius: 10px;
+    border: 2px solid #f1f1f1;
+    transition: all 0.3s ease;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.05);
+}
+
+/* Dosya Seçme Butonu */
+.btn-file-select {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-file-select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.2);
+}
+
+/* Responsive Düzenlemeler */
+@media (max-width: 768px) {
+    .categories-container {
+        padding: 1rem;
+    }
+    
+    .header-card {
+        padding: 1.5rem;
+    }
+    
+    .btn-action {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    .category-image {
+        width: 50px;
+        height: 50px;
+    }
+}
+
+/* Animasyonlar */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Tablo Satır Hover Efekti */
+.table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+</style>
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Kategoriler</h5>

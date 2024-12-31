@@ -51,6 +51,191 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
     0% { background-color: rgba(231, 76, 60, 0.2); }
     100% { background-color: transparent; }
 }
+
+/* Siparişler sayfası modern stil */
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    background: #fff;
+    transition: all 0.3s ease;
+}
+
+.card-header {
+    background: linear-gradient(45deg, #f8f9fa, #fff);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1.25rem;
+    border-radius: 15px 15px 0 0;
+}
+
+.card-header h5 {
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+/* Filtreler bölümü */
+.filters-section {
+    background: #fff;
+    padding: 1.25rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.form-select, .form-control {
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.15);
+}
+
+/* Tablo stilleri */
+.table {
+    margin: 0;
+}
+
+.table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    border-bottom: 2px solid rgba(0,0,0,0.05);
+    padding: 1rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+    color: #2c3e50;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Sipariş durumu select */
+.status-select {
+    min-width: 140px;
+    font-size: 0.9rem;
+    padding: 0.4rem;
+    border-radius: 6px;
+}
+
+/* Durum renkleri */
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-preparing {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.status-ready {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-delivered {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-cancelled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Butonlar */
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    border: none;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #45a049, #3d8b40);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-info {
+    background: linear-gradient(45deg, #2196F3, #1976D2);
+    border: none;
+    color: white;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.2);
+}
+
+.btn-info:hover {
+    background: linear-gradient(45deg, #1976D2, #1565C0);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+/* Sipariş detay modal */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #f8f9fa, #fff);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    border-radius: 15px 15px 0 0;
+    padding: 1.25rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Animasyonlar */
+.highlighted-order {
+    animation: highlightFade 2s ease-in-out;
+}
+
+@keyframes highlightFade {
+    0% { background-color: rgba(76, 175, 80, 0.2); }
+    100% { background-color: transparent; }
+}
+
+/* Responsive düzenlemeler */
+@media (max-width: 768px) {
+    .card {
+        border-radius: 0;
+        margin: -1rem;
+    }
+    
+    .filters-section {
+        padding: 1rem;
+    }
+    
+    .table-responsive {
+        margin: 0 -1rem;
+    }
+    
+    .status-select {
+        min-width: 120px;
+    }
+}
+
 </style>
 
     <div class="card">
