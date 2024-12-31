@@ -42,6 +42,7 @@ error_log('Active Products: ' . $dbCheck['active_products']);
 </head>
 <style>
 .nav-link {
+    display: -webkit-box !important;
     color: #ffff;
 }</style>
 <div class="category-content">
@@ -1083,8 +1084,6 @@ function deleteTable(tableId) {
 
 <!-- Bootstrap ve diğer gerekli scriptler -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/js/tables.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
