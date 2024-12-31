@@ -1,7 +1,9 @@
 <?php
 class Database {
     private $pdo;
-
+    public function getConnection() {
+        return $this->pdo;
+    }
     public function __construct() {
         try {
             $this->pdo = new PDO(

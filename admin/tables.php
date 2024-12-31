@@ -953,40 +953,51 @@ function saveNewItems() {
     console.log('Payment Items:', paymentItems);
 
     // Sipariş verilerini hazırla
-    const items = Object.values(paymentItems).map(item => ({
-        product_id: parseInt(item.product_id || item.id),
-        quantity: parseInt(item.quantity)
-    }));
+    const formData = new FormData();
+    formData.append('table_id', currentTableId);
+    formData.append('notes', '');
+    
+    const items = {};
+    Object.values(paymentItems).forEach(item => {
+        items[item.product_id || item.id] = {
+            quantity: parseInt(item.quantity),
+            price: parseFloat(item.price)
+        };
+    });
+    
+    formData.append('items', JSON.stringify(items));
 
-    const orderData = {
-        table_id: parseInt(currentTableId),
-        items: items
-    };
-
-    // Debug için
-    console.log('Sending Order Data:', orderData);
-
-    // URL yolunu düzelttik
-    fetch('../ajax/save_order.php', {  // URL yolunu düzelttik
+    // Doğru endpoint'i kullan: admin/ajax/save_table_order.php
+    fetch('ajax/save_table_order.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData)
+        body: formData
     })
     .then(async response => {
         const text = await response.text();
-        console.log('Raw Response:', text);
-
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            throw new Error('Server yanıtı JSON formatında değil: ' + text);
-        }
+        console.log('Server Response:', text); // Debug için
+        return JSON.parse(text);
     })
     .then(data => {
         if (data.success) {
-            updateModalAfterSave();  // Yeni fonksiyonu çağır
+            // Mevcut siparişleri yeniden yükle
+            loadTableOrders(currentTableId);
+            
+            // Yeni sipariş listesini temizle
+            paymentItems = {};
+            updateNewOrderItems();
+            
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: data.message // Sunucudan gelen mesajı kullan
+            });
         } else {
             throw new Error(data.message || 'Bir hata oluştu');
         }

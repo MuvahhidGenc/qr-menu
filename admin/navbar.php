@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../admin/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
     <style>
 
@@ -723,6 +724,28 @@
     }
 }
 
+/* Navbar için düşük z-index */
+.navbar {
+    z-index: 1 !important;
+}
+
+#statisticsPanel {
+    position: static !important;
+    padding-left: 1rem;
+    border-left: 3px solid rgba(255,255,255,0.1);
+    margin-left: 1rem;
+}
+
+#statisticsPanel .nav-link {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+#statisticsPanel .nav-link:hover {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
     </style>
 
     <!-- Diğer head içerikleri -->
@@ -831,11 +854,38 @@
                             <i class="fas fa-utensils me-2"></i>Ürünler
                         </a>
                     </li>
+                    <!-- Genel İstatistikler panel menüsü -->
                     <li class="nav-item">
-                        <a href="reports.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : '' ?>">
-                            <i class="fas fa-chart-bar me-2"></i>Raporlar
+                        <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'active show' : '' ?>" 
+                           data-bs-toggle="collapse" 
+                           href="#statisticsPanel" 
+                           role="button"
+                           aria-expanded="<?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'true' : 'false' ?>">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-graph-up me-2" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
+                            </svg>
+                            Genel İstatistikler 
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                            </svg>
                         </a>
+                        <div class="collapse navbar-collapse bg-dark <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'show' : '' ?>" 
+                             id="statisticsPanel">
+                            <ul class="navbar-nav ps-3">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : '' ?>" 
+                                       href="reports.php">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-bar-graph me-2" viewBox="0 0 16 16">
+                                            <path d="M10 13.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-6a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v6zm-2.5.5a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-1zm-3 0a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1z"/>
+                                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                                        </svg>
+                                        Raporlar
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
+                   
                     <li class="nav-item">
                         <a href="kitchen.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'kitchen.php' ? 'active' : '' ?>">
                             <i class="fas fa-fire me-2"></i>Mutfak
@@ -1029,5 +1079,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Sayfa yüklendiğinde ve URL değiştiğinde menü durumunu kontrol et
+document.addEventListener('DOMContentLoaded', function() {
+    if(window.location.href.includes('reports.php')) {
+        var statisticsPanel = document.getElementById('statisticsPanel');
+        if(statisticsPanel) {
+            statisticsPanel.classList.add('show');
+            statisticsPanel.previousElementSibling.setAttribute('aria-expanded', 'true');
+        }
+    }
+});
 </script>
 </script>
+<!-- Bootstrap JS - Sayfanın en altına ekleyin -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
