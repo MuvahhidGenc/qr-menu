@@ -20,7 +20,6 @@ $orders = $db->query("
 ")->fetchAll();
 ?>
 
-<div class="main-content">
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Mutfak Ekranı</h2>

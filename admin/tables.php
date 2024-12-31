@@ -40,7 +40,10 @@ error_log('Active Products: ' . $dbCheck['active_products']);
     
     
 </head>
-<div class="main-content">
+<style>
+.nav-link {
+    color: #ffff;
+}</style>
 <div class="category-content">
     <div class="container-fluid p-3">
         <!-- Başlık ve Yeni Masa Butonu -->
@@ -265,23 +268,29 @@ error_log('Active Products: ' . $dbCheck['active_products']);
     </div>
 </div>
 
-<!-- Modal yapısını düzeltelim -->
-<div class="modal fade" id="addTableModal" tabindex="-1" aria-labelledby="addTableModalLabel" aria-hidden="true">
+<!-- Masa Ekleme Modalı -->
+<div class="modal fade" id="addTableModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addTableModalLabel">Yeni Masa Ekle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">Yeni Masa Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="tableNumber" class="form-label">Masa Numarası</label>
-                    <input type="number" class="form-control" id="tableNumber" required>
-                </div>
+                <form id="addTableForm">
+                    <div class="mb-3">
+                        <label for="tableNo" class="form-label">Masa Numarası</label>
+                        <input type="text" class="form-control" id="tableNo" name="table_no" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="capacity" class="form-label">Kapasite</label>
+                        <input type="number" class="form-control" id="capacity" name="capacity" value="4" min="1" required>
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-primary" onclick="saveTable()">Kaydet</button>
+                <button type="button" class="btn btn-primary" onclick="addTable()">Masa Ekle</button>
             </div>
         </div>
     </div>
@@ -630,7 +639,7 @@ function saveNewItems() {
     })
     .then(data => {
         if (data.success) {
-            updateModalAfterSave();  // Yeni fonksiyonu ça��ır
+            updateModalAfterSave();  // Yeni fonksiyonu çağır
         } else {
             throw new Error(data.message || 'Bir hata oluştu');
         }

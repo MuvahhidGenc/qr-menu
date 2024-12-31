@@ -32,7 +32,6 @@ $query .= " ORDER BY r.created_at DESC";
 $reviews = $db->query($query, $params ?? [])->fetchAll();
 ?>
 
-<div class="main-content">
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Müşteri Değerlendirmeleri</h2>

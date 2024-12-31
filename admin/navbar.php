@@ -19,10 +19,11 @@
    top: 0;
    left: 0;
    right: 0;
-   z-index: 1001;
+   z-index: 1030;
    color: white;
    justify-content: space-between;
    align-items: center;
+   height: 60px;
 }
 
 .mobile-nav .brand-text {
@@ -39,8 +40,10 @@
    top: 0;
    background: #1a1c23;
    color: #fff;
-   padding: 1rem;
-   z-index: 1000;
+   padding: 60px 1rem 1rem;
+   z-index: 1020;
+   overflow-y: auto;
+   transition: all 0.3s ease-in-out;
 }
 
 .sidebar-header {
@@ -69,34 +72,44 @@
 .main-content {
     margin-left: 250px;
     padding: 2rem;
+    margin-top: 60px;
 }
 
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
-        transition: transform 0.3s;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        bottom: 0;
+        z-index: 1040;
+        background: #1a1c23;
+        width: 250px;
+        transition: transform 0.3s ease-in-out;
     }
     
-    .sidebar.show {
+    .sidebar.active {
         transform: translateX(0);
     }
     
     .main-content {
         margin-left: 0;
+        width: 100%;
     }
 }
 
 .btn-toggle {
-    cursor: pointer;
-    padding: 0.5rem;
     background: transparent;
     border: none;
     color: white;
+    font-size: 1.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.3s ease;
 }
 
 .btn-toggle:hover {
-   background: rgba(255,255,255,0.1);
-   border-radius: 4px;
+    transform: scale(1.1);
 }
 
 /* Logo ve profil dropdown stilleri */
@@ -156,8 +169,9 @@
     }
     
     .main-content {
-        margin-left: 280px;
-        width: calc(100% - 280px);
+        margin-left: 250px;
+        width: calc(100% - 250px);
+        margin-top: 60px;
         transition: all 0.3s ease;
     }
 
@@ -237,6 +251,114 @@
     background: #f0f7ff;
 }
 
+/* Modal için z-index düzenlemesi */
+.modal-backdrop {
+    z-index: 1040;
+}
+
+.modal {
+    z-index: 1050;
+}
+
+/* Navbar z-index düzenlemesi */
+.mobile-nav {
+    z-index: 1030;
+}
+
+.sidebar {
+    z-index: 1020;
+}
+
+/* Overlay efekti (opsiyonel) */
+.sidebar.show::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: -1;
+}
+
+/* Sidebar temel stilleri */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background: #1a1c23;
+    color: #fff;
+    padding: 60px 1rem 1rem;
+    z-index: 1020;
+    overflow-y: auto;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Main content temel stilleri */
+.main-content {
+    margin-left: 250px;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Masaüstü için kapalı sidebar durumu */
+.sidebar.closed {
+    transform: translateX(-250px);
+}
+
+.main-content.expanded {
+    margin-left: 0;
+}
+
+/* Toggle buton animasyonu */
+.btn-toggle {
+    transition: transform 0.3s ease;
+}
+
+.btn-toggle:hover {
+    transform: scale(1.1);
+}
+
+.btn-toggle.active {
+    transform: rotate(180deg);
+}
+
+/* Mobil görünüm */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    /* Mobilde aktif sidebar overlay efekti */
+    .sidebar.active::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.5);
+        z-index: -1;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+}
+
+/* Animasyonlar */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
     </style>
 
     <!-- Diğer head içerikleri -->
@@ -251,7 +373,7 @@
 <!-- navbar.php -->
 <div class="mobile-nav">
     <button class="btn-toggle" id="sidebarToggle">
-        <i class="fas fa-bars fa-lg"></i>
+        <i class="fas fa-bars"></i>
     </button>
     
     <span class="brand-text">QR Menü Admin</span>
@@ -373,7 +495,7 @@
                 </ul>
             </nav>
         </div>
-       
+        <div class="main-content">
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 // Ses objesi oluştur
@@ -480,4 +602,68 @@ $(document).on('click', '.mark-all-read', function(e) {
         }
     });
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (sidebarToggle && sidebar) {
+        // Önceki tercihi kontrol et
+        const isSidebarClosed = localStorage.getItem('sidebarClosed') === 'true';
+        if (isSidebarClosed && window.innerWidth > 768) {
+            sidebar.classList.add('closed');
+            mainContent.classList.add('expanded');
+            sidebarToggle.classList.add('active');
+        }
+
+        sidebarToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            if (window.innerWidth <= 768) {
+                // Mobil davranış
+                sidebar.classList.toggle('active');
+                sidebarToggle.classList.toggle('active');
+            } else {
+                // Masaüstü davranış
+                sidebar.classList.toggle('closed');
+                mainContent.classList.toggle('expanded');
+                sidebarToggle.classList.toggle('active');
+                
+                // Tercihi kaydet
+                localStorage.setItem('sidebarClosed', sidebar.classList.contains('closed'));
+            }
+        });
+
+        // Dışarı tıklandığında sidebar'ı kapat (sadece mobil)
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !sidebarToggle.contains(e.target) &&
+                sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                sidebarToggle.classList.remove('active');
+            }
+        });
+
+        // Link tıklamalarında mobilde sidebar'ı kapat
+        const sidebarLinks = sidebar.querySelectorAll('.nav-link');
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                    sidebarToggle.classList.remove('active');
+                }
+            });
+        });
+
+        // Pencere boyutu değiştiğinde kontrol
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
 </script>

@@ -53,7 +53,6 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
 }
 </style>
 
-<div class="main-content">
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">Siparişler</h5>

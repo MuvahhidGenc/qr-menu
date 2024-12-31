@@ -34,7 +34,6 @@ foreach($result as $row) {
 include 'navbar.php';
 ?>
 
-<div class="main-content">
 <div class="row">
    <div class="col-md-8">
        <div class="card">

@@ -24,7 +24,6 @@ $recent_products = $db->query("SELECT p.*, c.name as category_name FROM products
 </head>
 <body>
 <?php include 'navbar.php'; ?>
-<div class="main-content">
 <div class="category-content">
 <div class="container mt-4">
     

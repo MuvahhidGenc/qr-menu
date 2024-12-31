@@ -47,7 +47,6 @@ if(isset($_POST['change_password'])) {
 include 'navbar.php';
 ?>
 
-<div class="main-content">
 <div class="row">
    <div class="col-md-6">
        <div class="card mb-4">

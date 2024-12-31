@@ -143,3 +143,58 @@ $('#editTableForm').submit(function(e) {
         }
     });
 });
+
+function addTable() {
+    // Form verilerini al
+    const form = document.getElementById('addTableForm');
+    const formData = new FormData(form);
+    
+    // Debug için form verilerini kontrol et
+    console.log('Form values:', Object.fromEntries(formData));
+
+    // Validasyon
+    if (!formData.get('table_no')) {
+        Swal.fire('Uyarı', 'Lütfen masa numarası girin', 'warning');
+        return;
+    }
+
+    // API isteği gönder
+    fetch('api/add_table.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            table_no: `Masa ${formData.get('table_no')}`,
+            capacity: formData.get('capacity') || 4
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Server response:', data);
+        
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Başarılı!',
+                text: 'Masa başarıyla eklendi',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                // Modal'ı kapat
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTableModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                // Sayfayı yenile
+                window.location.reload();
+            });
+        } else {
+            throw new Error(data.message || 'Bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Hata!', error.message, 'error');
+    });
+}

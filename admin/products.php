@@ -43,8 +43,6 @@ $categories = $db->query("SELECT * FROM categories")->fetchAll();
 
 include 'navbar.php';
 ?>
-
-<div class="main-content">
 <div class="card">
    <div class="card-header d-flex justify-content-between align-items-center">
        <h5 class="mb-0">Ürünler</h5>

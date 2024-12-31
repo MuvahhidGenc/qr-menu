@@ -1,14 +1,57 @@
 <?php
-require_once '../../config.php';
-require_once '../auth_check.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/session.php';
+
+header('Content-Type: application/json');
 
 try {
-    $data = json_decode(file_get_contents('php://input'), true);
+    checkAuth();
     
-    $stmt = $db->prepare("INSERT INTO tables (table_number) VALUES (?)");
-    $result = $stmt->execute([$data['table_number']]);
+    // JSON verilerini al
+    $input = json_decode(file_get_contents('php://input'), true);
     
-    echo json_encode(['success' => $result]);
-} catch(Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    // Debug için
+    error_log('Received input: ' . print_r($input, true));
+    
+    if (empty($input['table_no'])) {
+        throw new Exception('Masa numarası gerekli');
+    }
+    
+    $db = new Database();
+    
+    // Masa numarası benzersiz mi kontrol et
+    $existing = $db->query(
+        "SELECT id FROM tables WHERE table_no = ?", 
+        [$input['table_no']]
+    )->fetch();
+    
+    if ($existing) {
+        throw new Exception('Bu masa numarası zaten kullanımda');
+    }
+    
+    // Masayı ekle
+    $result = $db->query(
+        "INSERT INTO tables (table_no, capacity) VALUES (?, ?)",
+        [
+            $input['table_no'],
+            intval($input['capacity'] ?? 4)
+        ]
+    );
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Masa başarıyla eklendi'
+    ]);
+
+} catch (Exception $e) {
+    error_log('Error in add_table.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'debug' => [
+            'input' => $input ?? null,
+            'error' => $e->getMessage()
+        ]
+    ]);
 } 

@@ -55,7 +55,6 @@ $table_stats = $db->query("SELECT
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="main-content">
         <div class="container-fluid p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2>Raporlar</h2>
