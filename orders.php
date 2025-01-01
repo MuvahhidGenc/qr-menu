@@ -10,316 +10,203 @@ if (!$table_id) {
     exit;
 }
 
-// Sadece masanın en son aktif siparişini getir
+// Debug - Tüm siparişleri göster
+echo "<pre style='display:none;'>";
+echo "Checking all orders for table $table_id:\n";
+$all_orders = $db->query("SELECT id, status FROM orders WHERE table_id = ?", [$table_id])->fetchAll();
+print_r($all_orders);
+echo "</pre>";
+
+// Masanın tüm ödenmemiş siparişlerini getir (DESC sıralama)
 $orders = $db->query(
-    "SELECT o.*, 
-            t.table_no,
-            COUNT(oi.id) as total_items,
-            CASE 
-                WHEN o.status = 'pending' THEN 'Hazırlanıyor'
-                WHEN o.status = 'preparing' THEN 'Mutfakta'
-                WHEN o.status = 'ready' THEN 'Servise Hazır'
-                ELSE o.status 
-            END as status_text
+    "SELECT DISTINCT o.id, o.created_at, o.status, o.total_amount
      FROM orders o
-     LEFT JOIN order_items oi ON o.id = oi.order_id
-     LEFT JOIN tables t ON o.table_id = t.id
      WHERE o.table_id = ? 
-     AND o.status = 'pending'  /* Sadece bekleyen sipariş */
+     AND o.status NOT IN ('paid', 'completed')
      GROUP BY o.id
-     ORDER BY o.created_at DESC
-     LIMIT 1",  /* Sadece en son sipariş */
+     ORDER BY o.id DESC",
     [$table_id]
 )->fetchAll();
 
-// Sipariş detaylarını getir
-if (!empty($orders)) {
-    foreach ($orders as &$order) {
-        $items = $db->query(
-            "SELECT oi.*, p.name as product_name 
+// Debug - Filtrelenmiş siparişleri göster
+echo "<pre style='display:none;'>";
+echo "Filtered orders (Descending order):\n";
+print_r($orders);
+echo "</pre>";
+
+// Her sipariş için detayları getir
+$filtered_orders = [];
+foreach ($orders as $order) {
+    // Sipariş ürünlerini kontrol et
+    $items = $db->query(
+        "SELECT COUNT(*) as count 
+         FROM order_items 
+         WHERE order_id = ?",
+        [$order['id']]
+    )->fetch();
+
+    // Eğer siparişte ürün varsa listeye ekle
+    if ($items['count'] > 0) {
+        $order['status_text'] = match($order['status']) {
+            'pending' => 'Sipariş Alındı',
+            'preparing' => 'Hazırlanıyor',
+            'ready' => 'Servise Hazır',
+            'delivered' => 'Servis Edildi',
+            'paid' => 'Ödeme Alındı',
+            'completed' => 'Tamamlandı',
+            default => $order['status']
+        };
+
+        $order['status_class'] = match($order['status']) {
+            'pending' => 'bg-info',
+            'preparing' => 'bg-warning',
+            'ready' => 'bg-success',
+            'delivered' => 'bg-primary',
+            'paid' => 'bg-secondary',
+            'completed' => 'bg-dark',
+            default => 'bg-light'
+        };
+
+        // Sipariş ürünlerini getir
+        $order['items'] = $db->query(
+            "SELECT oi.*, p.name as product_name,
+                    (oi.quantity * oi.price) as item_total
              FROM order_items oi
-             LEFT JOIN products p ON oi.product_id = p.id
+             JOIN products p ON oi.product_id = p.id
              WHERE oi.order_id = ?
-             ORDER BY oi.id DESC",
+             ORDER BY oi.id ASC",
             [$order['id']]
         )->fetchAll();
+
+        // Sipariş toplamını hesapla
+        $order['total_amount'] = array_sum(array_column($order['items'], 'item_total'));
         
-        $order['items'] = $items;
+        $filtered_orders[] = $order;
     }
 }
 
-// Debug bilgileri
-/*echo "<pre style='display:none;'>";
-echo "Table ID: " . $table_id . "\n";
-echo "Orders Query Result: ";
-print_r($orders);
-echo "</pre>";*/
-
-// Masa durumu kontrolü
-$tableStatus = $db->query(
-    "SELECT status FROM tables WHERE id = ?", 
-    [$table_id]
-)->fetch();
-
-// Sadece masa kapalıysa yönlendir
-if ($tableStatus && $tableStatus['status'] == 'closed') {
-    header('Location: index.php');
-    exit;
+// Debug - Son filtrelenmiş siparişleri göster
+echo "<pre style='display:none;'>";
+echo "Final filtered orders:\n";
+foreach ($filtered_orders as $order) {
+    echo "Order ID: {$order['id']}, Status: {$order['status']}, Items: " . count($order['items']) . "\n";
 }
+echo "</pre>";
+
+$orders = $filtered_orders;
+
+// Geri dönüş URL'sini belirle
+$back_url = $_SERVER['HTTP_REFERER'] ?? 'menu.php'; // Eğer referrer yoksa menu.php'ye git
 
 include 'includes/customer-header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aktif Siparişim - Restaurant QR Menü</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        
-        .order-page {
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid rgba(var(--primary-red-rgb), 0.1);
-        }
-
-        .page-title {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #2c3e50;
-            margin: 0;
-        }
-
-        .back-btn {
-            background: white;
-            color: var(--primary-red);
-            border: 2px solid var(--primary-red);
-            padding: 10px 20px;
-            border-radius: 50px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .back-btn:hover {
-            background: var(--primary-red);
-            color: white;
-        }
-
-        .order-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            overflow: hidden;
-            margin-bottom: 30px;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .order-header {
-            background: white;
-            padding: 20px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .order-body {
-            padding: 20px;
-        }
-
-        .status-badge {
-            padding: 8px 15px;
-            border-radius: 50px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .status-badge i {
-            font-size: 0.8rem;
-        }
-
-        .status-pending { 
-            background-color: #fff3cd; 
-            color: #856404;
-        }
-        
-        .status-preparing { 
-            background-color: #cce5ff; 
-            color: #004085;
-        }
-        
-        .status-ready { 
-            background-color: #d4edda; 
-            color: #155724;
-        }
-
-        .order-items {
-            border-radius: 15px;
-            overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .order-items table {
-            margin: 0;
-        }
-
-        .order-items th {
-            background: rgba(var(--primary-red-rgb), 0.05);
-            font-weight: 600;
-            padding: 15px;
-        }
-
-        .order-items td {
-            padding: 15px;
-            vertical-align: middle;
-        }
-
-        .total-row {
-            background: rgba(var(--primary-red-rgb), 0.02);
-            font-weight: 600;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            color: var(--primary-red);
-            margin-bottom: 20px;
-        }
-
-        .empty-state h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .empty-state p {
-            color: #6c757d;
-            margin-bottom: 20px;
-        }
-
-        .create-order-btn {
-            background: var(--primary-red);
-            color: white;
-            padding: 12px 25px;
-            border-radius: 50px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .create-order-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(var(--primary-red-rgb), 0.3);
-            color: white;
-        }
-    </style>
-</head>
-<body>
-    <div class="order-page">
-        <div class="page-header">
-            <h1 class="page-title">Aktif Siparişim</h1>
-            <a href="index.php?table=<?= $table_id ?>" class="back-btn">
-                <i class="fas fa-arrow-left"></i>
-                Menüye Dön
-            </a>
+<!-- Siparişler Listesi -->
+<div class="container mt-4 mb-5">
+    <!-- Başlık ve Geri Butonu -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Siparişlerim (<?= count($orders) ?>)</h4>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Geri Dön
+        </a>
+    </div>
+    
+    <?php if (empty($orders)): ?>
+        <div class="alert alert-info">
+            Henüz aktif siparişiniz bulunmuyor.
         </div>
-
-        <?php if (empty($orders)): ?>
-            <div class="empty-state">
-                <i class="fas fa-receipt"></i>
-                <h3>Henüz Siparişiniz Bulunmuyor</h3>
-                <p>Hemen yeni bir sipariş oluşturarak lezzetli yemeklerimizi tadabilirsiniz.</p>
-                <a href="index.php?table=<?= $table_id ?>" class="create-order-btn">
-                    <i class="fas fa-plus"></i>
-                    Sipariş Oluştur
-                </a>
-            </div>
-        <?php else: ?>
-            <?php foreach ($orders as $order): ?>
-                <div class="order-card">
-                    <div class="order-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5 class="mb-1">Sipariş #<?= $order['id'] ?></h5>
-                                <small class="text-muted">
-                                    <?= date('d.m.Y H:i', strtotime($order['created_at'])) ?>
-                                </small>
-                            </div>
-                            <span class="status-badge status-<?= strtolower($order['status']) ?>">
-                                <i class="fas fa-clock"></i>
-                                <?= $order['status_text'] ?>
-                            </span>
-                        </div>
+    <?php else: ?>
+        <?php 
+        $grand_total = 0;
+        foreach ($orders as $order): 
+            $grand_total += $order['total_amount'];
+        ?>
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Sipariş #<?= $order['id'] ?></strong>
+                        <br>
+                        <small class="text-muted"><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></small>
                     </div>
-                    <div class="order-body">
-                        <div class="order-items">
-                            <table class="table table-hover mb-0">
-                                <thead>
+                    <span class="badge <?= $order['status_class'] ?>"><?= $order['status_text'] ?></span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Ürün</th>
+                                    <th class="text-end">Adet</th>
+                                    <th class="text-end">Fiyat</th>
+                                    <th class="text-end">Toplam</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($order['items'] as $item): ?>
                                     <tr>
-                                        <th>Ürün</th>
-                                        <th class="text-center">Adet</th>
-                                        <th class="text-end">Fiyat</th>
-                                        <th class="text-end">Toplam</th>
+                                        <td><?= htmlspecialchars($item['product_name']) ?></td>
+                                        <td class="text-end"><?= $item['quantity'] ?></td>
+                                        <td class="text-end"><?= number_format($item['price'], 2) ?> ₺</td>
+                                        <td class="text-end"><?= number_format($item['item_total'], 2) ?> ₺</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    $items = $db->query(
-                                        "SELECT oi.*, p.name as product_name 
-                                         FROM order_items oi
-                                         LEFT JOIN products p ON oi.product_id = p.id
-                                         WHERE oi.order_id = ?
-                                         ORDER BY oi.id DESC",
-                                        [$order['id']]
-                                    )->fetchAll();
-                                    
-                                    foreach ($items as $item): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars($item['product_name']) ?></td>
-                                            <td class="text-center"><?= $item['quantity'] ?></td>
-                                            <td class="text-end"><?= number_format($item['price'], 2) ?> ₺</td>
-                                            <td class="text-end"><?= number_format($item['price'] * $item['quantity'], 2) ?> ₺</td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                    <tr class="total-row">
-                                        <td colspan="3" class="text-end">Toplam Tutar:</td>
-                                        <td class="text-end"><?= number_format($order['total_amount'], 2) ?> ₺</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endforeach; ?>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Sipariş Toplamı</strong></td>
+                                    <td class="text-end"><strong><?= number_format($order['total_amount'], 2) ?> ₺</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
-    </div>
+            </div>
+        <?php endforeach; ?>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+        <!-- Genel Toplam Kartı -->
+        <div class="card bg-light">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Genel Toplam</h5>
+                    <h4 class="mb-0 text-primary"><?= number_format($grand_total, 2) ?> ₺</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt Geri Butonu -->
+        <div class="text-center mt-4">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Geri Dön
+            </a>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- Sabit Alt Geri Butonu (Mobil için) -->
+<div class="position-fixed bottom-0 start-0 w-100 p-3 bg-white border-top d-md-none">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary w-100">
+        <i class="fas fa-arrow-left"></i> Geri Dön
+    </a>
+</div>
+
+<!-- Mobil için alt padding -->
+<div class="d-md-none" style="height: 80px;"></div>
+
+<!-- JavaScript ile geri dönüş kontrolü -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tüm geri butonlarını seç
+    const backButtons = document.querySelectorAll('a[href="javascript:history.back()"]');
+    
+    backButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (document.referrer) {
+                // Eğer önceki sayfa varsa oraya dön
+                window.history.back();
+            } else {
+                // Yoksa menüye yönlendir
+                window.location.href = 'menu.php';
+            }
+        });
+    });
+});
+</script>

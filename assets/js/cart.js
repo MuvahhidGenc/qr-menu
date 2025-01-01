@@ -1,5 +1,5 @@
- // Sepet sayacını güncelle
- let updateInProgress = false;
+// Sepet sayacını güncelle
+let updateInProgress = false;
 // Sayfa yüklendiğinde
 $(document).ready(function() {
     updateCartCount(); // Sepet sayısını güncelle
@@ -11,8 +11,22 @@ $(document).ready(function() {
     });
  });
 
- // Miktar arttırma/azaltma
- function decreaseAmount(productId) {
+// Modal footer'a sipariş notu ekle
+let modalFooter = document.querySelector('#cartModal .modal-footer');
+if (modalFooter) {
+    let noteDiv = document.createElement('div');
+    noteDiv.className = 'w-100 mb-3';
+    noteDiv.innerHTML = `
+        <textarea id="orderNote" class="form-control" 
+                  placeholder="Sipariş notunuz (opsiyonel)" 
+                  rows="2"
+                  style="resize: none;"></textarea>
+    `;
+    modalFooter.insertBefore(noteDiv, modalFooter.firstChild);
+}
+
+// Miktar arttırma/azaltma
+function decreaseAmount(productId) {
     let input = document.getElementById('qty_' + productId);
     let value = parseInt(input.value);
     if(value > 1) {
@@ -136,39 +150,34 @@ function updateCartCount() {
  
 
 //siparişi Tamammla Butonu
- function completeOrder() {
-    $.ajax({
-        url: 'ajax/complete_order.php',
-        type: 'POST',
-        dataType: 'json',
-        success: function(response) {
-            if(response.success) {
-                $('#cartModal').modal('hide');
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sipariş Alındı!',
-                    text: 'Siparişiniz başarıyla alındı. Sipariş numaranız: ' + response.order_id,
-                    confirmButtonText: 'Tamam'
-                }).then((result) => {
-                    // Sepet sayacını güncelle
-                    updateCartCount();
-                    // Sayfayı yenile
-                    location.reload();
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Hata!',
-                    text: response.message || 'Bir hata oluştu'
-                });
-            }
+function completeOrder() {
+    let note = document.getElementById('orderNote').value;
+    
+    fetch('process-order.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        error: function() {
+        body: JSON.stringify({
+            action: 'complete_order',
+            note: note
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
             Swal.fire({
-                icon: 'error',
+                title: 'Başarılı!',
+                text: 'Siparişiniz alındı.',
+                icon: 'success'
+            }).then(() => {
+                window.location.href = 'orders.php';
+            });
+        } else {
+            Swal.fire({
                 title: 'Hata!',
-                text: 'Bir hata oluştu, lütfen tekrar deneyin.'
+                text: data.message || 'Bir hata oluştu.',
+                icon: 'error'
             });
         }
     });

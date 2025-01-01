@@ -25,6 +25,11 @@ foreach($settingsResult->fetchAll() as $row) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
 
+// Tema rengini al
+$theme_color = $_SESSION['theme_color'] ?? '#343a40'; // Varsayılan koyu renk
+$is_dark = isset($_SESSION['theme_color']) && $_SESSION['theme_color'] === '#343a40';
+$theme_rgb = hexToRgb($theme_color);
+
 // Eğer kategori seçilmişse ürünleri çek
 if(isset($_GET['category'])) {
    $category_id = (int)$_GET['category'];
@@ -139,14 +144,17 @@ include 'includes/customer-header.php';
 .menu-item-image {
     position: relative;
     width: 100%;
-    height: 200px;
+    min-width: 150px;
+    height: 250px;
     overflow: hidden;
+    border-radius: 8px 8px 0 0;
 }
 
 .menu-item-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
 }
 
 .menu-item-content {
@@ -169,15 +177,23 @@ include 'includes/customer-header.php';
 
 .menu-item-footer {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     gap: 10px;
+    align-items: flex-start;
 }
 
 .menu-item-price {
     font-size: 20px;
     font-weight: 600;
     color: #e74c3c;
+    white-space: nowrap;
+}
+
+.order-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
 }
 
 .quantity-control {
@@ -186,6 +202,7 @@ include 'includes/customer-header.php';
     background: #f8f9fa;
     border-radius: 25px;
     padding: 5px;
+    flex-grow: 1;
 }
 
 .quantity-btn {
@@ -231,7 +248,7 @@ include 'includes/customer-header.php';
 }
 
 .add-to-cart:hover {
-    background: #c0392b;
+    background: <?= $theme_color ?> !important; /*#c0392b;*/
     transform: scale(1.1);
 }
 
@@ -257,7 +274,7 @@ include 'includes/customer-header.php';
 
 .cart-floating-button:hover {
     transform: scale(1.1);
-    background: #c0392b;
+    background: <?= $theme_color ?> !important; /*#c0392b;*/
 }
 
 .cart-count {
@@ -277,8 +294,8 @@ include 'includes/customer-header.php';
 }
 
         .back-button {
-            background: #e74c3c;
-            color: white;
+            background:<?= $theme_color ?> !important; /*#e74c3c;*/
+            color: white !important;
             border: none;
             padding: 10px 20px;
             border-radius: 30px;
@@ -316,6 +333,121 @@ include 'includes/customer-header.php';
 .cart-item .price {
     font-weight: 600;
     color: #e74c3c;
+}
+
+/* Tema rengi ile ilgili tüm stiller */
+.category-btn.active {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+}
+
+.category-btn:hover {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+    opacity: 0.9;
+}
+
+.btn-primary {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+}
+
+.btn-primary:hover {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+    opacity: 0.9;
+}
+
+.text-primary {
+    color: <?= $theme_color ?> !important;
+}
+
+.product-card:hover {
+    border-color: <?= $theme_color ?> !important;
+}
+
+.product-price {
+    color: <?= $theme_color ?> !important;
+}
+
+.cart-badge {
+    background-color: <?= $theme_color ?> !important;
+}
+
+.quantity-badge {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+}
+
+.btn-outline-primary {
+    color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+}
+
+.btn-outline-primary:hover {
+    background-color: <?= $theme_color ?> !important;
+    color: #fff !important;
+}
+
+/* Kaydırma çubuğu rengi */
+::-webkit-scrollbar-thumb {
+    background-color: <?= $theme_color ?>;
+}
+
+/* Modal başlık ve butonlar */
+.modal-header {
+    border-bottom: 2px solid <?= $theme_color ?>;
+}
+
+.modal-title {
+    color: <?= $theme_color ?>;
+}
+
+/* Ürün kartı içindeki fiyat ve butonlar */
+.card-body h5.product-price {
+    color: <?= $theme_color ?> !important;
+}
+
+.add-to-cart-btn {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+}
+
+.add-to-cart-btn:hover {
+    opacity: 0.9;
+}
+
+/* Sepet butonu */
+.cart-button {
+    background-color: <?= $theme_color ?> !important;
+}
+
+/* Kategori seçimi */
+.nav-link.active {
+    color: <?= $theme_color ?> !important;
+    border-bottom-color: <?= $theme_color ?> !important;
+}
+
+/* Miktar ayarlama butonları */
+.quantity-control .btn:hover {
+    background-color: <?= $theme_color ?> !important;
+    border-color: <?= $theme_color ?> !important;
+    color: #fff;
+}
+
+/* Vurgu renkleri */
+.highlight {
+    color: <?= $theme_color ?>;
+}
+
+/* Hover efektleri */
+.hover-effect:hover {
+    color: <?= $theme_color ?> !important;
+}
+
+/* Özel gölge efekti */
+.custom-shadow:hover {
+    box-shadow: 0 0 15px rgba(<?= $theme_rgb['r'] ?>, <?= $theme_rgb['g'] ?>, <?= $theme_rgb['b'] ?>, 0.3);
 }
     </style>
 </head>
@@ -356,6 +488,37 @@ include 'includes/customer-header.php';
         </div>
     </div>
 </div>
+
+<!-- Geri butonu - Tema rengine göre stil -->
+<div class="position-fixed bottom-0 start-0 w-100 p-3 border-top d-md-none" 
+     style="background-color: <?= $is_dark ? '#343a40' : '#ffffff' ?>;">
+    <a href="javascript:history.back()" 
+       class="btn <?= $is_dark ? 'btn-outline-light' : 'btn-outline-secondary' ?> w-100">
+        <i class="fas fa-arrow-left"></i> Geri Dön
+    </a>
+</div>
+
+<!-- Mobil için alt padding -->
+<div class="d-md-none" style="height: 80px;"></div>
+
+<!-- JavaScript ile geri dönüş kontrolü -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const backButtons = document.querySelectorAll('a[href="javascript:history.back()"]');
+    
+    backButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (document.referrer) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.php';
+            }
+        });
+    });
+});
+</script>
+
 <?php if(!isset($_GET['category'])): ?>
     <div class="category-section">
         <!-- Ana Sayfa -->
