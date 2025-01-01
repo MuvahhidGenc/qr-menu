@@ -40,6 +40,9 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <style>
+    .nav-link {
+    display: -webkit-box !important;
+}
 /* Ana Container */
 .container-fluid {
     padding: 2rem;

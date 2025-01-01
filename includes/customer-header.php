@@ -1,4 +1,34 @@
 <?php
+// Database bağlantısı
+if (!isset($db)) {
+    require_once __DIR__ . '/../includes/config.php';
+    $db = new Database();
+}
+
+// Sadece aktif sipariş kontrolü
+$activeOrder = null;
+
+if (isset($_SESSION['table_id'])) {
+    // Aktif siparişi kontrol et (basitleştirilmiş sorgu)
+    $activeOrder = $db->query(
+        "SELECT id 
+         FROM orders 
+         WHERE table_id = ? 
+         AND status = 'pending'  /* Sadece bekleyen siparişlere bak */
+         ORDER BY created_at DESC 
+         LIMIT 1",
+        [$_SESSION['table_id']]
+    )->fetch();
+
+    // Debug bilgileri
+   /* echo "<pre style='position:fixed;top:0;right:0;background:white;padding:10px;z-index:9999;'>";
+    echo "Session Table ID: " . $_SESSION['table_id'] . "\n";
+    echo "SQL Query: SELECT id FROM orders WHERE table_id = {$_SESSION['table_id']} AND status = 'pending' ORDER BY created_at DESC LIMIT 1\n";
+    echo "Active Order: ";
+    print_r($activeOrder);
+    echo "</pre>";*/
+}
+
 $theme_color = $settings['theme_color'] ?? '#e74c3c';
 $theme_rgb = hexToRgb($theme_color);
 $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg']) 
@@ -176,6 +206,44 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
   
 }
 
+.floating-order-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--primary-red);
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(var(--primary-red-rgb), 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.floating-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--primary-red-rgb), 0.4);
+    color: white;
+}
+
+.floating-order-btn i {
+    font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+    .floating-order-btn span {
+        display: none;
+    }
+    
+    .floating-order-btn {
+        padding: 15px;
+        border-radius: 50%;
+    }
+}
 
 </style>
 </head>
@@ -189,3 +257,12 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
            <p class="lead">Lezzetli yemeklerimizi keşfedin</p>
        </div>
    </div>
+
+   <?php 
+   // Sadece aktif sipariş varsa butonu göster
+   if ($activeOrder): ?>
+       <a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
+           <i class="fas fa-receipt"></i>
+           <span>Siparişlerim</span>
+       </a>
+   <?php endif; ?>

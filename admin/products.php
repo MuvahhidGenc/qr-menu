@@ -30,6 +30,32 @@ if(isset($_POST['delete_product'])) {
    exit;
 }
 
+// Ürün Güncelleme İşlemi
+if(isset($_POST['update_product'])) {
+    $id = (int)$_POST['product_id'];
+    $name = cleanInput($_POST['name']);
+    $description = cleanInput($_POST['description']);
+    $price = floatval($_POST['price']);
+    $category_id = (int)$_POST['category_id'];
+    $status = isset($_POST['status']) ? 1 : 0;
+    $image = $_POST['image'] ?? '';
+    
+    $db->query("UPDATE products 
+                SET name = ?, 
+                    description = ?, 
+                    price = ?, 
+                    category_id = ?, 
+                    image = ?, 
+                    status = ? 
+                WHERE id = ?", 
+               [$name, $description, $price, $category_id, $image, $status, $id]);
+
+    $_SESSION['message'] = 'Ürün güncellendi.';
+    $_SESSION['message_type'] = 'success';
+    header('Location: products.php');
+    exit;
+}
+
 // Ürünleri ve Kategorileri Çek
 $products = $db->query("
     SELECT p.*, c.name as category_name 
@@ -302,7 +328,7 @@ include 'navbar.php';
                                         <input type="hidden" id="productImage" name="image" value="<?= $product['image'] ?? '' ?>">
                                         <input type="text" class="form-control" id="productImageDisplay" 
                                             value="<?= $product['image'] ?? '' ?>" readonly>
-                                        <button type="button" class="btn btn-primary" onclick="openMediaSelector('productImage')">
+                                        <button type="button" class="btn btn-primary" onclick="openMediaModal('productImage', 'productImagePreview')">
                                             <i class="fas fa-image"></i> Dosya Seç
                                         </button>
                                     </div>
@@ -327,58 +353,66 @@ include 'navbar.php';
 
    <!-- Ürün Düzenleme Modal -->
    <div class="modal fade" id="editProductModal">
-       <div class="modal-dialog">
+       <div class="modal-dialog modal-lg">
            <div class="modal-content">
                <div class="modal-header">
                    <h5 class="modal-title">Ürün Düzenle</h5>
                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                </div>
-               <form id="editProductForm" method="POST">
+               <form method="POST">
                    <input type="hidden" name="product_id" id="edit_product_id">
                    <div class="modal-body">
-                       <div class="mb-3">
-                           <label>Ürün Adı</label>
-                           <input type="text" name="name" id="edit_product_name" class="form-control" required>
-                       </div>
-                       <div class="mb-3">
-                           <label>Açıklama</label>
-                           <textarea name="description" id="edit_product_description" class="form-control" rows="3" required></textarea>
-                       </div>
-                       <div class="mb-3">
-                           <label>Fiyat</label>
-                           <input type="number" name="price" id="edit_product_price" class="form-control" step="0.01" required>
-                       </div>
-                       <div class="mb-3">
-                           <label>Kategori</label>
-                           <select name="category_id" id="edit_product_category" class="form-control" required>
-                               <?php foreach($categories as $category): ?>
-                                   <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
-                               <?php endforeach; ?>
-                           </select>
-                       </div>
-                       <div class="mb-3">
-                           <div class="mb-2">
-                               <img id="editProductImagePreview" src="" 
-                                    style="max-height:100px;display:none" class="img-thumbnail">
+                       <div class="row">
+                           <div class="col-md-6">
+                               <div class="mb-3">
+                                   <label>Ürün Adı</label>
+                                   <input type="text" name="name" id="edit_product_name" class="form-control" required>
+                               </div>
+                               <div class="mb-3">
+                                   <label>Açıklama</label>
+                                   <textarea name="description" id="edit_product_description" class="form-control" rows="3"></textarea>
+                               </div>
+                               <div class="mb-3">
+                                   <label>Kategori</label>
+                                   <select name="category_id" id="edit_product_category" class="form-control" required>
+                                       <?php foreach($categories as $category): ?>
+                                           <option value="<?= $category['id'] ?>">
+                                               <?= htmlspecialchars($category['name']) ?>
+                                           </option>
+                                       <?php endforeach; ?>
+                                   </select>
+                               </div>
                            </div>
-                           <div class="input-group">
-                               <input type="hidden" id="editProductImage" name="image">
-                               <input type="text" class="form-control" id="editProductImageDisplay" readonly>
-                               <button type="button" class="btn btn-primary" onclick="openMediaModal('editProductImage')">
-                                   <i class="fas fa-image"></i> Dosya Seç
-                               </button>
-                           </div>
-                       </div>
-                       <div class="mb-3">
-                           <div class="form-check">
-                               <input type="checkbox" name="status" id="edit_product_status" class="form-check-input">
-                               <label class="form-check-label">Aktif</label>
+                           <div class="col-md-6">
+                               <div class="mb-3">
+                                   <label>Fiyat</label>
+                                   <input type="number" step="0.01" name="price" id="edit_product_price" class="form-control" required>
+                               </div>
+                               <div class="mb-3">
+                                   <div class="mb-2">
+                                       <img id="editProductImagePreview" src="" 
+                                            style="max-height:100px;display:none" class="img-thumbnail">
+                                   </div>
+                                   <div class="input-group">
+                                       <input type="hidden" id="editProductImage" name="image">
+                                       <input type="text" class="form-control" id="editProductImageDisplay" readonly>
+                                       <button type="button" class="btn btn-primary" onclick="openMediaModal('editProductImage', 'editProductImagePreview')">
+                                           <i class="fas fa-image"></i> Dosya Seç
+                                       </button>
+                                   </div>
+                               </div>
+                               <div class="mb-3">
+                                   <div class="form-check">
+                                       <input type="checkbox" name="status" id="edit_product_status" class="form-check-input">
+                                       <label class="form-check-label">Aktif</label>
+                                   </div>
+                               </div>
                            </div>
                        </div>
                    </div>
                    <div class="modal-footer">
                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                       <button type="submit" class="btn btn-primary">Güncelle</button>
+                       <button type="submit" name="update_product" class="btn btn-primary">Güncelle</button>
                    </div>
                </form>
            </div>
@@ -399,66 +433,64 @@ include 'navbar.php';
        });
    }
 
-   // Global değişken
+   // Global değişkenler
    let currentMediaInput = null;
+   let currentMediaPreview = null;
+   let productModal = null;
 
    // Medya seçici modalını açma fonksiyonu
-   function openMediaModal(inputId) {
+   function openMediaModal(inputId, previewId) {
+       // Input ve preview ID'lerini sakla
        currentMediaInput = inputId;
+       currentMediaPreview = previewId;
        
-       // Ürün modalını gizle
-       const productModal = document.getElementById('editProductModal');
+       // Mevcut ürün modalını sakla ve gizle
+       productModal = bootstrap.Modal.getInstance(
+           document.getElementById(
+               inputId.includes('edit') ? 'editProductModal' : 'addProductModal'
+           )
+       );
        if (productModal) {
-           const bsModal = bootstrap.Modal.getInstance(productModal);
-           if (bsModal) {
-               bsModal.hide();
-           }
+           productModal.hide();
        }
        
        // Medya modalını aç
-       const mediaModal = document.getElementById('mediaModal');
-       if (mediaModal) {
-           new bootstrap.Modal(mediaModal).show();
-       }
+       const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+       mediaModal.show();
    }
 
    // Medya seçildiğinde çalışacak fonksiyon
    function selectMedia(mediaUrl) {
-       if (currentMediaInput) {
+       if (currentMediaInput && currentMediaPreview) {
            // Input değerlerini güncelle
            document.getElementById(currentMediaInput).value = mediaUrl;
            
-           // Hangi modalda olduğumuzu kontrol et
-           const isEditModal = currentMediaInput === 'editProductImage';
-           
-           // Display input'u güncelle
-           const displayInput = document.getElementById(isEditModal ? 'editProductImageDisplay' : 'productImageDisplay');
-           if (displayInput) {
-               displayInput.value = mediaUrl;
-           }
-           
            // Önizleme resmini güncelle
-           const previewImg = document.getElementById(isEditModal ? 'editProductImagePreview' : 'productImagePreview');
+           const previewImg = document.getElementById(currentMediaPreview);
            if (previewImg) {
                previewImg.src = '../uploads/' + mediaUrl;
                previewImg.style.display = 'block';
            }
+           
+           // Display input'u güncelle
+           const displayInput = document.getElementById(currentMediaInput + 'Display');
+           if (displayInput) {
+               displayInput.value = mediaUrl;
+           }
        }
 
        // Medya modalını kapat
-       const mediaModal = document.getElementById('mediaModal');
-       const bsMediaModal = bootstrap.Modal.getInstance(mediaModal);
-       if (bsMediaModal) {
-           bsMediaModal.hide();
+       const mediaModal = bootstrap.Modal.getInstance(document.getElementById('mediaModal'));
+       if (mediaModal) {
+           mediaModal.hide();
        }
 
-       // Ürün modalını göster
-       const isEditModal = currentMediaInput === 'editProductImage';
-       const modalId = isEditModal ? 'editProductModal' : 'addProductModal';
-       const productModal = document.getElementById(modalId);
-       if (productModal) {
-           new bootstrap.Modal(productModal).show();
-       }
+       // Ürün modalını tekrar göster
+       setTimeout(() => {
+           if (productModal) {
+               productModal.show();
+           }
+       }, 150);
    }
 
    // Sayfa yüklendiğinde
@@ -467,27 +499,22 @@ include 'navbar.php';
        const mediaModal = document.getElementById('mediaModal');
        if (mediaModal) {
            mediaModal.addEventListener('hidden.bs.modal', function() {
-               // Eğer bir medya seçilmediyse ürün modalını geri göster
-               if (currentMediaInput) {
-                   const productModal = document.getElementById('addProductModal');
-                   if (productModal) {
-                       productModal.style.display = 'block';
-                       document.body.classList.add('modal-open');
+               // Eğer bir medya seçilmediyse ve ürün modalı varsa geri göster
+               setTimeout(() => {
+                   if (productModal && !document.querySelector('.modal.show')) {
+                       productModal.show();
                    }
-                   currentMediaInput = null;
-               }
+               }, 150);
            });
        }
    });
 
    // Ürün düzenleme fonksiyonu
    function editProduct(productId) {
-       // Ürün bilgilerini getir
        fetch(`api/get_product.php?id=${productId}`)
            .then(response => response.json())
            .then(data => {
                if (data.success) {
-                   // Form alanlarını doldur
                    document.getElementById('edit_product_id').value = data.product.id;
                    document.getElementById('edit_product_name').value = data.product.name;
                    document.getElementById('edit_product_description').value = data.product.description;
@@ -497,7 +524,6 @@ include 'navbar.php';
                    document.getElementById('editProductImage').value = data.product.image || '';
                    document.getElementById('editProductImageDisplay').value = data.product.image || '';
                    
-                   // Resim önizleme
                    const preview = document.getElementById('editProductImagePreview');
                    if (data.product.image) {
                        preview.src = '../uploads/' + data.product.image;
@@ -506,15 +532,12 @@ include 'navbar.php';
                        preview.style.display = 'none';
                    }
                    
-                   // Modal'ı aç
                    new bootstrap.Modal(document.getElementById('editProductModal')).show();
-               } else {
-                   Swal.fire('Hata!', data.message, 'error');
                }
            })
            .catch(error => {
                console.error('Error:', error);
-               Swal.fire('Hata!', 'Ürün bilgileri alınamadı', 'error');
+               alert('Ürün bilgileri alınamadı');
            });
    }
 
