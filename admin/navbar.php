@@ -829,125 +829,56 @@
     font-size: 0.75rem;
 }
 
-/* Modern Bildirim Dropdown Stilleri */
-.notification-dropdown .dropdown-menu {
-    min-width: 320px;
-    padding: 0;
+/* Ortak Dropdown Stilleri */
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    z-index: 1000;
+}
+
+.dropdown-menu.show {
+    display: block !important;
+}
+
+/* Profil Dropdown Stilleri */
+.profile-dropdown .dropdown-menu {
+    min-width: 200px;
+    padding: 8px;
     border: none;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    background: #fff;
-    margin-top: 12px;
+    background: white;
+    margin-top: 10px;
+    right: 0;
 }
 
-/* Bildirim Header */
-.notification-dropdown .dropdown-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    background: linear-gradient(to right, #f8f9fa, #fff);
-}
-
-.notification-dropdown .dropdown-header h6 {
-    font-weight: 600;
-    color: #2c3e50;
-    margin: 0;
-}
-
-/* Bildirim Listesi */
-.notification-list {
-    max-height: 360px;
-    overflow-y: auto;
-    padding: 8px;
-}
-
-/* Bildirim Öğesi */
-.notification-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 4px;
+.profile-dropdown .dropdown-item {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #333;
+    border-radius: 6px;
     transition: all 0.2s ease;
-    border: 1px solid transparent;
 }
 
-.notification-item:hover {
+.profile-dropdown .dropdown-item:hover {
     background: #f8f9fa;
-    border-color: rgba(0,0,0,0.05);
     transform: translateX(4px);
 }
 
-.notification-item.unread {
-    background: rgba(13,110,253,0.04);
-    border-left: 3px solid #0d6efd;
-}
-
-/* Bildirim İçeriği */
-.notification-item .mb-1 {
-    font-size: 0.9rem;
-    color: #2c3e50;
-    font-weight: 500;
-}
-
-.notification-item small {
+.profile-dropdown .dropdown-item i {
+    width: 20px;
+    text-align: center;
     color: #6c757d;
-    font-size: 0.8rem;
 }
 
-/* Okunmamış Göstergesi */
-.unread-indicator {
-    width: 8px;
-    height: 8px;
-    background: #0d6efd;
-    border-radius: 50%;
-    margin-left: 8px;
+.profile-dropdown .dropdown-divider {
+    margin: 8px 0;
+    border-color: rgba(0,0,0,0.08);
 }
 
-/* Tümünü Okundu İşaretle Butonu */
-.mark-all-read {
-    color: #0d6efd;
-    font-size: 0.85rem;
-    text-decoration: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
-
-.mark-all-read:hover {
-    background: rgba(13,110,253,0.1);
-    color: #0b5ed7;
-}
-
-/* Ses Kontrol Butonu */
-#toggleSound {
-    padding: 4px 8px;
-    color: #6c757d;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
-
-#toggleSound:hover {
-    background: rgba(108,117,125,0.1);
-    color: #495057;
-}
-
-/* Scrollbar Stilleri */
-.notification-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.notification-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.notification-list::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.1);
-    border-radius: 3px;
-}
-
-.notification-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,0,0,0.2);
-}
-
-/* Dropdown Animasyonu */
+/* Animasyon */
 @keyframes dropdownFade {
     from {
         opacity: 0;
@@ -959,23 +890,24 @@
     }
 }
 
-.notification-dropdown .dropdown-menu.show {
+.dropdown-menu.show {
     animation: dropdownFade 0.2s ease;
 }
 
-/* Bildirim Badge */
-.notification-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #dc3545;
-    color: white;
-    border-radius: 10px;
-    padding: 2px 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+/* Bildirim header butonları için stil */
+.notification-actions .btn-link {
+    color: #6c757d;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.notification-actions .btn-link:hover {
+    color: #495057;
+}
+
+.notification-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
     </style>
@@ -997,38 +929,36 @@
     
     <span class="brand-text">QR Menü Admin</span>
     <div class="d-flex align-items-center">
-    <!-- Bildirim Ikonu -->
-    <!-- Navbar içinde bildirim dropdown'ı -->
+    <!-- Bildirim Dropdown -->
     <div class="nav-item dropdown notification-dropdown me-3">
         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="fas fa-bell"></i>
             <span class="notification-badge" id="notificationCount"></span>
         </a>
         <div class="dropdown-menu dropdown-menu-end notification-menu">
-                    <div class="dropdown-header d-flex justify-content-between align-items-center p-3">
+            <div class="notification-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">Bildirimler</h6>
-                <div>
-                    <button type="button" class="btn btn-sm btn-link" id="toggleSound">
+                <div class="notification-actions">
+                    <button class="btn btn-sm btn-link text-muted p-0 me-2" id="toggleSound">
                         <i class="fas fa-volume-up" id="soundIcon"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-link mark-all-read">
-                        Tümünü Okundu İşaretle
+                    <button class="btn btn-sm btn-link text-muted p-0 mark-all-read">
+                        <i class="fas fa-check-double"></i>
                     </button>
                 </div>
             </div>
-
             <div class="notification-list" id="notificationList">
-                <!-- Bildirimler buraya gelecek -->
+                <!-- Bildirimler AJAX ile yüklenecek -->
             </div>
         </div>
     </div>
-    <div class="dropdown profile-dropdown">
-        <button class="btn-toggle" data-bs-toggle="dropdown">
-            <i class="fas fa-user fa-lg"></i>
-        </button>
 
+    <!-- Profil Dropdown -->
+    <div class="nav-item dropdown profile-dropdown">
+        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fas fa-user"></i>
+        </a>
         <ul class="dropdown-menu dropdown-menu-end">
-            
             <li>
                 <a class="dropdown-item" href="profile.php">
                     <i class="fas fa-user-cog"></i> Profil
@@ -1046,10 +976,6 @@
                 </a>
             </li>
         </ul>
-
-
-
-   
     </div>
 </div>
 </div>
@@ -1358,6 +1284,66 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Profil dropdown kontrolü
+    const profileToggle = document.querySelector('.profile-dropdown .nav-link');
+    const profileMenu = document.querySelector('.profile-dropdown .dropdown-menu');
+    
+    if (profileToggle && profileMenu) {
+        profileToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Toggle dropdown
+            profileMenu.classList.toggle('show');
+            
+            // Dropdown'ı konumlandır
+            const rect = profileToggle.getBoundingClientRect();
+            profileMenu.style.position = 'absolute';
+            profileMenu.style.top = `0px`; // 10px offset
+            profileMenu.style.right = '0';
+            profileMenu.style.zIndex = '1000';
+        });
+        
+        // Dışarı tıklandığında kapat
+        document.addEventListener('click', function(e) {
+            if (!profileMenu.contains(e.target) && !profileToggle.contains(e.target)) {
+                profileMenu.classList.remove('show');
+            }
+        });
+    }
+});
+
+$(document).ready(function() {
+    // Bootstrap dropdown'ı initialize et
+    var dropdownElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+    dropdownElementList.map(function (dropdownToggleEl) {
+        return new bootstrap.Dropdown(dropdownToggleEl);
+    });
+
+    // Mevcut bildirim kontrolü fonksiyonu
+    function checkNotifications() {
+        $.ajax({
+            url: 'ajax/get_notifications.php',
+            type: 'GET',
+            success: function(response) {
+                if(response.success) {
+                    $('#notificationList').html(response.html);
+                    if(response.unread_count > 0) {
+                        $('#notificationCount').text(response.unread_count).show();
+                    } else {
+                        $('#notificationCount').hide();
+                    }
+                }
+            }
+        });
+    }
+
+    // İlk yükleme ve periyodik kontrol
+    checkNotifications();
+    setInterval(checkNotifications, 10000);
 });
 </script>
 </script>

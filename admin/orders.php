@@ -329,6 +329,12 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
             <div class="modal-body">
                 <!-- Sipariş detayları AJAX ile yüklenecek -->
             </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary btn-print">
+                    <i class="fas fa-print"></i> Yazdır
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -351,5 +357,53 @@ $(document).ready(function() {
             scrollTop: $('tr[data-table-id="' + urlParams.get('table') + '"]').offset().top - 100
         }, 1000);
     }
+
+    // Mevcut view-order click eventi (değiştirmeyin)
+    $('.view-order').on('click', function() {
+        var orderId = $(this).data('order-id');
+        $.get('ajax/get_order_detail.php', {order_id: orderId}, function(response) {
+            $('#orderModal .modal-body').html(response);
+            $('#orderModal').modal('show');
+        });
+    });
+
+    // Sadece yazdırma özelliğini ekleyelim
+    $('.btn-print').on('click', function() {
+        const printContent = $('#orderModal .modal-body').html();
+        const printWindow = window.open('', '', 'height=600,width=800');
+        
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Sipariş Detayı</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        body { padding: 20px; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        ${printContent}
+                    </div>
+                </body>
+            </html>
+        `);
+        
+        printWindow.document.write('<script>');
+        printWindow.document.write(`
+            window.onload = function() {
+                window.print();
+                window.onafterprint = function() {
+                    window.close();
+                }
+            }
+        `);
+        printWindow.document.write('</scr' + 'ipt>');
+        
+        printWindow.document.close();
+    });
 });
 </script>
