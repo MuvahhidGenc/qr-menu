@@ -324,7 +324,7 @@ include 'navbar.php';
                                  <input type="hidden" id="categoryImage" name="image" value="<?= $category['image'] ?? '' ?>">
                                  <input type="text" class="form-control" id="categoryImageDisplay" 
                                       value="<?= $category['image'] ?? '' ?>" readonly>
-                                 <button type="button" class="btn btn-primary" onclick="openMediaModal('categoryImage')">
+                                 <button type="button" class="btn btn-primary" onclick="openMediaSelector('categoryImage')">
                                      <i class="fas fa-image"></i> Dosya Seç
                                  </button>
                              </div>
@@ -362,7 +362,7 @@ include 'navbar.php';
                             <div class="input-group">
                                 <input type="hidden" id="editCategoryImage" name="image">
                                 <input type="text" class="form-control" id="editCategoryImageDisplay" readonly>
-                                <button type="button" class="btn btn-primary" onclick="openMediaModal('editCategoryImage')">
+                                <button type="button" class="btn btn-primary" onclick="openMediaSelector('editCategoryImage')">
                                     <i class="fas fa-image"></i> Dosya Seç
                                 </button>
                             </div>
@@ -524,6 +524,66 @@ include 'navbar.php';
                 });
             }
         });
+    }
+
+    // Global değişken
+    let currentMediaInput = null;
+
+    // Medya seçici modalını açma fonksiyonu
+    function openMediaSelector(inputId) {
+        currentMediaInput = inputId;
+        
+        // Kategori modalını gizle
+        const categoryModal = document.getElementById('addCategoryModal');
+        if (categoryModal) {
+            categoryModal.style.display = 'none';
+        }
+        
+        // Medya modalını aç
+        const mediaModal = document.getElementById('mediaModal');
+        if (mediaModal) {
+            new bootstrap.Modal(mediaModal).show();
+        }
+    }
+
+    // Medya seçildiğinde çalışacak fonksiyon
+    function selectMedia(mediaUrl) {
+        if (currentMediaInput) {
+            // Input değerlerini güncelle
+            document.getElementById(currentMediaInput).value = mediaUrl;
+            
+            // Hangi modalda olduğumuzu kontrol et
+            const isEditModal = currentMediaInput === 'editCategoryImage';
+            
+            // Display input'u güncelle
+            const displayInput = document.getElementById(isEditModal ? 'editCategoryImageDisplay' : 'categoryImageDisplay');
+            if (displayInput) {
+                displayInput.value = mediaUrl;
+            }
+            
+            // Önizleme resmini güncelle
+            const previewImg = document.getElementById(isEditModal ? 'editCategoryImagePreview' : 'categoryImagePreview');
+            if (previewImg) {
+                previewImg.src = '../uploads/' + mediaUrl;
+                previewImg.style.display = 'block';
+            }
+        }
+
+        // Medya modalını kapat
+        const mediaModal = document.getElementById('mediaModal');
+        const bsMediaModal = bootstrap.Modal.getInstance(mediaModal);
+        if (bsMediaModal) {
+            bsMediaModal.hide();
+        }
+
+        // Doğru kategori modalını göster
+        const isEditModal = currentMediaInput === 'editCategoryImage';
+        const modalId = isEditModal ? 'editCategoryModal' : 'addCategoryModal';
+        const categoryModal = document.getElementById(modalId);
+        if (categoryModal) {
+            categoryModal.style.display = 'block';
+            document.body.classList.add('modal-open');
+        }
     }
     </script>
 </body>

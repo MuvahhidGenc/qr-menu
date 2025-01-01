@@ -6,32 +6,49 @@ checkAuth();
 $db = new Database();
 
 try {
-    $table_id = $_POST['table_id'];
-    $payment_method = $_POST['payment_method'];
-    $paid_amount = $_POST['paid_amount'];
-    $payment_note = $_POST['payment_note'];
-    $orders = json_decode($_POST['orders'], true);
+    // JSON verisini al
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$input) {
+        throw new Exception('Geçersiz veri formatı');
+    }
+
+    $table_id = $input['table_id'] ?? null;
+    $payment_method = $input['payment_method'] ?? null;
+    $total_amount = $input['total_amount'] ?? 0;
+    
+    if (!$table_id || !$payment_method) {
+        throw new Exception('Gerekli alanlar eksik');
+    }
 
     $db->beginTransaction();
 
+    // Masadaki aktif siparişleri bul
+    $orders = $db->query(
+        "SELECT id, total_amount FROM orders 
+         WHERE table_id = ? AND payment_id IS NULL 
+         AND status != 'cancelled'",
+        [$table_id]
+    )->fetchAll();
+
     // Ödeme kaydı oluştur
-    $payment_id = $db->query(
+    $db->query(
         "INSERT INTO payments (
             table_id, 
             payment_method, 
             total_amount,
             paid_amount, 
-            payment_note,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, NOW())",
+        ) VALUES (?, ?, ?, ?, NOW())",
         [
             $table_id,
             $payment_method,
-            array_sum(array_column($orders, 'total_amount')),
-            $paid_amount,
-            $payment_note
+            $total_amount,
+            $total_amount
         ]
-    )->lastInsertId();
+    );
+    
+    $payment_id = $db->lastInsertId();
 
     // Siparişleri güncelle
     foreach($orders as $order) {
@@ -49,9 +66,11 @@ try {
     echo json_encode(['success' => true]);
 
 } catch (Exception $e) {
-    $db->rollBack();
+    if (isset($db)) {
+        $db->rollBack();
+    }
     echo json_encode([
         'success' => false,
         'message' => 'Bir hata oluştu: ' . $e->getMessage()
     ]);
-} 
+}

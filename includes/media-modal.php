@@ -66,8 +66,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-primary" onclick="useSelectedMedia()">Seç</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="selectMediaBtn" onclick="useSelectedMedia()" disabled>Seç</button>
             </div>
         </div>
     </div>
@@ -156,42 +156,35 @@
 </style>
 
 <script>
-let selectedFile = '';
-let targetInput = '';
+let selectedMediaItem = null;
 
-function openMediaModal(inputId) {
-    targetInput = inputId;
-    selectedFile = $(`#${inputId}`).val(); // Mevcut seçili dosyayı al
+// Medya seçme fonksiyonu
+function selectMediaItem(img) {
+    const allImages = document.querySelectorAll('.media-item');
+    allImages.forEach(img => img.style.border = 'none');
     
-    // Mevcut seçili dosyayı işaretle
-    $('.media-item').removeClass('selected');
-    if(selectedFile) {
-        $(`.media-item img[src$="${selectedFile}"]`).closest('.media-item').addClass('selected');
-    }
+    img.style.border = '3px solid #0d6efd';
+    selectedMediaItem = img.dataset.filename;
     
-    $('#mediaModal').modal('show');
+    document.getElementById('selectMediaBtn').disabled = false;
 }
 
-// Zaten var olan click event'i güvenli hale getirelim
-function selectMedia(filename, element) {
-    event.stopPropagation(); // Tıklama event'inin yayılmasını engelle
-    selectedFile = filename;
-    $('.media-item').removeClass('selected');
-    $(element).closest('.media-item').addClass('selected');
-}
-
+// Seçilen medyayı kullanma fonksiyonu
 function useSelectedMedia() {
-    if(selectedFile && targetInput) {
-        // Input değerini güncelle
-        $(`#${targetInput}`).val(selectedFile);
-        
-        // Preview'ı güncelle
-        let previewElement = $(`#${targetInput}Preview`);
-        previewElement.attr('src', `/qr-menu/uploads/${selectedFile}`);
-        previewElement.show();
+    if (selectedMediaItem) {
+        // Ana sayfadaki selectMedia fonksiyonunu çağır
+        window.parent.selectMedia(selectedMediaItem);
         
         // Modal'ı kapat
-        $('#mediaModal').modal('hide');
+        const mediaModal = document.getElementById('mediaModal');
+        const bsMediaModal = bootstrap.Modal.getInstance(mediaModal);
+        if (bsMediaModal) {
+            bsMediaModal.hide();
+        }
+        
+        // Seçimi temizle
+        selectedMediaItem = null;
+        document.getElementById('selectMediaBtn').disabled = true;
     }
 }
 

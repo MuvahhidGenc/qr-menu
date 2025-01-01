@@ -224,10 +224,35 @@
     display: none;
 }
 
+.notification-dropdown {
+    position: relative;
+}
+
 .notification-dropdown .dropdown-menu {
-    width: 300px;
+    display: none;
+    position: absolute;
+    right: 0;  /* Sağa hizala */
+    top: 100%; /* Butonun altına hizala */
+    width: 350px;
     max-height: 400px;
     overflow-y: auto;
+    background: white;
+    border: 1px solid rgba(0,0,0,.15);
+    border-radius: 4px;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.175);
+    z-index: 1000;
+    margin-top: 0.5rem;
+    transform-origin: top right;
+}
+
+.notification-dropdown .dropdown-menu.show {
+    display: block;
+}
+
+/* Bootstrap'in varsayılan dropdown davranışını override et */
+.dropdown-menu[data-bs-popper] {
+    right: 0;
+    left: auto;
 }
 
 .notification-header {
@@ -746,6 +771,213 @@
     border-radius: 4px;
 }
 
+/* Bildirim dropdown stilleri */
+.notification-dropdown .dropdown-menu {
+    max-height: 400px;
+    overflow-y: auto;
+    width: 350px;
+    padding: 0;
+}
+
+.notification-dropdown .dropdown-menu.show {
+    display: block !important;
+    transform: translate3d(0px, 40px, 0px) !important;
+}
+
+.notification-header {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.notification-list {
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item.unread {
+    background-color: #f0f7ff;
+}
+
+.unread-indicator {
+    width: 8px;
+    height: 8px;
+    background: #3498db;
+    border-radius: 50%;
+    margin-left: 10px;
+}
+
+/* Bildirim badge stilleri */
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Modern Bildirim Dropdown Stilleri */
+.notification-dropdown .dropdown-menu {
+    min-width: 320px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    background: #fff;
+    margin-top: 12px;
+}
+
+/* Bildirim Header */
+.notification-dropdown .dropdown-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    background: linear-gradient(to right, #f8f9fa, #fff);
+}
+
+.notification-dropdown .dropdown-header h6 {
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+/* Bildirim Listesi */
+.notification-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+/* Bildirim Öğesi */
+.notification-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.notification-item:hover {
+    background: #f8f9fa;
+    border-color: rgba(0,0,0,0.05);
+    transform: translateX(4px);
+}
+
+.notification-item.unread {
+    background: rgba(13,110,253,0.04);
+    border-left: 3px solid #0d6efd;
+}
+
+/* Bildirim İçeriği */
+.notification-item .mb-1 {
+    font-size: 0.9rem;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.notification-item small {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+/* Okunmamış Göstergesi */
+.unread-indicator {
+    width: 8px;
+    height: 8px;
+    background: #0d6efd;
+    border-radius: 50%;
+    margin-left: 8px;
+}
+
+/* Tümünü Okundu İşaretle Butonu */
+.mark-all-read {
+    color: #0d6efd;
+    font-size: 0.85rem;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.mark-all-read:hover {
+    background: rgba(13,110,253,0.1);
+    color: #0b5ed7;
+}
+
+/* Ses Kontrol Butonu */
+#toggleSound {
+    padding: 4px 8px;
+    color: #6c757d;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+#toggleSound:hover {
+    background: rgba(108,117,125,0.1);
+    color: #495057;
+}
+
+/* Scrollbar Stilleri */
+.notification-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.1);
+    border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.2);
+}
+
+/* Dropdown Animasyonu */
+@keyframes dropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-dropdown .dropdown-menu.show {
+    animation: dropdownFade 0.2s ease;
+}
+
+/* Bildirim Badge */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
     </style>
 
     <!-- Diğer head içerikleri -->
@@ -880,6 +1112,16 @@
                                             <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
                                         </svg>
                                         Raporlar
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'financial.php' ? 'active' : '' ?>" 
+                                       href="financial.php">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cash-stack me-2" viewBox="0 0 16 16">
+                                            <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                                            <path d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 0a2 2 0 0 1-2 2v4a2 2 0 0 1 2 2h10a2 2 0 0 1 2-2V7a2 2 0 0 1-2-2H3z"/>
+                                        </svg>
+                                        Finansal Raporlar
                                     </a>
                                 </li>
                             </ul>
@@ -1088,6 +1330,33 @@ document.addEventListener('DOMContentLoaded', function() {
             statisticsPanel.classList.add('show');
             statisticsPanel.previousElementSibling.setAttribute('aria-expanded', 'true');
         }
+    }
+});
+
+// Bootstrap dropdown'ı initialize et
+document.addEventListener('DOMContentLoaded', function() {
+    const dropdownElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+    dropdownElementList.map(function (dropdownToggleEl) {
+        return new bootstrap.Dropdown(dropdownToggleEl);
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const notificationToggle = document.querySelector('.notification-dropdown .nav-link');
+    const notificationMenu = document.querySelector('.notification-dropdown .dropdown-menu');
+    
+    if (notificationToggle && notificationMenu) {
+        notificationToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            notificationMenu.classList.toggle('show');
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!notificationMenu.contains(e.target) && !notificationToggle.contains(e.target)) {
+                notificationMenu.classList.remove('show');
+            }
+        });
     }
 });
 </script>

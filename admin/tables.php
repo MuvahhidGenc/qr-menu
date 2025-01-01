@@ -1026,7 +1026,7 @@ function completePayment() {
         cancelButtonText: 'İptal'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('../ajax/complete_payment.php', {
+            fetch('ajax/complete_payment.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1043,12 +1043,12 @@ function completePayment() {
                     Swal.fire({
                         icon: 'success',
                         title: 'Ödeme Tamamlandı!',
-                        text: 'Ödeme başarıyla kaydedildi',
+                        text: 'Ödeme başarıyla kaydedildi '+paymentMethod,
                         showConfirmButton: false,
                         timer: 1500
                     }).then(() => {
                         $('#paymentModal').modal('hide');
-                        location.reload();
+                        //location.reload();
                     });
                 } else {
                     throw new Error(data.message || 'Bir hata oluştu');
