@@ -1,4 +1,3 @@
-
 <?php
 require_once 'includes/config.php';
 require_once 'includes/cart.php';
@@ -31,6 +30,24 @@ if(isset($_GET['category'])) {
    $category_id = (int)$_GET['category'];
    $stmt = $db->query("SELECT * FROM products WHERE category_id = ? AND status = 1", [$category_id]);
    $products = $stmt->fetchAll();
+}
+
+function checkExistingOrder($db, $table_id) {
+    return $db->query(
+        "SELECT id FROM orders 
+        WHERE table_id = ? 
+        AND status NOT IN ('paid', 'cancelled')
+        ORDER BY created_at DESC 
+        LIMIT 1",
+        [$table_id]
+    )->fetch();
+}
+
+$existingOrder = checkExistingOrder($db, $table_id);
+if ($existingOrder) {
+    $_SESSION['existing_order_id'] = $existingOrder['id'];
+} else {
+    $_SESSION['existing_order_id'] = null;
 }
 
 include 'includes/customer-header.php';

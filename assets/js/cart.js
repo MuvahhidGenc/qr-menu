@@ -133,42 +133,7 @@ function updateCartCount() {
     });
 }
  
- // Siparişi tamamlama fonksiyonu
- function completeOrder() {
-    $.ajax({
-        url: 'ajax/complete_order.php',
-        type: 'POST',
-        dataType: 'json',
-        success: function(response) {
-            if(response.success) {
-                $('#cartModal').modal('hide');
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sipariş Alındı!',
-                    text: 'Siparişiniz başarıyla alındı. Sipariş numaranız: ' + response.order_id,
-                    confirmButtonText: 'Tamam'
-                }).then((result) => {
-                    updateCartCount();
-                    location.reload();
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Hata!',
-                    text: response.message || 'Bir hata oluştu'
-                });
-            }
-        },
-        error: function() {
-            Swal.fire({
-                icon: 'error',
-                title: 'Hata!',
-                text: 'Bir hata oluştu, lütfen tekrar deneyin.'
-            });
-        }
-    });
- }
+ 
 
 //siparişi Tamammla Butonu
  function completeOrder() {

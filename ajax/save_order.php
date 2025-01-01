@@ -30,14 +30,8 @@ try {
         // Sipariş öğelerini ekle
         foreach ($data['items'] as $item) {
             $db->query(
-                "INSERT INTO order_items (order_id, product_id, quantity, price) 
-                 VALUES (?, ?, ?, ?)",
-                [
-                    $orderId,
-                    $item['product_id'],
-                    $item['quantity'],
-                    $item['price']  // Gelen fiyat bilgisini kullan
-                ]
+                "INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)",
+                [$orderId, (int)$item['product_id'], (int)$item['quantity']]
             );
         }
 
