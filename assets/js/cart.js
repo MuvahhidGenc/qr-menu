@@ -165,15 +165,21 @@ function completeOrder() {
         return;
     }
 
-    // Debug için
-    console.log('Sending order request...');
+    // Sipariş notunu al
+    const orderNote = document.getElementById('orderNote').value;
 
-    // Siparişi gönder - complete_order.php kullan
+    // Debug için
+    console.log('Sending order request with note:', orderNote);
+
+    // Siparişi gönder
     fetch('ajax/complete_order.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+            note: orderNote
+        })
     })
     .then(async response => {
         const text = await response.text();

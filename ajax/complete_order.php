@@ -49,6 +49,14 @@ try {
         $total += $product['price'] * $item['quantity'];
     }
 
+    // JSON verisini al
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderNote = $input['note'] ?? null;
+
+    // Debug için
+    error_log('Received JSON input: ' . print_r($input, true));
+    error_log('Received order note: ' . print_r($orderNote, true));
+
     if ($existingOrder && $existingOrder['status'] == 'pending') {
         // Mevcut ödenmemiş siparişe ekleme yap
         $order_id = $existingOrder['id'];
@@ -80,61 +88,86 @@ try {
             }
         }
 
-        // Toplam tutarı güncelle
-        $new_total = $existingOrder['total_amount'] + $total;
-        $db->query(
-            "UPDATE orders SET total_amount = ? WHERE id = ?",
-            [$new_total, $order_id]
-        );
+        // Not varsa, mevcut nota ekle
+        if (!empty($orderNote)) {
+            $currentNote = $db->query(
+                "SELECT note FROM orders WHERE id = ?", 
+                [$order_id]
+            )->fetchColumn();
 
+            $newNote = empty($currentNote) 
+                ? date('H:i') . ": " . $orderNote 
+                : $currentNote . "\n---\n" . date('H:i') . ": " . $orderNote;
+
+            $db->query(
+                "UPDATE orders SET note = ? WHERE id = ?",
+                [$newNote, $order_id]
+            );
+
+            // Debug için
+            error_log('Updated note for order ID: ' . $order_id);
+            error_log('New note content: ' . $newNote);
+        }
+
+        // Toplam tutarı güncelle
+        $db->query(
+            "UPDATE orders 
+            SET total_amount = (
+                SELECT COALESCE(SUM(quantity * price), 0) 
+                FROM order_items 
+                WHERE order_id = ?
+            )
+            WHERE id = ?",
+            [$order_id, $order_id]
+        );
     } else {
         // Yeni sipariş oluştur
-        if (!$existingOrder) {
-            // Önce siparişi oluştur
-            $db->query(
-                "INSERT INTO orders (table_id, total_amount, status, created_at) 
-                VALUES (?, ?, 'pending', NOW())",
-                [$table_id, $total]
-            );
-            
-            $order_id = $db->lastInsertId();
+        $initialNote = !empty($orderNote) ? date('H:i') . ": " . $orderNote : null;
+        
+        $db->query(
+            "INSERT INTO orders (table_id, total_amount, status, note, created_at) 
+            VALUES (?, ?, 'pending', ?, NOW())",
+            [$table_id, $total, $initialNote]
+        );
+        
+        $order_id = $db->lastInsertId();
+        error_log('Created new order with ID: ' . $order_id . ' and note: ' . $initialNote);
+        
+        // Sipariş detaylarını kaydet
+        foreach ($cart_items as $key => $item) {
+            $product = $db->query(
+                "SELECT id, price FROM products WHERE id = ?",
+                [$key]
+            )->fetch();
 
-            // Sipariş detaylarını kaydet
-            foreach ($cart_items as $key => $item) {
-                $product = $db->query(
-                    "SELECT id, price FROM products WHERE id = ?",
-                    [$key]
-                )->fetch();
-
-                if (!$product) {
-                    throw new Exception('Ürün bulunamadı!');
-                }
-
-                // Ürün detaylarını kaydet (name sütununu kaldırdık)
-                $db->query(
-                    "INSERT INTO order_items (order_id, product_id, quantity, price) 
-                    VALUES (?, ?, ?, ?)",
-                    [
-                        $order_id,
-                        $product['id'],
-                        $item['quantity'],
-                        $product['price']
-                    ]
-                );
+            if (!$product) {
+                throw new Exception('Ürün bulunamadı!');
             }
 
-            // Toplam tutarı güncelle
+            // Ürün detaylarını kaydet (name sütununu kaldırdık)
             $db->query(
-                "UPDATE orders 
-                SET total_amount = (
-                    SELECT COALESCE(SUM(quantity * price), 0) 
-                    FROM order_items 
-                    WHERE order_id = ?
-                )
-                WHERE id = ?",
-                [$order_id, $order_id]
+                "INSERT INTO order_items (order_id, product_id, quantity, price) 
+                VALUES (?, ?, ?, ?)",
+                [
+                    $order_id,
+                    $product['id'],
+                    $item['quantity'],
+                    $product['price']
+                ]
             );
         }
+
+        // Toplam tutarı güncelle
+        $db->query(
+            "UPDATE orders 
+            SET total_amount = (
+                SELECT COALESCE(SUM(quantity * price), 0) 
+                FROM order_items 
+                WHERE order_id = ?
+            )
+            WHERE id = ?",
+            [$order_id, $order_id]
+        );
     }
 
     // Bildirim oluştur

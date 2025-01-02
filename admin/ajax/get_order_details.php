@@ -36,8 +36,17 @@ try {
         <div class="mb-3">
             <strong>Sipariş No:</strong> #'.$order['id'].'<br>
             <strong>Masa:</strong> '.$order['table_no'].'<br>
-            <strong>Tarih:</strong> '.date('d.m.Y H:i', strtotime($order['created_at'])).'
-        </div>
+            <strong>Tarih:</strong> '.date('d.m.Y H:i', strtotime($order['created_at']));
+
+    // Sipariş notu varsa göster
+    if (!empty($order['note'])) {
+        $html .= '<br><div class="alert alert-info mt-2">
+            <strong>Sipariş Notu:</strong><br>
+            '.htmlspecialchars($order['note']).'
+        </div>';
+    }
+
+    $html .= '</div>
         
         <div class="table-responsive">
             <table class="table">

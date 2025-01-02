@@ -1010,7 +1010,29 @@ function saveNewItems() {
 
 // Ödemeyi tamamla
 function completePayment() {
-    const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+    // Önce yeni eklenen ürünleri kontrol et
+    if (Object.keys(paymentItems).length > 0) {
+        Swal.fire({
+            title: 'Bekleyen Siparişler',
+            text: 'Kaydedilmemiş yeni siparişler var. Önce bu siparişleri kaydetmeniz gerekmektedir.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Siparişleri Kaydet',
+            cancelButtonText: 'İptal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                saveNewItems(); // Yeni siparişleri kaydet
+            }
+        });
+        return;
+    }
+
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+    
+    if (!paymentMethod) {
+        Swal.fire('Uyarı!', 'Lütfen bir ödeme yöntemi seçin', 'warning');
+        return;
+    }
     
     if (currentTotal <= 0) {
         Swal.fire('Uyarı!', 'Ödenecek tutar bulunamadı', 'warning');
@@ -1019,7 +1041,7 @@ function completePayment() {
 
     Swal.fire({
         title: 'Ödeme Onayı',
-        text: `Toplam ${currentTotal.toFixed(2)} ₺ tutarındaki ödemeyi ${paymentMethod === 'cash' ? 'nakit' : 'POS'} ile tamamlamak istiyor musunuz?`,
+        text: `Toplam ${formatPrice(currentTotal)} tutarındaki ödemeyi ${paymentMethod === 'cash' ? 'nakit' : 'POS'} ile tamamlamak istiyor musunuz?`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Evet, Tamamla',
@@ -1043,12 +1065,12 @@ function completePayment() {
                     Swal.fire({
                         icon: 'success',
                         title: 'Ödeme Tamamlandı!',
-                        text: 'Ödeme başarıyla kaydedildi '+paymentMethod,
+                        text: 'Ödeme başarıyla kaydedildi',
                         showConfirmButton: false,
                         timer: 1500
                     }).then(() => {
                         $('#paymentModal').modal('hide');
-                        //location.reload();
+                        location.reload();
                     });
                 } else {
                     throw new Error(data.message || 'Bir hata oluştu');
