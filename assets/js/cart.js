@@ -151,34 +151,85 @@ function updateCartCount() {
 
 //siparişi Tamammla Butonu
 function completeOrder() {
-    let note = document.getElementById('orderNote').value;
+    // Sepet içeriğini kontrol et
+    const cartItemsContainer = document.getElementById('cartItems');
+    const cartContent = cartItemsContainer ? cartItemsContainer.innerHTML : '';
     
-    fetch('process-order.php', {
+    // Sepet boş kontrolü
+    if (cartContent.includes('Sepetiniz boş')) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Sepet Boş',
+            text: 'Lütfen sipariş vermek için ürün ekleyin.'
+        });
+        return;
+    }
+
+    // Debug için
+    console.log('Sending order request...');
+
+    // Siparişi gönder - complete_order.php kullan
+    fetch('ajax/complete_order.php', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            action: 'complete_order',
-            note: note
-        })
+            'Content-Type': 'application/json'
+        }
     })
-    .then(response => response.json())
+    .then(async response => {
+        const text = await response.text();
+        console.log('Server response:', text); // Debug için
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            throw new Error('Sunucu yanıtı geçersiz');
+        }
+    })
     .then(data => {
         if (data.success) {
+            // Sepeti temizle
+            if (cartItemsContainer) {
+                cartItemsContainer.innerHTML = '<div class="text-center p-3">Sepetiniz boş</div>';
+            }
+            
+            // Toplam tutarı sıfırla
+            const cartTotal = document.getElementById('cartTotal');
+            if (cartTotal) {
+                cartTotal.textContent = '0.00 ₺';
+            }
+            
+            // Badge'i güncelle
+            const cartBadge = document.getElementById('cartBadge');
+            if (cartBadge) {
+                cartBadge.style.display = 'none';
+            }
+            
+            // Modal'ı kapat
+            const cartModal = bootstrap.Modal.getInstance(document.getElementById('cartModal'));
+            if (cartModal) {
+                cartModal.hide();
+            }
+
+            // Başarı mesajı göster
             Swal.fire({
+                icon: 'success',
                 title: 'Başarılı!',
-                text: 'Siparişiniz alındı.',
-                icon: 'success'
+                text: data.message || 'Siparişiniz alındı',
+                timer: 2000,
+                showConfirmButton: false
             }).then(() => {
-                window.location.href = 'orders.php';
+                window.location.reload();
             });
         } else {
-            Swal.fire({
-                title: 'Hata!',
-                text: data.message || 'Bir hata oluştu.',
-                icon: 'error'
-            });
+            throw new Error(data.message || 'Sipariş işlenirken bir hata oluştu');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Hata!',
+            text: error.message || 'Sipariş işlenirken bir hata oluştu'
+        });
     });
 }

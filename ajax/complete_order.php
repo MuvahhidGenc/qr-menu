@@ -89,20 +89,50 @@ try {
 
     } else {
         // Yeni sipariş oluştur
-        $db->query(
-            "INSERT INTO orders (table_id, total_amount, status) 
-            VALUES (?, ?, 'pending')",
-            [$table_id, $total]
-        );
-        
-        $order_id = $db->lastInsertId();
-
-        // Sipariş detaylarını kaydet
-        foreach ($cart_items as $item) {
+        if (!$existingOrder) {
+            // Önce siparişi oluştur
             $db->query(
-                "INSERT INTO order_items (order_id, product_id, quantity, price) 
-                VALUES (?, ?, ?, ?)",
-                [$order_id, $item['product_id'], $item['quantity'], $item['price']]
+                "INSERT INTO orders (table_id, total_amount, status, created_at) 
+                VALUES (?, ?, 'pending', NOW())",
+                [$table_id, $total]
+            );
+            
+            $order_id = $db->lastInsertId();
+
+            // Sipariş detaylarını kaydet
+            foreach ($cart_items as $key => $item) {
+                $product = $db->query(
+                    "SELECT id, price FROM products WHERE id = ?",
+                    [$key]
+                )->fetch();
+
+                if (!$product) {
+                    throw new Exception('Ürün bulunamadı!');
+                }
+
+                // Ürün detaylarını kaydet (name sütununu kaldırdık)
+                $db->query(
+                    "INSERT INTO order_items (order_id, product_id, quantity, price) 
+                    VALUES (?, ?, ?, ?)",
+                    [
+                        $order_id,
+                        $product['id'],
+                        $item['quantity'],
+                        $product['price']
+                    ]
+                );
+            }
+
+            // Toplam tutarı güncelle
+            $db->query(
+                "UPDATE orders 
+                SET total_amount = (
+                    SELECT COALESCE(SUM(quantity * price), 0) 
+                    FROM order_items 
+                    WHERE order_id = ?
+                )
+                WHERE id = ?",
+                [$order_id, $order_id]
             );
         }
     }
