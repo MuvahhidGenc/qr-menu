@@ -156,14 +156,18 @@ async function completeOrder() {
         const cartResponse = await fetch('ajax/get_cart.php');
         const cartData = await cartResponse.json();
         
-        if (!cartData.success || !cartData.items || cartData.items.length === 0) {
+        // Debug için sepet verilerini konsola yazdır
+        console.log('Sepet Verileri:', cartData);
+        
+        // Sepet kontrolünü düzelt
+        if (!cartData.success || cartData.total <= 0) {  // items yerine total kontrolü
             Swal.fire({
                 icon: 'warning',
                 title: 'Sepet Boş!',
                 text: 'Lütfen sipariş vermek için sepetinize ürün ekleyin.',
                 confirmButtonText: 'Tamam'
             });
-            return; // Fonksiyonu burada sonlandır
+            return;
         }
 
         // Sepet doluysa devam et
@@ -180,27 +184,45 @@ async function completeOrder() {
             // Özel modal HTML'i
             const modalHtml = `
                 <div class="modal fade" id="orderCodeModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Sipariş Kodu</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow">
+                            <div class="modal-header border-0 bg-primary text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-key me-2"></i>Sipariş Kodu
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body p-4">
+                                <div class="text-center mb-4">
+                                    <div class="mb-3">
+                                        <i class="fas fa-lock fa-3x text-primary"></i>
+                                    </div>
+                                    <p class="lead mb-1">Lütfen ${settings.code_length} haneli sipariş kodunu giriniz</p>
+                                    <small class="text-muted">Sipariş kodunuz masa üzerindeki QR ile birlikte verilmiştir</small>
+                                </div>
                                 <div class="form-group">
-                                    <label for="codeInput" class="form-label">Lütfen ${settings.code_length} haneli sipariş kodunu giriniz</label>
-                                    <input type="text" 
-                                           class="form-control text-center" 
-                                           id="codeInput" 
-                                           maxlength="${settings.code_length}" 
-                                           placeholder="Örn: 1234"
-                                           style="font-size: 1.2em; letter-spacing: 2px;">
-                                    <div class="invalid-feedback">Lütfen geçerli bir kod giriniz</div>
+                                    <div class="position-relative">
+                                        <input type="text" 
+                                            class="form-control form-control-lg text-center border-2" 
+                                            id="codeInput" 
+                                            maxlength="${settings.code_length}" 
+                                            placeholder="● ● ● ●"
+                                            style="font-size: 1.5em; letter-spacing: 8px; font-weight: bold;">
+                                        <div class="invalid-feedback text-center"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" id="confirmCode">Onayla</button>
+                            <div class="modal-footer border-0 justify-content-center">
+                                <button type="button" 
+                                        class="btn btn-secondary px-4" 
+                                        data-bs-dismiss="modal">
+                                    <i class="fas fa-times me-2"></i>İptal
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-primary px-4" 
+                                        id="confirmCode">
+                                    <i class="fas fa-check me-2"></i>Onayla
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -326,7 +348,7 @@ async function completeOrder() {
                 title: 'Başarılı!',
                 text: 'Siparişiniz alındı.',
                 showConfirmButton: false,
-                timer: 1500
+                timer: 15000
             });
             window.location.href = 'orders.php';
         } else {
@@ -365,3 +387,71 @@ function verifyOrderCode(code) {
         Swal.fire('Hata!', 'Kod doğrulama hatası', 'error');
     });
 }
+
+// Input stil ve davranışları için
+document.addEventListener('DOMContentLoaded', function() {
+    // Input'a fokus olduğunda stil değişimi
+    $(document).on('focus', '#codeInput', function() {
+        $(this).addClass('border-primary');
+    });
+
+    // Input'tan çıkıldığında stil değişimi
+    $(document).on('blur', '#codeInput', function() {
+        $(this).removeClass('border-primary');
+    });
+
+    // Sadece rakam girişine izin ver
+    $(document).on('keypress', '#codeInput', function(e) {
+        if (e.which < 48 || e.which > 57) {
+            e.preventDefault();
+        }
+    });
+
+    // Input değeri değiştiğinde animasyon
+    $(document).on('input', '#codeInput', function() {
+        $(this).removeClass('is-invalid');
+        if ($(this).val().length === parseInt(settings.code_length)) {
+            $('#confirmCode').addClass('btn-pulse');
+        } else {
+            $('#confirmCode').removeClass('btn-pulse');
+        }
+    });
+});
+
+// Pulse animasyonu için CSS
+const style = document.createElement('style');
+style.textContent = `
+    .btn-pulse {
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(var(--bs-primary-rgb), 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0);
+        }
+    }
+    #orderCodeModal .modal-content {
+        border-radius: 15px;
+    }
+    #orderCodeModal .modal-header {
+        border-radius: 15px 15px 0 0;
+    }
+    #codeInput {
+        border-radius: 10px;
+        height: 60px;
+        transition: all 0.3s ease;
+    }
+    #codeInput:focus {
+        box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+    }
+    .invalid-feedback {
+        font-size: 0.9em;
+        margin-top: 0.5rem;
+    }
+`;
+document.head.appendChild(style);

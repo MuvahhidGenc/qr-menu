@@ -78,46 +78,7 @@ include 'includes/customer-header.php';
             background-color: #f8f9fa;
         }
 
-        .swal2-input-numeric {
-    text-align: center !important;
-    font-size: 1.2em !important;
-    letter-spacing: 2px !important;
-}
-
-.swal2-popup {
-    width: 32em !important;
-}
-
-.swal2-input {
-    margin: 1em auto !important;
-}
-.swal2-popup .swal2-input {
-    display: block !important;
-    width: 100% !important;
-    padding: 0.5em !important;
-    border: 1px solid #ddd !important;
-    border-radius: 4px !important;
-    font-size: 1.2em !important;
-    text-align: center !important;
-    margin: 1em auto !important;
-}
-
-.swal2-popup .swal2-input:focus {
-    border-color: #3085d6 !important;
-    box-shadow: 0 0 0 3px rgba(48,133,214,.3) !important;
-}
-
-/* Artırma/azaltma oklarını gizle */
-.swal2-popup .swal2-input::-webkit-outer-spin-button,
-.swal2-popup .swal2-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.swal2-popup .swal2-input[type=number] {
-    -moz-appearance: textfield;
-}
-
+      
         .hero-section {
             background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
                         url('assets/images/restaurant-bg.jpg');
