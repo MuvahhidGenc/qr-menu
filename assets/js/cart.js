@@ -150,32 +150,196 @@ function updateCartCount() {
  
 
 //siparişi Tamammla Butonu
-function completeOrder() {
-    // Ayarları kontrol et
-    fetch('ajax/check_order_settings.php')
-    .then(response => response.json())
-    .then(settings => {
-        if (settings.order_code_required) {
-            // Kod gerekli, kullanıcıdan iste
+async function completeOrder() {
+    try {
+        // Önce sepet kontrolü yap
+        const cartResponse = await fetch('ajax/get_cart.php');
+        const cartData = await cartResponse.json();
+        
+        if (!cartData.success || !cartData.items || cartData.items.length === 0) {
             Swal.fire({
-                title: 'Sipariş Kodu',
-                input: 'text',
-                inputLabel: 'Lütfen masa için verilen sipariş kodunu girin',
-                inputValidator: (value) => {
-                    if (!value) {
-                        return 'Sipariş kodu gerekli!';
-                    }
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    verifyOrderCode(result.value);
-                }
+                icon: 'warning',
+                title: 'Sepet Boş!',
+                text: 'Lütfen sipariş vermek için sepetinize ürün ekleyin.',
+                confirmButtonText: 'Tamam'
             });
-        } else {
-            // Kod gerekli değil, normal sipariş işlemine devam et
-            submitOrder();
+            return; // Fonksiyonu burada sonlandır
         }
-    });
+
+        // Sepet doluysa devam et
+        const settingsResponse = await fetch('ajax/check_order_settings.php');
+        if (!settingsResponse.ok) {
+            throw new Error('Sipariş ayarları alınamadı');
+        }
+        
+        const settings = await settingsResponse.json();
+        let orderCode = null;
+        
+        // Eğer kod gerekli ise
+        if (settings.code_required) {
+            // Özel modal HTML'i
+            const modalHtml = `
+                <div class="modal fade" id="orderCodeModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Sipariş Kodu</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="codeInput" class="form-label">Lütfen ${settings.code_length} haneli sipariş kodunu giriniz</label>
+                                    <input type="text" 
+                                           class="form-control text-center" 
+                                           id="codeInput" 
+                                           maxlength="${settings.code_length}" 
+                                           placeholder="Örn: 1234"
+                                           style="font-size: 1.2em; letter-spacing: 2px;">
+                                    <div class="invalid-feedback">Lütfen geçerli bir kod giriniz</div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" id="confirmCode">Onayla</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Modal'ı sayfaya ekle
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Modal nesnesini oluştur
+            const modal = new bootstrap.Modal(document.getElementById('orderCodeModal'));
+            
+            // Kod girişini bekle
+            orderCode = await new Promise((resolve) => {
+                const modalElement = document.getElementById('orderCodeModal');
+                const input = document.getElementById('codeInput');
+                const confirmBtn = document.getElementById('confirmCode');
+                
+                // Input'a fokus ver
+                modalElement.addEventListener('shown.bs.modal', () => {
+                    input.focus();
+                });
+
+                // Enter tuşu ile onaylama
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmBtn.click();
+                    }
+                });
+
+                // Onay butonu tıklaması
+                confirmBtn.addEventListener('click', async () => {
+                    const value = input.value;
+                    if (!value || value.length !== parseInt(settings.code_length) || !/^\d+$/.test(value)) {
+                        input.classList.add('is-invalid');
+                        return;
+                    }
+
+                    // Kodu doğrula
+                    try {
+                        console.log('Gönderilen kod:', value); // Debug log
+
+                        const verifyResponse = await fetch('ajax/verify_order_code.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ code: value })
+                        });
+
+                        const verifyResult = await verifyResponse.json();
+                        console.log('Doğrulama sonucu:', verifyResult); // Debug log
+
+                        if (!verifyResult.success) {
+                            input.classList.add('is-invalid');
+                            input.nextElementSibling.textContent = verifyResult.message || 'Geçersiz sipariş kodu';
+                            // Hata detaylarını konsola yazdır
+                            if (verifyResult.debug) {
+                                console.log('Hata detayları:', verifyResult.debug);
+                            }
+                            return;
+                        }
+
+                        modal.hide();
+                        resolve(value);
+                    } catch (error) {
+                        console.error('Doğrulama hatası:', error); // Debug log
+                        input.classList.add('is-invalid');
+                        input.nextElementSibling.textContent = 'Kod doğrulama hatası';
+                    }
+                });
+
+                // Modal kapatıldığında
+                modalElement.addEventListener('hidden.bs.modal', () => {
+                    resolve(null);
+                    modalElement.remove(); // Modal'ı DOM'dan kaldır
+                });
+
+                // Input değiştiğinde hata durumunu temizle
+                input.addEventListener('input', () => {
+                    input.classList.remove('is-invalid');
+                });
+
+                // Modal'ı göster
+                modal.show();
+            });
+
+            // Eğer kod girilmediyse veya iptal edildiyse
+            if (!orderCode) {
+                return;
+            }
+        }
+
+        // Siparişi kaydet
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableId = urlParams.get('table');
+
+        if (!tableId) {
+            throw new Error('Masa bilgisi bulunamadı!');
+        }
+
+        const response = await fetch('ajax/complete_order.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                table_id: tableId,
+                note: document.getElementById('orderNote')?.value || ''
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Sipariş tamamlanamadı');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            await Swal.fire({
+                icon: 'success',
+                title: 'Başarılı!',
+                text: 'Siparişiniz alındı.',
+                showConfirmButton: false,
+                timer: 1500
+            });
+            window.location.href = 'orders.php';
+        } else {
+            throw new Error(result.error || 'Sipariş tamamlanamadı');
+        }
+
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Hata!',
+            text: error.message
+        });
+    }
 }
 
 function verifyOrderCode(code) {
