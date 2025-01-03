@@ -1452,6 +1452,45 @@ function deleteTable(tableId) {
         }
     });
 }
+
+// Sipariş kodu üret
+function generateOrderCode(tableId) {
+    Swal.fire({
+        title: 'Sipariş Kodu Üret',
+        text: 'Bu masa için yeni bir sipariş kodu üretilecek. Onaylıyor musunuz?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Evet, Üret',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('ajax/generate_order_code.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    table_id: tableId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Kod Üretildi!',
+                        html: `Yeni sipariş kodu: <strong>${data.code}</strong>`,
+                        icon: 'success'
+                    }).then(() => location.reload());
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
+}
 </script>
 
 <!-- QR Code kütüphanesi -->

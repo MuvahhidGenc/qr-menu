@@ -30,6 +30,15 @@ foreach($result as $row) {
    $settings[$row['setting_key']] = $row['setting_value'];
 }
 
+// Ayarları getir
+$settings = $db->query("SELECT * FROM settings LIMIT 1")->fetch();
+
+// Varsayılan değerleri ayarla
+$settings = array_merge([
+    'order_code_required' => 0,
+    'order_code_length' => '4'
+], $settings ?: []);
+
 include 'navbar.php';
 ?>
 
@@ -311,8 +320,9 @@ include 'navbar.php';
        </div>
    </div>
 </div>
-</div>
-</div>
+
+
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -322,6 +332,40 @@ include 'navbar.php';
 }
 document.querySelector('input[name="theme_color"]').addEventListener('input', function(e) {
    document.querySelector('.text-muted').textContent = 'Seçilen renk: ' + e.target.value;
+});
+
+document.getElementById('orderCodeSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        order_code_required: document.getElementById('orderCodeRequired').checked ? 1 : 0,
+        order_code_length: document.getElementById('orderCodeLength').value
+    };
+    
+    fetch('ajax/save_settings.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Başarılı!',
+                text: 'Ayarlar kaydedildi',
+                showConfirmButton: false,
+                timer: 1500
+            });
+        } else {
+            throw new Error(data.message || 'Bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Hata!', error.message, 'error');
+    });
 });
 </script>
 <?php include '../includes/media-modal.php'; ?>

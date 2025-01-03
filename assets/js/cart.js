@@ -151,91 +151,53 @@ function updateCartCount() {
 
 //siparişi Tamammla Butonu
 function completeOrder() {
-    // Sepet içeriğini kontrol et
-    const cartItemsContainer = document.getElementById('cartItems');
-    const cartContent = cartItemsContainer ? cartItemsContainer.innerHTML : '';
-    
-    // Sepet boş kontrolü
-    if (cartContent.includes('Sepetiniz boş')) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Sepet Boş',
-            text: 'Lütfen sipariş vermek için ürün ekleyin.'
-        });
-        return;
-    }
+    // Ayarları kontrol et
+    fetch('ajax/check_order_settings.php')
+    .then(response => response.json())
+    .then(settings => {
+        if (settings.order_code_required) {
+            // Kod gerekli, kullanıcıdan iste
+            Swal.fire({
+                title: 'Sipariş Kodu',
+                input: 'text',
+                inputLabel: 'Lütfen masa için verilen sipariş kodunu girin',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Sipariş kodu gerekli!';
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    verifyOrderCode(result.value);
+                }
+            });
+        } else {
+            // Kod gerekli değil, normal sipariş işlemine devam et
+            submitOrder();
+        }
+    });
+}
 
-    // Sipariş notunu al
-    const orderNote = document.getElementById('orderNote').value;
-
-    // Debug için
-    console.log('Sending order request with note:', orderNote);
-
-    // Siparişi gönder
-    fetch('ajax/complete_order.php', {
+function verifyOrderCode(code) {
+    fetch('ajax/verify_order_code.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            note: orderNote
+            table_id: currentTableId,
+            code: code
         })
     })
-    .then(async response => {
-        const text = await response.text();
-        console.log('Server response:', text); // Debug için
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            console.error('JSON parse error:', e);
-            throw new Error('Sunucu yanıtı geçersiz');
-        }
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Sepeti temizle
-            if (cartItemsContainer) {
-                cartItemsContainer.innerHTML = '<div class="text-center p-3">Sepetiniz boş</div>';
-            }
-            
-            // Toplam tutarı sıfırla
-            const cartTotal = document.getElementById('cartTotal');
-            if (cartTotal) {
-                cartTotal.textContent = '0.00 ₺';
-            }
-            
-            // Badge'i güncelle
-            const cartBadge = document.getElementById('cartBadge');
-            if (cartBadge) {
-                cartBadge.style.display = 'none';
-            }
-            
-            // Modal'ı kapat
-            const cartModal = bootstrap.Modal.getInstance(document.getElementById('cartModal'));
-            if (cartModal) {
-                cartModal.hide();
-            }
-
-            // Başarı mesajı göster
-            Swal.fire({
-                icon: 'success',
-                title: 'Başarılı!',
-                text: data.message || 'Siparişiniz alındı',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => {
-                window.location.reload();
-            });
+            submitOrder(); // Kod doğru, siparişi gönder
         } else {
-            throw new Error(data.message || 'Sipariş işlenirken bir hata oluştu');
+            Swal.fire('Hata!', 'Geçersiz sipariş kodu', 'error');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Hata!',
-            text: error.message || 'Sipariş işlenirken bir hata oluştu'
-        });
+        Swal.fire('Hata!', 'Kod doğrulama hatası', 'error');
     });
 }

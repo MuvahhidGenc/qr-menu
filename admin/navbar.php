@@ -1074,6 +1074,12 @@
                             <i class="fas fa-star me-2"></i>Değerlendirmeler
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo $currentPage == 'order_settings.php' ? 'active' : ''; ?>" href="order_settings.php">
+                            <i class="fas fa-cog me-2"></i>
+                            Sipariş Ayarları
+                        </a>
+                    </li>
                 </ul>
             </nav>
         </div>
