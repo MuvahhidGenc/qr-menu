@@ -7,12 +7,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('reports.view')) {
+    header('Location: dashboard.php');
     exit();
 }
-include 'navbar.php';
 
 $db = new Database();
 

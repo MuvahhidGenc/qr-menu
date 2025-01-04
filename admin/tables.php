@@ -1,19 +1,45 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('tables.view')) {
+    header('Location: dashboard.php');
     exit();
 }
-include 'navbar.php';
 
+// Yetki kontrollerini en başta tanımla
+$canViewTables = hasPermission('tables.view');
+$canManageTables = hasPermission('tables.manage');
+$canTakePayment = hasPermission('tables.payment');
+$canViewSales = hasPermission('tables.sales');
+$canAddOrder = hasPermission('tables.add_order');
+$canEditOrder = hasPermission('tables.edit_order');
+$canDeleteOrder = hasPermission('tables.delete_order');
+$canSaveOrder = hasPermission('tables.save_order');
+
+// Bu değişkenleri JavaScript'e aktaralım
+?>
+<script>
+// Yetki değişkenlerini JavaScript'te tanımla
+const userPermissions = {
+    canViewTables: <?php echo $canViewTables ? 'true' : 'false' ?>,
+    canManageTables: <?php echo $canManageTables ? 'true' : 'false' ?>,
+    canTakePayment: <?php echo $canTakePayment ? 'true' : 'false' ?>,
+    canViewSales: <?php echo $canViewSales ? 'true' : 'false' ?>,
+    canAddOrder: <?php echo $canAddOrder ? 'true' : 'false' ?>,
+    canEditOrder: <?php echo $canEditOrder ? 'true' : 'false' ?>,
+    canDeleteOrder: <?php echo $canDeleteOrder ? 'true' : 'false' ?>,
+    canSaveOrder: <?php echo $canSaveOrder ? 'true' : 'false' ?>
+};
+</script>
+<?php include 'navbar.php'; ?>  
+
+<?php
 $db = new Database();
 $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
 
@@ -408,9 +434,11 @@ error_log('Active Products: ' . $dbCheck['active_products']);
             <h2 class="mb-0">
                 <i class="fas fa-chair me-2"></i>Masalar
             </h2>
-            <button type="button" class="btn btn-primary" onclick="showAddTableModal()">
-                <i class="fas fa-plus"></i> Yeni Masa
-            </button>
+            <?php if ($canManageTables): ?>
+                <button type="button" class="btn btn-primary" onclick="showAddTableModal()">
+                    <i class="fas fa-plus"></i> Yeni Masa
+                </button>
+            <?php endif; ?>
         </div>
 
         <!-- Masalar Grid -->
@@ -458,18 +486,23 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                             </div>
                             
                             <div class="d-grid gap-2">
-                                <button class="btn btn-primary" onclick="openPaymentModal(<?= $table['id'] ?>)">
-                                    <i class="fas fa-cash-register me-2"></i>Satış Ekranı
-                                </button>
+                                <?php if ($canViewSales): ?>
+                                    <button class="btn btn-primary" onclick="openPaymentModal(<?= $table['id'] ?>)">
+                                        <i class="fas fa-cash-register me-2"></i>Satış Ekranı
+                                    </button>
+                                <?php endif; ?>
+
                                 <div class="btn-group">
-                                    <button class="btn btn-info btn-sm" onclick="showQRCode(<?= $table['id'] ?>)">
+                                    <?php if ($canManageTables): ?>
+                                        <button class="btn btn-outline-primary" onclick="editTable(<?= $table['id'] ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteTable(<?= $table['id'] ?>)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    <button class="btn btn-outline-info" onclick="showQRCode(<?= $table['id'] ?>)">
                                         <i class="fas fa-qrcode"></i>
-                                    </button>
-                                    <button class="btn btn-primary btn-sm" onclick="editTable(<?= $table['id'] ?>)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteTable(<?= $table['id'] ?>)">
-                                        <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
@@ -588,7 +621,7 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                                     </div>
                                     
                                     <!-- Ödeme Yöntemi Seçimi -->
-                                    <div class="payment-methods mb-3">
+                                    <div class="payment-methods mb-3" style="display: <?= $canTakePayment ? 'block' : 'none' ?>">
                                         <div class="row g-2">
                                             <div class="col-6">
                                                 <input type="radio" class="btn-check" name="payment_method" id="cash" value="cash" checked>
@@ -608,12 +641,19 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                                     </div>
 
                                     <div class="d-grid gap-2">
-                                        <button type="button" class="btn btn-success" onclick="completePayment()">
-                                            <i class="fas fa-check-circle me-2"></i>Ödemeyi Tamamla
-                                        </button>
-                                        <button type="button" class="btn btn-primary" onclick="saveNewItems()">
-                                            <i class="fas fa-save me-2"></i>Siparişi Kaydet
-                                        </button>
+                                        <div class="payment-buttons-container">
+                                            <?php if ($canTakePayment): ?>
+                                                <button type="button" class="btn btn-success w-100" onclick="completePayment()">
+                                                    <i class="fas fa-check-circle me-2"></i>Ödemeyi Tamamla
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <?php if ($canSaveOrder): ?>
+                                            <button type="button" class="btn btn-primary" onclick="saveNewItems()">
+                                                <i class="fas fa-save me-2"></i>Siparişi Kaydet
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -762,7 +802,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Satış ekranını aç
 window.openPaymentModal = function(tableId) {
-    currentTableId = parseInt(tableId);
+    if (!userPermissions.canViewSales) {
+        Swal.fire('Yetkisiz İşlem', 'Satış ekranını görüntüleme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+    
+    currentTableId = tableId;
     console.log('Opening modal for table:', currentTableId);
 
     // Masa bilgisini güncelle
@@ -784,6 +829,10 @@ window.openPaymentModal = function(tableId) {
 
 // Ürün ekle
 function addToPaymentOrder(productId, productName, productPrice) {
+    if (!userPermissions.canAddOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş ekleme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
     console.log('Adding Product:', { productId, productName, productPrice });
 
     if (!paymentItems[productId]) {
@@ -865,71 +914,101 @@ function updateNewOrderItems() {
 }
 
 // Masa siparişlerini yükle
-function loadTableOrders(tableId) {
-    fetch(`../ajax/get_table_orders.php?table_id=${tableId}`)
-        .then(response => response.json())
-        .then(orders => {
-            const container = document.getElementById('paymentOrderDetails');
+function loadTableOrders(tableId, retryCount = 0) {
+    console.log('Loading orders for table:', tableId);
+
+    const container = document.getElementById('paymentOrderDetails');
+    if (!container) {
+        console.error('Container not found, retry count:', retryCount);
+        
+        if (retryCount < 3) {
+            setTimeout(() => loadTableOrders(tableId, retryCount + 1), 100);
+            return;
+        } else {
+            console.error('Container could not be found after 3 retries');
+            return;
+        }
+    }
+
+    fetch('ajax/get_table_orders.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ table_id: tableId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Received orders data:', data);
+
+        if (data.success) {
             let html = '';
             let total = 0;
 
-            if (orders && orders.length > 0) {
-                orders.forEach(order => {
-                    if (order && order.items && order.items.length > 0) {
-                        order.items.forEach(item => {
-                            const itemTotal = parseFloat(item.price) * parseInt(item.quantity);
-                            total += itemTotal;
+            if (data.orders.length === 0) {
+                html = '<div class="alert alert-info">Henüz sipariş bulunmuyor.</div>';
+            } else {
+                data.orders.forEach(order => {
+                    const itemTotal = parseFloat(order.total);
+                    total += itemTotal;
 
-                            html += `
-                                <div class="order-item mb-2">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <div class="fw-bold">${item.name}</div>
-                                            <div class="text-muted small">
-                                                ${item.quantity} x ${formatPrice(item.price)}
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-secondary" 
-                                                        onclick="updateOrderQuantity(${order.id}, ${item.id}, -1)">
-                                                    <i class="fas fa-minus"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-secondary" 
-                                                        onclick="updateOrderQuantity(${order.id}, ${item.id}, 1)">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger" 
-                                                        onclick="removeOrderItem(${order.id}, ${item.id})">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                            <span class="text-primary fw-bold">
-                                                ${formatPrice(itemTotal)}
-                                            </span>
-                                        </div>
+                    html += `
+                        <div class="order-item mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="fw-bold">${order.product_name}</span>
+                                    <div class="text-muted small">
+                                        ${order.quantity} x ${formatPrice(order.price)}
+                                        <span class="badge ${order.status === 'pending' ? 'bg-warning' : 'bg-info'} ms-2">
+                                            ${order.status === 'pending' ? 'Bekliyor' : 'Hazırlanıyor'}
+                                        </span>
                                     </div>
                                 </div>
-                            `;
-                        });
-                    }
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="updateOrderQuantity(${order.order_id}, ${order.item_id}, -1)">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <span class="btn btn-outline-secondary disabled">
+                                            ${order.quantity}
+                                        </span>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="updateOrderQuantity(${order.order_id}, ${order.item_id}, 1)">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                                            onclick="removeOrderItem(${order.order_id}, ${order.item_id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <span class="text-primary fw-bold">
+                                        ${formatPrice(itemTotal)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 });
-            }
-
-            // Sipariş yoksa mesaj göster
-            if (!html) {
-                html = '<div class="text-center text-muted p-3">Henüz sipariş bulunmuyor</div>';
             }
 
             container.innerHTML = html;
             document.getElementById('paymentTotal').textContent = formatPrice(total);
-            currentTotal = total;
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('paymentOrderDetails').innerHTML = 
-                '<div class="alert alert-danger">Siparişler yüklenirken bir hata oluştu</div>';
-        });
+            console.log('Orders rendered successfully');
+        } else {
+            throw new Error(data.message || 'Siparişler yüklenirken bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        console.error('Sipariş yükleme hatası:', error);
+        if (container) {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    Siparişler yüklenirken bir hata oluştu: ${error.message}
+                </div>
+            `;
+        }
+    });
 }
 
 // Sipariş kaydedildikten sonra modalı güncelle
@@ -953,6 +1032,11 @@ function updateModalAfterSave() {
 
 // Siparişi kaydet
 function saveNewItems() {
+    if (!userPermissions.canSaveOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş kaydetme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     if (Object.keys(paymentItems).length === 0) {
         Swal.fire('Uyarı!', 'Lütfen sipariş ekleyin', 'warning');
         return;
@@ -1020,6 +1104,11 @@ function saveNewItems() {
 
 // Ödemeyi tamamla
 function completePayment() {
+    if (!userPermissions.canTakePayment) {
+        Swal.fire('Yetkisiz İşlem', 'Ödeme alma yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     // Önce yeni eklenen ürünleri kontrol et
     if (Object.keys(paymentItems).length > 0) {
         Swal.fire({
@@ -1131,18 +1220,21 @@ function getOrderItemHtml(order, item) {
 
 // Sipariş öğesi sil
 function removeOrderItem(orderId, itemId) {
+    if (!userPermissions.canDeleteOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş silme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     Swal.fire({
         title: 'Emin misiniz?',
-        text: "Bu ürünü sipariş listesinden silmek istediğinize emin misiniz?",
+        text: "Bu siparişi silmek istediğinize emin misiniz?",
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
         confirmButtonText: 'Evet, Sil',
         cancelButtonText: 'İptal'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('../ajax/remove_order_item.php', {  // URL yolunu düzelttik
+            fetch('../ajax/remove_order_item.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1155,29 +1247,13 @@ function removeOrderItem(orderId, itemId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // UI'ı güncelle
                     loadTableOrders(currentTableId);
-                    
-                    // Başarı mesajı göster
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Başarılı!',
-                        text: data.message,
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-
-                    // Eğer son ürün silindiyse modalı kapat
-                    if (data.remaining_count === 0) {
-                        $('#paymentModal').modal('hide');
-                        location.reload(); // Masa durumunu güncellemek için
-                    }
+                    Swal.fire('Başarılı!', 'Sipariş başarıyla silindi.', 'success');
                 } else {
                     throw new Error(data.message || 'Bir hata oluştu');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 Swal.fire('Hata!', error.message, 'error');
             });
         }
@@ -1211,7 +1287,10 @@ function selectCategory(categoryId) {
 
 // Mevcut sipariş miktarını güncelle
 function updateOrderQuantity(orderId, itemId, change) {
-    console.log('Updating order quantity:', { orderId, itemId, change }); // Debug için
+    if (!userPermissions.canEditOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş güncelleme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
 
     fetch('../ajax/update_order_quantity.php', {
         method: 'POST',
@@ -1227,20 +1306,22 @@ function updateOrderQuantity(orderId, itemId, change) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Siparişleri yeniden yükle
             loadTableOrders(currentTableId);
         } else {
-            throw new Error(data.message || 'Miktar güncellenirken bir hata oluştu');
+            throw new Error(data.message || 'Bir hata oluştu');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         Swal.fire('Hata!', error.message, 'error');
     });
 }
 
 // Yeni sipariş miktarını güncelle
 function updateNewItemQuantity(productId, change) {
+    if (!userPermissions.canEditOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş güncelleme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
     console.log('Updating new item quantity:', { productId, change }); // Debug için
 
     if (paymentItems[productId]) {
@@ -1259,6 +1340,10 @@ function updateNewItemQuantity(productId, change) {
 
 // Yeni ürünü sil
 function removeNewItem(productId) {
+    if (!userPermissions.canDeleteOrder) {
+        Swal.fire('Yetkisiz İşlem', 'Sipariş silme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
     console.log('Removing new item:', productId); // Debug için
 
     if (paymentItems[productId]) {
@@ -1269,6 +1354,11 @@ function removeNewItem(productId) {
 
 // Yeni masa modalını göster
 function showAddTableModal() {
+    if (!userPermissions.canManageTables) {
+        Swal.fire('Yetkisiz İşlem', 'Masa yönetim yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     const modalElement = document.getElementById('addTableModal');
     if (modalElement) {
         const modal = new bootstrap.Modal(modalElement);
@@ -1278,6 +1368,11 @@ function showAddTableModal() {
 
 // Yeni masa kaydet
 function saveTable() {
+    if (!userPermissions.canManageTables) {
+        Swal.fire('Yetkisiz İşlem', 'Masa yönetim yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     const tableNumber = document.getElementById('tableNumber').value;
     
     if (!tableNumber) {
@@ -1291,7 +1386,7 @@ function saveTable() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            table_number: tableNumber
+            table_no: tableNumber
         })
     })
     .then(response => response.json())
@@ -1349,8 +1444,7 @@ function downloadQR(format, tableId) {
 
     if (format === 'svg') {
         // SVG indir
-        // SVG indir
-const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + qr.createSvgTag(5, 0);
+        const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + qr.createSvgTag(5, 0);
         
         const blob = new Blob([svgString], { type: 'image/svg+xml' });
         const url = window.URL.createObjectURL(blob);
@@ -1365,10 +1459,6 @@ const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3
         // PNG indir
         const canvas = document.createElement('canvas');
         const qrImage = new Image();
-        // SVG indir
-const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + qr.createSvgTag(5, 0);
-            
-        
         qrImage.src = 'data:image/svg+xml;base64,' + btoa(svgString);
         qrImage.onload = function() {
             canvas.width = qrImage.width;
@@ -1392,6 +1482,11 @@ const svgString = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3
 
 // Masa düzenle
 function editTable(tableId) {
+    if (!userPermissions.canManageTables) {
+        Swal.fire('Yetkisiz İşlem', 'Masa yönetim yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     Swal.fire({
         title: 'Masa Numarası',
         input: 'number',
@@ -1429,6 +1524,11 @@ function editTable(tableId) {
 
 // Masa sil
 function deleteTable(tableId) {
+    if (!userPermissions.canManageTables) {
+        Swal.fire('Yetkisiz İşlem', 'Masa yönetim yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+
     Swal.fire({
         title: 'Emin misiniz?',
         text: "Bu masa silinecek!",
@@ -1501,6 +1601,37 @@ function generateOrderCode(tableId) {
         }
     });
 }
+
+// Satış modalını açma fonksiyonu
+function openSalesModal(tableId) {
+    const modal = document.getElementById('salesModal');
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Masa ${tableId} - Siparişler</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="orderItems">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Yükleniyor...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+
+    modal.addEventListener('shown.bs.modal', function () {
+        loadTableOrders(tableId);
+    }, { once: true }); // Event listener'ı bir kez çalıştır
+}
 </script>
 
 <!-- QR Code kütüphanesi -->
@@ -1518,4 +1649,3 @@ function generateOrderCode(tableId) {
 
 </body>
 </html>
-

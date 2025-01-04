@@ -1,61 +1,57 @@
 <?php
 require_once '../../includes/config.php';
-require_once '../../includes/session.php';
-checkAuth();
 
-$db = new Database();
+header('Content-Type: application/json');
+
+
 
 try {
-    $table_id = $_GET['table_id'];
-    
-    // Masanın tüm aktif (ödenmemiş) siparişlerini çek
-    $orders = $db->query(
-        "SELECT o.*, 
-         GROUP_CONCAT(
-            CONCAT(oi.quantity, 'x ', p.name, ' (', FORMAT(oi.price, 2), ' ₺)') 
-            SEPARATOR '<br>'
-         ) as items
-         FROM orders o
-         LEFT JOIN order_items oi ON o.id = oi.order_id
-         LEFT JOIN products p ON oi.product_id = p.id
-         WHERE o.table_id = ? AND o.payment_id IS NULL
-         GROUP BY o.id
-         ORDER BY o.created_at DESC",
-        [$table_id]
-    )->fetchAll();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $tableId = $data['table_id'] ?? null;
 
-    // HTML oluştur
-    $html = '';
-    $total = 0;
-
-    if($orders) {
-        foreach($orders as $order) {
-            $html .= '<div class="mb-2">
-                <div class="d-flex justify-content-between">
-                    <small>Sipariş #' . $order['id'] . '</small>
-                    <small>' . date('H:i', strtotime($order['created_at'])) . '</small>
-                </div>
-                <div>' . $order['items'] . '</div>
-                <div class="text-end">
-                    <strong>' . number_format($order['total_amount'], 2) . ' ₺</strong>
-                </div>
-            </div>';
-            $total += $order['total_amount'];
-        }
-    } else {
-        $html = '<div class="text-center text-muted">Aktif sipariş yok</div>';
+    if (!$tableId) {
+        throw new Exception('Masa ID gerekli');
     }
+
+    $db = new Database();
+    
+    // Siparişleri çek
+    $orders = $db->query(
+        "SELECT 
+            o.id as order_id, 
+            o.created_at,
+            o.status,
+            oi.id as item_id,
+            oi.quantity,
+            p.name as product_name,
+            p.price,
+            (oi.quantity * p.price) as total
+         FROM orders o 
+         LEFT JOIN order_items oi ON o.id = oi.order_id 
+         LEFT JOIN products p ON oi.product_id = p.id 
+         WHERE o.table_id = ? 
+         AND o.payment_id IS NULL
+         ORDER BY o.created_at DESC",
+        [$tableId]
+    )->fetchAll();
 
     echo json_encode([
         'success' => true,
         'orders' => $orders,
-        'html' => $html,
-        'total' => $total
+        'debug' => [
+            'table_id' => $tableId,
+            'order_count' => count($orders),
+            'user' => [
+                'isLoggedIn' => isLoggedIn(),
+                'permissions' => $_SESSION['permissions'] ?? []
+            ]
+        ]
     ]);
 
 } catch (Exception $e) {
+    error_log('Error in get_table_orders: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'Bir hata oluştu: ' . $e->getMessage()
+        'message' => 'Siparişler yüklenirken bir hata oluştu: ' . $e->getMessage()
     ]);
 } 

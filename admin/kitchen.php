@@ -8,13 +8,16 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('kitchen.view')) {
+    header('Location: dashboard.php');
     exit();
 }
 
 $db = new Database();
+
+// İşlem yetki kontrolü
+$canManage = hasPermission('kitchen.manage');
 
 // Aktif siparişleri çek
 $orders = $db->query("
@@ -63,16 +66,16 @@ $orders = $db->query("
                             <?php endif; ?>
                         </div>
                         <div class="card-footer">
-                            <?php if($order['status'] == 'new'): ?>
-                                <button class="btn btn-warning btn-sm w-100" 
-                                        onclick="updateStatus(<?= $order['id'] ?>, 'preparing')">
-                                    <i class="fas fa-clock"></i> Hazırlanıyor
+                            <?php if ($canManage): ?>
+                            <div class="order-actions">
+                                <button type="button" class="btn btn-success prepare-order" data-id="<?= $order['id'] ?>">
+                                    <i class="fas fa-check"></i> Hazırla
                                 </button>
-                            <?php else: ?>
-                                <button class="btn btn-success btn-sm w-100" 
-                                        onclick="updateStatus(<?= $order['id'] ?>, 'ready')">
-                                    <i class="fas fa-check"></i> Hazır
+                                
+                                <button type="button" class="btn btn-warning cancel-order" data-id="<?= $order['id'] ?>">
+                                    <i class="fas fa-times"></i> İptal
                                 </button>
+                            </div>
                             <?php endif; ?>
                         </div>
                     </div>

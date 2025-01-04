@@ -7,25 +7,32 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('users.view')) {
+    header('Location: dashboard.php');
     exit();
 }
 
 $db = new Database();
 
-// Süper admin kontrolü
-$isSuperAdmin = isset($_SESSION['role_slug']) && $_SESSION['role_slug'] === 'super-admin';
+// İşlem yetki kontrolleri
+$canAdd = hasPermission('users.add');
+$canEdit = hasPermission('users.edit');
+$canDelete = hasPermission('users.delete');
 
-// Rolleri ve adminleri getir - süper admin hariç
-$admins = $db->query("
-    SELECT a.*, r.name as role_name, r.slug as role_slug 
-    FROM admins a 
-    LEFT JOIN roles r ON a.role_id = r.id 
-    WHERE r.slug != 'super-admin' OR a.id = ?
-    ORDER BY a.id DESC
-", [$_SESSION['admin_id']])->fetchAll();
+// Süper admin değilse, süper adminleri gösterme
+$adminQuery = isSuperAdmin() 
+    ? "SELECT a.*, r.name as role_name 
+       FROM admins a 
+       LEFT JOIN roles r ON a.role_id = r.id 
+       ORDER BY a.id DESC" 
+    : "SELECT a.*, r.name as role_name 
+       FROM admins a 
+       LEFT JOIN roles r ON a.role_id = r.id 
+       WHERE r.slug != 'super-admin' 
+       ORDER BY a.id DESC";
+
+$admins = $db->query($adminQuery)->fetchAll();
 
 // Normal rolleri getir - süper admin hariç
 $roles = $db->query("
@@ -238,14 +245,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <div class="container-fluid py-4">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title">
-                <i class="fas fa-users me-2"></i>
-                Personel Yönetimi
-            </h3>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAdminModal">
-                <i class="fas fa-plus me-2"></i>
-                Yeni Personel Ekle
+            <h5 class="mb-0">Yöneticiler</h5>
+            <?php if ($canAdd): ?>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAdminModal">
+                <i class="fas fa-plus"></i> Yeni Yönetici
             </button>
+            <?php endif; ?>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -255,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <th width="5%">ID</th>
                             <th width="15%">Kullanıcı Adı</th>
                             <th width="15%">Ad Soyad</th>
-                            <th width="15%">İletişim</th>
+                            <th width="15%">E-posta</th>
                             <th width="15%">Rol</th>
                             <th width="35%">İşlemler</th>
                         </tr>
@@ -263,34 +268,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <tbody>
                     <?php foreach ($admins as $admin): ?>
                         <tr>
-                            <td><?= $admin['id'] ?? '' ?></td>
-                            <td><?= htmlspecialchars($admin['username'] ?? '') ?></td>
-                            <td><?= htmlspecialchars($admin['name'] ?? '') ?></td>
-                            <td>
-                                <?php if(!empty($admin['email'])): ?>
-                                    <small><i class="fas fa-envelope"></i> <?= htmlspecialchars($admin['email']) ?></small><br>
+                            <td><?= $admin['id'] ?></td>
+                            <td><?= htmlspecialchars($admin['username']) ?></td>
+                            <td><?= htmlspecialchars($admin['name']) ?></td>
+                            <td><?= htmlspecialchars($admin['email']) ?></td>
+                            <td><?= htmlspecialchars($admin['role_name']) ?></td>
+                            <td class="align-middle">
+                                <?php if ($canEdit): ?>
+                                <button type="button" 
+                                        class="btn btn-sm btn-primary edit-admin" 
+                                        data-id="<?= $admin['id'] ?>"
+                                        data-username="<?= htmlspecialchars($admin['username']) ?>"
+                                        data-name="<?= htmlspecialchars($admin['name']) ?>"
+                                        data-email="<?= htmlspecialchars($admin['email']) ?>"
+                                        data-role="<?= $admin['role_id'] ?>">
+                                    <i class="fas fa-edit"></i> Düzenle
+                                </button>
                                 <?php endif; ?>
-                                <?php if(!empty($admin['phone'])): ?>
-                                    <small><i class="fas fa-phone"></i> <?= htmlspecialchars($admin['phone']) ?></small>
+                                
+                                <?php if ($canDelete && $admin['id'] != $_SESSION['admin_id']): ?>
+                                <button type="button" class="btn btn-sm btn-danger delete-admin" data-id="<?= $admin['id'] ?>">
+                                    <i class="fas fa-trash"></i> Sil
+                                </button>
                                 <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="badge bg-info">
-                                    <?= htmlspecialchars($admin['role_name'] ?? 'Rol Atanmamış') ?>
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <button class="btn btn-sm btn-primary edit-admin" 
-                                            data-id="<?= $admin['id'] ?>">
-                                        <i class="fas fa-edit"></i> Düzenle
-                                    </button>
-                                    <button class="btn btn-sm btn-danger delete-admin" 
-                                            data-id="<?= $admin['id'] ?>"
-                                            data-super="<?= ($admin['role_slug'] === 'super-admin') ? '1' : '0' ?>">
-                                        <i class="fas fa-trash"></i> Sil
-                                    </button>
-                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -306,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editAdminModalLabel">Personel Düzenle</h5>
+                <h5 class="modal-title" id="editAdminModalLabel">Yönetici Düzenle</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="editAdminForm">
@@ -323,12 +323,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="mb-3">
                         <label for="edit_email" class="form-label">E-posta</label>
                         <input type="email" class="form-control" id="edit_email" name="email">
-                        <small class="text-muted">Opsiyonel</small>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_phone" class="form-label">Telefon</label>
-                        <input type="tel" class="form-control" id="edit_phone" name="phone">
-                        <small class="text-muted">Opsiyonel</small>
                     </div>
                     <div class="mb-3">
                         <label for="edit_role_id" class="form-label">Rol <span class="text-danger">*</span></label>
@@ -341,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="mb-3">
                         <label for="edit_password" class="form-label">Yeni Şifre</label>
                         <input type="password" class="form-control" id="edit_password" name="password">
-                        <small class="text-muted">Boş bırakılabilir</small>
+                        <small class="text-muted">Değiştirmek istemiyorsanız boş bırakın</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -418,6 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <!-- Custom JS -->
 <script src="assets/js/admins.js"></script>
+
 
 </body>
 </html> 

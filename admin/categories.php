@@ -7,13 +7,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('categories.view')) {
+    header('Location: dashboard.php');
     exit();
 }
 
 $db = new Database();
+
+// İşlem yetki kontrolleri
+$canAdd = hasPermission('categories.add');
+$canEdit = hasPermission('categories.edit');
+$canDelete = hasPermission('categories.delete');
+$canKitchenOnly = hasPermission('categories.kitchen_only');
 
 // Kategori İşlemleri
 if(isset($_POST['add_category'])) {
@@ -263,9 +269,11 @@ include 'navbar.php';
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Kategoriler</h5>
+            <?php if ($canAdd): ?>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
                 <i class="fas fa-plus"></i> Yeni Kategori
             </button>
+            <?php endif; ?>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -294,12 +302,17 @@ include 'navbar.php';
                                 <span class="badge bg-info"><?= $category['product_count'] ?></span>
                             </td>
                             <td class="align-middle">
-                                <button type="button" class="btn btn-warning btn-sm" onclick="editCategory(<?= $category['id'] ?>)">
+                                <?php if ($canEdit): ?>
+                                <button type="button" class="btn btn-sm btn-primary edit-category" data-id="<?= $category['id'] ?>">
                                     <i class="fas fa-edit"></i> Düzenle
                                 </button>
-                                <button type="button" class="btn btn-danger btn-sm" onclick="deleteCategory(<?= $category['id'] ?>, '<?= htmlspecialchars($category['name']) ?>')">
+                                <?php endif; ?>
+                                
+                                <?php if ($canDelete): ?>
+                                <button type="button" class="btn btn-sm btn-danger delete-category" data-id="<?= $category['id'] ?>">
                                     <i class="fas fa-trash"></i> Sil
                                 </button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -384,6 +397,16 @@ include 'navbar.php';
             </div>
         </div>
     </div>
+
+    <!-- Mutfak seçeneği için yetki kontrolü -->
+    <?php if ($canKitchenOnly): ?>
+    <div class="mb-3">
+        <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" name="kitchen_only" id="kitchen_only">
+            <label class="form-check-label" for="kitchen_only">Sadece Mutfak</label>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <?php include '../includes/media-modal.php'; ?>

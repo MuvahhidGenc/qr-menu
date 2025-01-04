@@ -10,15 +10,42 @@ $(document).ready(function() {
     // Personel düzenleme
     $('.edit-admin').click(function() {
         const adminId = $(this).data('id');
-        $.get('ajax/get_admin.php', {id: adminId}, function(admin) {
-            $('#editAdminForm').find('[name="id"]').val(admin.id);
-            $('#editAdminForm').find('[name="username"]').val(admin.username);
-            $('#editAdminForm').find('[name="name"]').val(admin.name);
-            $('#editAdminForm').find('[name="email"]').val(admin.email);
-            $('#editAdminForm').find('[name="role"]').val(admin.role);
-            $('#editAdminForm').find('[name="status"]').val(admin.status);
-            $('#editAdminModal').modal('show');
-        });
+        console.log('Tıklanan admin ID:', adminId);
+
+        $.get('ajax/get_admin.php', {id: adminId})
+            .done(function(response) {
+                console.log('AJAX başarılı, gelen veri:', response);
+                
+                if (response.success) {
+                    // Form elemanlarını doldur
+                    $('#edit_id').val(response.id);
+                    $('#edit_username').val(response.username);
+                    $('#edit_name').val(response.name);
+                    $('#edit_email').val(response.email);
+                    $('#edit_role_id').val(response.role_id);
+                    
+                    // Form değerlerini kontrol et
+                    console.log('Form değerleri dolduruldu:', {
+                        id: $('#edit_id').val(),
+                        username: $('#edit_username').val(),
+                        name: $('#edit_name').val(),
+                        email: $('#edit_email').val(),
+                        role: $('#edit_role_id').val()
+                    });
+
+                    // Modal'ı aç
+                    $('#editAdminModal').modal('show');
+                } else {
+                    alert('Hata: ' + (response.error || 'Bilinmeyen bir hata oluştu'));
+                }
+            })
+            .fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('AJAX hatası:', {
+                    status: textStatus,
+                    error: errorThrown,
+                    response: jqXHR.responseText
+                });
+            });
     });
 
     // Silme işlemi

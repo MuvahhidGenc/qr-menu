@@ -2,55 +2,29 @@
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
-// Session kontrolü
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Debug için
+error_log('Login page accessed');
 
-$db = new Database();
+// Önce mevcut session'ı temizle
+session_unset();
+session_destroy();
+session_start();
+
 $error = '';
 
-if(isset($_POST['login'])) {
-    $username = cleanInput($_POST['username']);
-    $password = $_POST['password'];
-    
-    try {
-        $stmt = $db->query("SELECT a.*, r.id as role_id, r.slug as role_slug, r.name as role_name 
-                           FROM admins a 
-                           LEFT JOIN roles r ON a.role_id = r.id 
-                           WHERE a.username = ?", [$username]);
-        $user = $stmt->fetch();
-        
-        if($user && verifyPassword($password, $user['password'])) {
-            // Session'ı temizle
-            session_unset();
-            session_destroy();
-            session_start();
-            session_regenerate_id(true);
-            
-            // Yeni session bilgilerini ata
-            $_SESSION['admin_id'] = $user['id'];
-            $_SESSION['admin_name'] = $user['username'];
-            $_SESSION['role_id'] = $user['role_id'];
-            $_SESSION['role_slug'] = $user['role_slug'];
-            $_SESSION['logged_in'] = true;
-            $_SESSION['last_activity'] = time();
-            
-            // Debug için session durumunu logla
-            error_log("Login.php - New Session Created: " . print_r($_SESSION, true));
-            
-            // Session'ı kaydet
-            session_write_close();
-            
-            // Yönlendirmeyi dashboard.php'ye değiştir
-            header("Location: dashboard.php");
-            exit();
-        } else {
-            $error = 'Kullanıcı adı veya şifre hatalı!';
-        }
-    } catch (Exception $e) {
-        error_log("Login Error: " . $e->getMessage());
-        $error = 'Sistem hatası oluştu!';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+
+    error_log('Login attempt - Username: ' . $username);
+
+    if (loginAdmin($username, $password)) {
+        error_log('Login successful - Session: ' . print_r($_SESSION, true));
+        header('Location: dashboard.php');
+        exit();
+    } else {
+        error_log('Login failed for user: ' . $username);
+        $error = 'Geçersiz kullanıcı adı veya şifre';
     }
 }
 ?>

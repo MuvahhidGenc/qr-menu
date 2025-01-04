@@ -1,12 +1,19 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-$db = new Database();
 
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// Yetki kontrolü
+if (!hasPermission('dashboard.view')) {
+    header('Location: login.php');
+    exit();
+}
+
+$db = new Database();
 
 // Debug için session durumunu logla
 error_log("Dashboard.php - Session Data: " . print_r($_SESSION, true));
@@ -32,6 +39,8 @@ $total_categories = $db->query("SELECT COUNT(*) as count FROM categories")->fetc
 $total_products = $db->query("SELECT COUNT(*) as count FROM products")->fetch()['count'];
 $total_views = $db->query("SELECT SUM(view_count) as total FROM products")->fetch()['total'] ?? 0;
 $recent_products = $db->query("SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id ORDER BY p.id DESC LIMIT 5")->fetchAll();
+
+$todayOrders = $db->query("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = CURDATE()")->fetch()['count'];
 ?>
 
 <!DOCTYPE html>
@@ -197,6 +206,15 @@ $recent_products = $db->query("SELECT p.*, c.name as category_name FROM products
     
     <!-- İstatistik Kartları -->
     <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <h4 class="mb-0"><?= $todayOrders ?></h4>
+                    <div>Günlük Sipariş</div>
+                </div>
+            </div>
+        </div>
+        
         <div class="col-md-4 mb-4">
             <div class="card stat-card primary text-white">
                 <div class="card-body">

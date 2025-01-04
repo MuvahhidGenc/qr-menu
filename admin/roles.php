@@ -56,14 +56,19 @@ $allPermissions = [
             'add' => 'Ekleme',
             'update' => 'Güncelleme',
             'delete' => 'Silme',
-            'payment' => 'Ödeme Alma'
         ]
     ],
     'tables' => [
         'title' => 'Masalar',
         'permissions' => [
             'view' => 'Görüntüleme',
-            'manage' => 'Yönetim'
+            'manage' => 'Yönetim',
+            'payment' => 'Ödeme Alma',
+            'sales' => 'Satış Ekranı Görüntüleme',
+            'add_order' => 'Sipariş Ekleme',
+            'edit_order' => 'Sipariş Güncelleme',
+            'delete_order' => 'Sipariş Silme',
+            'save_order' => 'Sipariş Kaydetme'
         ]
     ],
     'kitchen' => [
@@ -103,9 +108,28 @@ $allPermissions = [
         'permissions' => [
             'view' => 'Görüntüleme'
         ]
+    ],
+    'payments' => [
+        'title' => 'Ödemeler',
+        'permissions' => [
+            'view' => 'Görüntüleme',
+            'create' => 'Ödeme Alma',
+            'cancel' => 'Ödeme İptal'
+        ]
     ]
 ];
 
+// Yetki kontrollerini tanımla
+$canViewRoles = hasPermission('roles.view');
+$canAddRole = hasPermission('roles.add');
+$canEditRole = hasPermission('roles.edit');
+$canDeleteRole = hasPermission('roles.delete');
+
+// Yetki kontrolü - Sayfa erişimi
+if (!$canViewRoles) {
+    header('Location: dashboard.php');
+    exit();
+}
 
 require_once 'navbar.php';
 ?>
@@ -123,7 +147,7 @@ require_once 'navbar.php';
                 <i class="fas fa-user-tag me-2"></i>
                 Rol Yönetimi
             </h3>
-            <?php if (isSuperAdmin() || (isAdmin() && hasPermission('roles.add'))): ?>
+            <?php if ($canAddRole): ?>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRoleModal">
                 <i class="fas fa-plus me-2"></i>
                 Yeni Rol Ekle
@@ -181,19 +205,22 @@ require_once 'navbar.php';
                             </td>
                             <td>
                                 <?php if (!$role['is_system'] || isSuperAdmin()): ?>
-                                <button class="btn btn-sm btn-primary edit-role" 
-                                        data-id="<?= $role['id'] ?>"
-                                        data-name="<?= htmlspecialchars($role['name']) ?>"
-                                        data-description="<?= htmlspecialchars($role['description'] ?? '') ?>"
-                                        data-permissions='<?= htmlspecialchars($role['permissions']) ?>'>
-                                    <i class="fas fa-edit"></i> Düzenle
-                                </button>
-                                <?php if (!$role['is_system']): ?>
-                                <button class="btn btn-sm btn-danger delete-role" 
-                                        data-id="<?= $role['id'] ?>">
-                                    <i class="fas fa-trash"></i> Sil
-                                </button>
-                                <?php endif; ?>
+                                    <?php if ($canEditRole): ?>
+                                    <button class="btn btn-sm btn-primary edit-role" 
+                                            data-id="<?= $role['id'] ?>"
+                                            data-name="<?= htmlspecialchars($role['name']) ?>"
+                                            data-description="<?= htmlspecialchars($role['description'] ?? '') ?>"
+                                            data-permissions='<?= htmlspecialchars($role['permissions']) ?>'>
+                                        <i class="fas fa-edit"></i> Düzenle
+                                    </button>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($canDeleteRole && !$role['is_system']): ?>
+                                    <button class="btn btn-sm btn-danger delete-role" 
+                                            data-id="<?= $role['id'] ?>">
+                                        <i class="fas fa-trash"></i> Sil
+                                    </button>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -416,6 +443,15 @@ require_once 'navbar.php';
 
 <!-- JavaScript -->
 <script>
+// Yetki değişkenlerini JavaScript'te tanımla
+const userPermissions = {
+    canViewRoles: <?php echo $canViewRoles ? 'true' : 'false' ?>,
+    canAddRole: <?php echo $canAddRole ? 'true' : 'false' ?>,
+    canEditRole: <?php echo $canEditRole ? 'true' : 'false' ?>,
+    canDeleteRole: <?php echo $canDeleteRole ? 'true' : 'false' ?>,
+    canManagePermissions: <?php echo isSuperAdmin() ? 'true' : 'false' ?>
+};
+
 $(document).ready(function() {
     // Eğer tablo zaten DataTable olarak başlatılmışsa yok et
     if ($.fn.DataTable.isDataTable('.table')) {
@@ -476,6 +512,10 @@ $(document).ready(function() {
     // Rol ekleme
     $('#addRoleForm').submit(function(e) {
         e.preventDefault();
+        if (!userPermissions.canAddRole) {
+            Swal.fire('Yetkisiz İşlem', 'Rol ekleme yetkiniz bulunmuyor.', 'error');
+            return;
+        }
         $.ajax({
             url: 'ajax/add_role.php',
             type: 'POST',
@@ -556,7 +596,10 @@ $(document).ready(function() {
     // Form gönderimi
     $('#editRoleForm').on('submit', function(e) {
         e.preventDefault();
-        
+        if (!userPermissions.canEditRole) {
+            Swal.fire('Yetkisiz İşlem', 'Rol düzenleme yetkiniz bulunmuyor.', 'error');
+            return;
+        }
         // Form verilerini topla
         var permissions = {};
         

@@ -2,33 +2,33 @@
 require_once '../../includes/config.php';
 require_once '../../includes/auth.php';
 
-// Session kontrolü
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+header('Content-Type: application/json');
+
+if (!isset($_GET['id'])) {
+    die(json_encode(['success' => false, 'error' => 'ID gerekli']));
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    die(json_encode(['error' => 'Yetkisiz erişim']));
-}
-
-if(isset($_GET['id'])) {
+try {
     $db = new Database();
-    
-    $admin = $db->query("SELECT * FROM admins WHERE id = ?", [$_GET['id']])->fetch();
-    
-    if($admin) {
+    $admin = $db->query("
+        SELECT a.*, r.name as role_name 
+        FROM admins a 
+        LEFT JOIN roles r ON a.role_id = r.id 
+        WHERE a.id = ?
+    ", [$_GET['id']])->fetch();
+
+    if ($admin) {
         echo json_encode([
             'success' => true,
-            'data' => [
-                'id' => $admin['id'],
-                'username' => $admin['username'],
-                'role_id' => $admin['role_id']
-            ]
+            'id' => $admin['id'],
+            'username' => $admin['username'],
+            'name' => $admin['name'],
+            'email' => $admin['email'],
+            'role_id' => $admin['role_id']
         ]);
     } else {
-        echo json_encode(['error' => 'Kullanıcı bulunamadı']);
+        echo json_encode(['success' => false, 'error' => 'Yönetici bulunamadı']);
     }
-} else {
-    echo json_encode(['error' => 'ID parametresi gerekli']);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 } 

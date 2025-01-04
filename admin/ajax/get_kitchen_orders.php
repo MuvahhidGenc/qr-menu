@@ -1,8 +1,18 @@
 <?php
 require_once '../../includes/config.php';
-require_once '../../includes/session.php';
-checkAuth();
+require_once '../../includes/auth.php';
 
+header('Content-Type: application/json');
+
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Yetki kontrolü
+if (!isAdmin() && !isSuperAdmin()) {
+    die(json_encode(['error' => 'Yetkisiz erişim']));
+}
 $db = new Database();
 
 // Aktif siparişleri çek

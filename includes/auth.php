@@ -1,177 +1,98 @@
 <?php
-// Session başlatma kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Admin girişi kontrolü
 function isLoggedIn() {
-    if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
-        return false;
-    }
-    
-    if (!isset($_SESSION['admin_id']) || !isset($_SESSION['role_slug'])) {
-        return false;
-    }
-    
-    return true;
+    return isset($_SESSION['admin_id']);
 }
-// Admin yetkisi kontrolü
+
 function isAdmin() {
-    if (!isLoggedIn()) {
-        return false;
-    }
-    return isset($_SESSION['role_slug']) && 
-           in_array($_SESSION['role_slug'], ['super-admin', 'admin']);
+    return isLoggedIn() && isset($_SESSION['role_id']);
 }
 
-// Süper Admin yetkisi kontrolü - tüm sayfalara erişim için
 function isSuperAdmin() {
-    if (!isLoggedIn()) {
-        return false;
-    }
-    return isset($_SESSION['role_slug']) && $_SESSION['role_slug'] === 'super-admin';
+    return isLoggedIn() && isset($_SESSION['role_id']) && $_SESSION['role_id'] == 1;
 }
 
-// Rol kontrolü - mevcut yapıyı koruyarak güncellendi
-function checkRole($allowedRoles = []) {
-    // Süper admin her sayfaya erişebilir
-    if (isSuperAdmin()) {
-        return true;
-    }
-    
-    // Diğer roller için kontrol
-    if (!isset($_SESSION['role_slug']) || 
-        (!empty($allowedRoles) && !in_array($_SESSION['role_slug'], $allowedRoles))) {
-        header('Location: index.php');
-        exit;
-    }
-    
-    return true;
-}
-
-function checkPermission($requiredRole = null) {
-    if (!isLoggedIn()) {
-        header('Location: login.php');
-        exit();
-    }
-
-    // Süper admin her şeye erişebilir
-    if (isSuperAdmin()) {
-        return true;
-    }
-
-    // Belirli bir rol gerekiyorsa kontrol et
-    if ($requiredRole && $_SESSION['role_slug'] !== $requiredRole) {
-        header('Location: index.php');
-        exit();
-    }
-
-    return true;
-}
-
-// Mevcut şifreleme fonksiyonları
-function hashPassword($password) {
-    return password_hash($password, PASSWORD_ARGON2ID, [
-        'memory_cost' => 65536,
-        'time_cost' => 4,
-        'threads' => 3
-    ]);
-}
-
-function verifyPassword($password, $hash) {
-    return password_verify($password, $hash);
-}
-
-/**
- * Kullanıcının belirli bir yetkiye sahip olup olmadığını kontrol eder
- * @param string $permission "module.permission" formatında (örn: "users.view")
- * @return bool
- */
-function hasPermission($permission) {
-    // Süper admin her zaman tüm yetkilere sahiptir
-    if (isSuperAdmin()) {
-        return true;
-    }
-
-    // Oturum kontrolü
-    if (!isset($_SESSION['user']) || !isset($_SESSION['user']['role_id'])) {
-        return false;
-    }
-
+function loginAdmin($username, $password) {
     try {
         $db = new Database();
         
-        // Kullanıcının rolünü al
-        $role = $db->query("SELECT permissions FROM roles WHERE id = ?", 
-            [$_SESSION['user']['role_id']])->fetch();
-
-        if (!$role) {
-            return false;
-        }
-
-        $permissions = json_decode($role['permissions'], true);
+        // Debug için
+        error_log("Login attempt for username: " . $username);
         
-        if (!$permissions) {
-            return false;
-        }
+        // Kullanıcıyı ve rolünü al
+        $admin = $db->query("
+            SELECT a.*, r.permissions, r.slug as role_slug
+            FROM admins a 
+            LEFT JOIN roles r ON a.role_id = r.id 
+            WHERE a.username = ? 
+            AND a.status = 1
+        ", [$username])->fetch();
 
-        // "module.permission" formatını parçala
-        list($module, $perm) = explode('.', $permission);
+        // Debug için
+        error_log("Query result: " . print_r($admin, true));
 
-        // Modül seviyesinde tam yetki kontrolü
-        if (isset($permissions[$module]) && $permissions[$module] === true) {
+        if ($admin && password_verify($password, $admin['password'])) {
+            // Session'ı temizle ve yeniden başlat
+            session_regenerate_id(true);
+            $_SESSION = array();
+
+            // Temel bilgileri session'a kaydet
+            $_SESSION['admin_id'] = $admin['id'];
+            $_SESSION['username'] = $admin['username'];
+            $_SESSION['role_id'] = $admin['role_id'];
+            $_SESSION['role_slug'] = $admin['role_slug'];
+            
+            // Süper admin için tüm yetkileri ver
+            if ($admin['role_id'] == 1 || $admin['role_slug'] == 'super-admin') {
+                $_SESSION['permissions'] = ['*' => true];
+            } else {
+                $_SESSION['permissions'] = json_decode($admin['permissions'], true) ?? [];
+            }
+
+            // Debug için
+            error_log("Login successful. Session data: " . print_r($_SESSION, true));
+            
             return true;
         }
-
-        // Özel yetki kontrolü
-        return isset($permissions[$module][$perm]) && $permissions[$module][$perm] === true;
+        
+        // Debug için
+        error_log("Login failed for username: " . $username);
+        return false;
 
     } catch (Exception $e) {
-        error_log("Permission check error: " . $e->getMessage());
+        error_log('Login error: ' . $e->getMessage());
         return false;
     }
 }
 
-/**
- * Kullanıcının bir modüle tam erişimi olup olmadığını kontrol eder
- * @param string $module Modül adı
- * @return bool
- */
-function hasModuleAccess($module) {
-    // Süper admin her zaman tüm modüllere erişebilir
-    if (isSuperAdmin()) {
+function hasPermission($permission) {
+    // Süper admin her zaman tüm yetkilere sahiptir
+    if (isSuperAdmin() || isset($_SESSION['permissions']['*'])) {
         return true;
     }
 
-    // Oturum kontrolü
-    if (!isset($_SESSION['user']) || !isset($_SESSION['user']['role_id'])) {
+    if (!isLoggedIn() || !isset($_SESSION['permissions'])) {
         return false;
     }
 
-    try {
-        $db = new Database();
-        
-        // Kullanıcının rolünü al
-        $role = $db->query("SELECT permissions FROM roles WHERE id = ?", 
-            [$_SESSION['user']['role_id']])->fetch();
-
-        if (!$role) {
-            return false;
-        }
-
-        $permissions = json_decode($role['permissions'], true);
-        
-        if (!$permissions) {
-            return false;
-        }
-
-        // Modül seviyesinde yetki kontrolü
-        return isset($permissions[$module]) && 
-               ($permissions[$module] === true || !empty($permissions[$module]));
-
-    } catch (Exception $e) {
-        error_log("Module access check error: " . $e->getMessage());
-        return false;
+    list($module, $perm) = explode('.', $permission);
+    
+    // Modül seviyesinde tam yetki kontrolü
+    if (isset($_SESSION['permissions'][$module]) && $_SESSION['permissions'][$module] === true) {
+        return true;
     }
+
+    // Özel yetki kontrolü
+    return isset($_SESSION['permissions'][$module][$perm]) && 
+           $_SESSION['permissions'][$module][$perm] === true;
+}
+
+function logout() {
+    session_unset();
+    session_destroy();
+    session_start();
+    session_regenerate_id(true);
 }

@@ -1,11 +1,14 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 header('Content-Type: application/json');
 
 try {
-    checkAuth();
+    // Yetki kontrolü
+    if (!hasPermission('tables.manage')) {
+        throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
+    }
     
     // JSON verilerini al
     $input = json_decode(file_get_contents('php://input'), true);

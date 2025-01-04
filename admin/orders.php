@@ -1,20 +1,25 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-
+include 'navbar.php';
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('orders.view')) {
+    header('Location: dashboard.php');
     exit();
 }
-include 'navbar.php';
 
 $db = new Database();
+
+// İşlem yetki kontrolleri
+$canAdd = hasPermission('orders.add');
+$canUpdate = hasPermission('orders.update');
+$canDelete = hasPermission('orders.delete');
+$canTakePayment = hasPermission('orders.payment');
 
 // Filtreleme parametreleri
 $status = $_GET['status'] ?? 'all';
@@ -248,8 +253,13 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
 </style>
 
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Siparişler</h5>
+            <?php if ($canAdd): ?>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOrderModal">
+                <i class="fas fa-plus"></i> Yeni Sipariş
+            </button>
+            <?php endif; ?>
         </div>
         <div class="card-body">
             <!-- Filtreler -->
@@ -313,10 +323,24 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
                                 </select>
                                 </td>
                                 <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
-                                <td>
-                                    <button type="button" class="btn btn-info btn-sm view-order" data-order-id="<?= $order['id'] ?>">
-                                        <i class="fas fa-eye"></i>
+                                <td class="align-middle">
+                                    <?php if ($canUpdate): ?>
+                                    <button type="button" class="btn btn-sm btn-primary edit-order" data-id="<?= $order['id'] ?>">
+                                        <i class="fas fa-edit"></i> Güncelle
                                     </button>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($canDelete): ?>
+                                    <button type="button" class="btn btn-sm btn-danger delete-order" data-id="<?= $order['id'] ?>">
+                                        <i class="fas fa-trash"></i> Sil
+                                    </button>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($canTakePayment && $order['status'] != 'paid'): ?>
+                                    <button type="button" class="btn btn-sm btn-success take-payment" data-id="<?= $order['id'] ?>">
+                                        <i class="fas fa-money-bill"></i> Ödeme Al
+                                    </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

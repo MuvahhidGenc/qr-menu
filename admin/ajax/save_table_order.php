@@ -11,7 +11,6 @@ require_once '../../includes/session.php';
 ob_start();
 
 try {
-    checkAuth();
     header('Content-Type: application/json');
 
     $db = new Database();
