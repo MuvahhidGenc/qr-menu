@@ -1080,6 +1080,45 @@
                             Sipariş Ayarları
                         </a>
                     </li>
+                    <!-- Genel İstatistikler'den sonra eklenecek -->
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'active show' : '' ?>" 
+                        data-bs-toggle="collapse" 
+                        href="#userManagementPanel" 
+                        role="button"
+                        aria-expanded="<?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'true' : 'false' ?>">
+                            <i class="fas fa-users me-2"></i>
+                            Kullanıcı Yönetimi
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </a>
+                        <div class="collapse navbar-collapse bg-dark <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'show' : '' ?>" 
+                            id="userManagementPanel">
+                            <ul class="navbar-nav ps-3">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>" 
+                                    href="admins.php">
+                                        <i class="fas fa-users-cog me-2"></i>
+                                        Personel Yönetimi
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'roles.php' ? 'active' : '' ?>" 
+                                    href="roles.php">
+                                        <i class="fas fa-user-shield me-2"></i>
+                                        Kullanıcı Rolleri
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    
+                   <!-- <li class="nav-item">
+                        <a href="admins.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>">
+                            <i class="fas fa-users-cog me-2"></i>Personel Yönetimi
+                        </a>
+                    </li>-->
                 </ul>
             </nav>
         </div>

@@ -1,11 +1,25 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/auth.php';
+
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Yetki kontrolü
+if (!hasPermission('products.view')) {
+    header('Location: dashboard.php');
+    exit();
+}
+
+// Sayfa içeriği
 $db = new Database();
 
-if(!isset($_SESSION['admin'])) {
-   header('Location: login.php');
-   exit;
-}
+// İşlem yetki kontrolleri
+$canAdd = hasPermission('products.add');
+$canEdit = hasPermission('products.edit');
+$canDelete = hasPermission('products.delete');
 
 // Ürün İşlemleri
 if(isset($_POST['add_product'])) {
@@ -222,9 +236,11 @@ include 'navbar.php';
    <div class="card">
        <div class="card-header d-flex justify-content-between align-items-center">
            <h5 class="mb-0">Ürünler</h5>
+           <?php if ($canAdd): ?>
            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
                <i class="fas fa-plus"></i> Yeni Ürün
            </button>
+           <?php endif; ?>
        </div>
        <div class="card-body">
            <div class="table-responsive">
@@ -264,16 +280,20 @@ include 'navbar.php';
                                </div>
                            </td>
                            <td class="align-middle">
-                               <button type="button" class="btn btn-warning btn-sm" onclick="editProduct(<?= $product['id'] ?>)">
+                               <?php if ($canEdit): ?>
+                               <button type="button" class="btn btn-sm btn-primary edit-product" data-id="<?= $product['id'] ?>">
                                    <i class="fas fa-edit"></i> Düzenle
                                </button>
+                               <?php endif; ?>
+                               <?php if ($canDelete): ?>
                                <form method="POST" style="display:inline">
                                    <input type="hidden" name="id" value="<?= $product['id'] ?>">
-                                   <button type="submit" name="delete_product" class="btn btn-danger btn-sm"
+                                   <button type="submit" name="delete_product" class="btn btn-sm btn-danger delete-product"
                                            onclick="return confirm('Ürünü silmek istediğinizden emin misiniz?')">
                                        <i class="fas fa-trash"></i> Sil
                                    </button>
                                </form>
+                               <?php endif; ?>
                            </td>
                        </tr>
                        <?php endforeach; ?>

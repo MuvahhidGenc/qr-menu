@@ -1,5 +1,17 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/auth.php';
+
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Oturum kontrolü
+if (!isLoggedIn()) {
+    header('Location: login.php');
+    exit();
+}
 $db = new Database();
 
 if(isset($_POST['save_settings'])) {

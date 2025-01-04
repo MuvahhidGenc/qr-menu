@@ -1,11 +1,19 @@
 <?php
 require_once '../includes/config.php';
-$db = new Database();
+require_once '../includes/auth.php';
 
-if(!isset($_SESSION['admin'])) {
-   header('Location: login.php');
-   exit;
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
+
+// Oturum kontrolü
+if (!isLoggedIn()) {
+    header('Location: login.php');
+    exit();
+}
+
+$db = new Database();
 
 // Kategori İşlemleri
 if(isset($_POST['add_category'])) {

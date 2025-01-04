@@ -1,11 +1,32 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/auth.php';
 $db = new Database();
 
-if(!isset($_SESSION['admin'])) {
-    header('Location: login.php');
-    exit;
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
+
+// Debug için session durumunu logla
+error_log("Dashboard.php - Session Data: " . print_r($_SESSION, true));
+
+// Oturum kontrolü
+if (!isLoggedIn()) {
+    error_log("Dashboard.php - User not logged in, redirecting to login.php");
+    header('Location: login.php');
+    exit();
+}
+
+// Yetki kontrolü - süper admin veya admin ise devam et
+if (!isAdmin() && !isSuperAdmin()) {
+    error_log("Dashboard.php - User does not have required permissions");
+    header('Location: login.php');
+    exit();
+}
+
+// Session'ı yenile
+$_SESSION['last_activity'] = time();
 
 $total_categories = $db->query("SELECT COUNT(*) as count FROM categories")->fetch()['count'];
 $total_products = $db->query("SELECT COUNT(*) as count FROM products")->fetch()['count'];
