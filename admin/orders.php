@@ -2,24 +2,16 @@
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
-// Session kontrolü
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Yetki kontrolü
 if (!hasPermission('orders.view')) {
+    // Yetkisiz erişim durumunda yönlendirme
     header('Location: dashboard.php');
     exit();
 }
 
-$db = new Database();
+include 'navbar.php';
 
-// İşlem yetki kontrolleri
-$canViewOrders = hasPermission('orders.view');
-$canAddOrder = hasPermission('orders.add');
-$canEditOrder = hasPermission('orders.edit');
-$canDeleteOrder = hasPermission('orders.delete');
+$db = new Database();
 
 // Filtreleme parametreleri
 $status = $_GET['status'] ?? 'all';
@@ -251,15 +243,10 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
 }
 
 </style>
-<?php include 'navbar.php'; ?>  
+
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
             <h5 class="mb-0">Siparişler</h5>
-            <?php if ($canAdd): ?>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOrderModal">
-                <i class="fas fa-plus"></i> Yeni Sipariş
-            </button>
-            <?php endif; ?>
         </div>
         <div class="card-body">
             <!-- Filtreler -->
@@ -323,24 +310,10 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
                                 </select>
                                 </td>
                                 <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
-                                <td class="align-middle">
-                                    <?php if ($canUpdate): ?>
-                                    <button type="button" class="btn btn-sm btn-primary edit-order" data-id="<?= $order['id'] ?>">
-                                        <i class="fas fa-edit"></i> Güncelle
+                                <td>
+                                    <button type="button" class="btn btn-info btn-sm view-order" data-order-id="<?= $order['id'] ?>">
+                                        <i class="fas fa-eye"></i>
                                     </button>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($canDelete): ?>
-                                    <button type="button" class="btn btn-sm btn-danger delete-order" data-id="<?= $order['id'] ?>">
-                                        <i class="fas fa-trash"></i> Sil
-                                    </button>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($canTakePayment && $order['status'] != 'paid'): ?>
-                                    <button type="button" class="btn btn-sm btn-success take-payment" data-id="<?= $order['id'] ?>">
-                                        <i class="fas fa-money-bill"></i> Ödeme Al
-                                    </button>
-                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -439,13 +412,4 @@ $(document).ready(function() {
         printWindow.document.close();
     });
 });
-</script>
-
-<script>
-const userPermissions = {
-    canViewOrders: <?php echo $canViewOrders ? 'true' : 'false' ?>,
-    canAddOrder: <?php echo $canAddOrder ? 'true' : 'false' ?>,
-    canEditOrder: <?php echo $canEditOrder ? 'true' : 'false' ?>,
-    canDeleteOrder: <?php echo $canDeleteOrder ? 'true' : 'false' ?>
-};
 </script>

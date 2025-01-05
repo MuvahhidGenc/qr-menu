@@ -7,6 +7,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Yetki kontrolleri
+$canViewReservations = hasPermission('reservations.view');
+$canAddReservation = hasPermission('reservations.add');
+$canEditReservation = hasPermission('reservations.edit');
+$canDeleteReservation = hasPermission('reservations.delete');
+$canApproveReservation = hasPermission('reservations.approve');
+$canRejectReservation = hasPermission('reservations.reject');
+
+// Sayfa erişim kontrolü
+if (!$canViewReservations) {
+    header('Location: dashboard.php');
+    exit();
+}
+
 // Oturum kontrolü
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -182,9 +196,11 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Rezervasyonlar</h2>
+            <?php if ($canAddReservation): ?>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addReservationModal">
                 <i class="fas fa-plus"></i> Yeni Rezervasyon
             </button>
+            <?php endif; ?>
         </div>
 
         <!-- Filtreler -->
@@ -247,18 +263,26 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
+                                            <?php if ($canViewReservations): ?>
                                             <button type="button" class="btn btn-info" 
                                                     onclick="viewReservation(<?= $res['id'] ?>)">
                                                 <i class="fas fa-eye"></i>
                                             </button>
+                                            <?php endif; ?>
+                                            
+                                            <?php if ($canApproveReservation): ?>
                                             <button type="button" class="btn btn-success" 
                                                     onclick="updateStatus(<?= $res['id'] ?>, 'confirmed')">
                                                 <i class="fas fa-check"></i>
                                             </button>
+                                            <?php endif; ?>
+                                            
+                                            <?php if ($canRejectReservation): ?>
                                             <button type="button" class="btn btn-danger" 
                                                     onclick="updateStatus(<?= $res['id'] ?>, 'cancelled')">
                                                 <i class="fas fa-times"></i>
                                             </button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -350,12 +374,32 @@ function getStatusText($status) {
 ?>
 
 <script>
+// Yetki değişkenlerini PHP'den JS'e aktar
+const permissions = {
+    canView: <?php echo $canViewReservations ? 'true' : 'false' ?>,
+    canAdd: <?php echo $canAddReservation ? 'true' : 'false' ?>,
+    canEdit: <?php echo $canEditReservation ? 'true' : 'false' ?>,
+    canDelete: <?php echo $canDeleteReservation ? 'true' : 'false' ?>,
+    canApprove: <?php echo $canApproveReservation ? 'true' : 'false' ?>,
+    canReject: <?php echo $canRejectReservation ? 'true' : 'false' ?>
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     // Modal nesnesini oluştur
     const reservationModal = new bootstrap.Modal(document.getElementById('addReservationModal'));
 
     // Form gönderme işlemi
-    function saveReservation() {
+    window.saveReservation = function() {
+        if (!permissions.canAdd) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Rezervasyon ekleme yetkiniz bulunmamaktadır!',
+                confirmButtonText: 'Tamam'
+            });
+            return;
+        }
+
         const form = document.getElementById('reservationForm');
         const formData = new FormData(form);
 
@@ -402,10 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: 'Tamam'
             });
         });
-    }
-
-    // saveReservation fonksiyonunu global scope'a ekle
-    window.saveReservation = saveReservation;
+    };
 
     // Modal kapanınca formu sıfırla
     document.getElementById('addReservationModal').addEventListener('hidden.bs.modal', function () {
@@ -414,6 +455,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function updateStatus(id, status) {
+    if (!permissions.canView) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Rezervasyon görüntüleme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
+
     Swal.fire({
         title: 'Emin misiniz?',
         text: 'Rezervasyon durumunu güncellemek istediğinize emin misiniz?',
@@ -455,6 +506,15 @@ function updateStatus(id, status) {
 }
 
 function viewReservation(id) {
+    if (!permissions.canView) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Rezervasyon görüntüleme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
     fetch(`ajax/get_reservation.php?id=${id}`)
         .then(response => response.json())
         .then(data => {

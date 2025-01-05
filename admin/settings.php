@@ -1,21 +1,19 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 // Yetki kontrolü
 if (!hasPermission('settings.view')) {
     header('Location: dashboard.php');
+    ob_end_flush(); // Tamponu temizle ve çıktıyı gönder
     exit();
 }
-
-// Düzenleme yetkisi kontrolü
-$canEdit = hasPermission('settings.edit');
-
+// Yetki kontrolleri
+$canViewSettings = hasPermission('settings.view');
+$canEditSettings = hasPermission('settings.edit');
 $db = new Database();
 
 if(isset($_POST['save_settings'])) {
@@ -40,25 +38,52 @@ if(isset($_POST['save_settings'])) {
     exit;
 }
 
-$result = $db->query("SELECT setting_key, setting_value FROM settings")->fetchAll();
-$settings = array();
+// Varsayılan değerleri ayarla
+$default_settings = [
+    'restaurant_name' => 'Restaurant Adı',
+    'logo' => '',
+    'header_bg' => '',
+    'theme_color' => '#e74c3c',
+    'currency' => 'TL',
+    'order_code_required' => 0,
+    'order_code_length' => 4
+];
+
+// Veritabanından ayarları çek
+$result = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_value IS NOT NULL")->fetchAll();
+$settings = [];
+
+// Veritabanından gelen değerleri settings array'ine aktar
 foreach($result as $row) {
-   $settings[$row['setting_key']] = $row['setting_value'];
+    if(!empty($row['setting_value'])) {
+        $settings[$row['setting_key']] = $row['setting_value'];
+    }
 }
 
-// Ayarları getir
-$settings = $db->query("SELECT * FROM settings LIMIT 1")->fetch();
+// Varsayılan değerlerle birleştir
+$settings = array_merge($default_settings, $settings);
 
-// Varsayılan değerleri ayarla
-$settings = array_merge([
-    'order_code_required' => 0,
-    'order_code_length' => '4'
-], $settings ?: []);
+// Debug için
+error_log('Settings loaded: ' . print_r($settings, true));
 
 include 'navbar.php';
 ?>
 
+<head>
+    <!-- Mevcut CSS dosyaları -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- JavaScript dosyaları -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
 <style>
+        .nav-link {
+    display: -webkit-box !important;
+}
 /* Ana Container */
 .settings-container {
     padding: 2rem;
@@ -248,26 +273,70 @@ include 'navbar.php';
                <h5 class="mb-0">Site Ayarları</h5>
            </div>
            <div class="card-body">
-               <form id="settingsForm">
-                   <div class="row">
-                       <div class="col-md-6">
-                           <div class="mb-3">
-                               <label class="form-label">Site Başlığı</label>
-                               <input type="text" class="form-control" name="site_title" 
-                                      value="<?= htmlspecialchars($settings['site_title']) ?>"
-                                      <?= !$canEdit ? 'readonly' : '' ?>>
-                           </div>
-                       </div>
-                       <!-- Diğer form alanları -->
+               <form method="POST" enctype="multipart/form-data">
+                   <div class="mb-3">
+                       <label>Restaurant Adı</label>
+                       <input type="text" name="restaurant_name" 
+                              value="<?= $settings['restaurant_name'] ?? '' ?>" 
+                              class="form-control">
                    </div>
-
-                   <?php if ($canEdit): ?>
-                   <div class="text-end">
-                       <button type="submit" class="btn btn-primary">
-                           <i class="fas fa-save"></i> Kaydet
-                       </button>
+                   
+                   <div class="mb-3">
+                        <label>Logo</label>
+                        <div class="mb-2">
+                            <img id="logoPreview" src="<?= !empty($settings['logo']) ? '../uploads/'.$settings['logo'] : '' ?>" 
+                                    style="max-height:100px;<?= empty($settings['logo']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="logo" name="logo" value="<?= $settings['logo'] ?? '' ?>">
+                            <input type="text" class="form-control" id="logoDisplay" 
+                                    value="<?= $settings['logo'] ?? '' ?>" readonly>
+                                    <button type="button" class="btn btn-primary" onclick="openMediaModal('logo')">
+                                        <i class="fas fa-image"></i> Dosya Seç
+                                    </button>
+                        </div>
+                    </div>
+                   <div class="mb-3">
+                        <label>Header Arkaplan Resmi</label>
+                        <div class="mb-2">
+                            <img id="headerBgPreview" src="<?= !empty($settings['header_bg']) ? '../uploads/'.$settings['header_bg'] : '' ?>" 
+                                style="max-height:100px;<?= empty($settings['header_bg']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                        </div>
+                        <div class="input-group">
+                            <input type="hidden" id="headerBg" name="header_bg" value="<?= $settings['header_bg'] ?? '' ?>">
+                            <input type="text" class="form-control" id="headerBgDisplay" 
+                                value="<?= $settings['header_bg'] ?? '' ?>" readonly>
+                                <button type="button" class="btn btn-primary" onclick="openMediaModal('headerBg')">
+                                    <i class="fas fa-image"></i> Dosya Seç
+                                </button>
+                        </div>
+                    </div>
+                   <div class="mb-3">
+                        <label>Tema Rengi</label>
+                        <div class="d-flex align-items-center">
+                            <input type="color" name="theme_color" 
+                                value="<?= $settings['theme_color'] ?? '#e74c3c' ?>" 
+                                class="form-control form-control-color me-2"
+                                onchange="updateColorPreview(this.value)">
+                            <span id="colorPreview" class="text-muted">
+                                Seçilen renk: <?= $settings['theme_color'] ?? '#e74c3c' ?>
+                            </span>
+                        </div>
+                        <small class="text-muted">Bu renk sitenin genel tema rengi olarak kullanılacaktır.</small>
+                    </div>
+                   
+                   <div class="mb-3">
+                       <label>Para Birimi</label>
+                       <select name="currency" class="form-control">
+                           <option value="TL" <?= ($settings['currency'] ?? '') == 'TL' ? 'selected' : '' ?>>TL</option>
+                           <option value="USD" <?= ($settings['currency'] ?? '') == 'USD' ? 'selected' : '' ?>>USD</option>
+                           <option value="EUR" <?= ($settings['currency'] ?? '') == 'EUR' ? 'selected' : '' ?>>EUR</option>
+                       </select>
                    </div>
-                   <?php endif; ?>
+                   
+                   <button type="submit" name="save_settings" class="btn btn-primary">
+                       <i class="fas fa-save"></i> Kaydet
+                   </button>
                </form>
            </div>
        </div>
@@ -293,63 +362,91 @@ include 'navbar.php';
    </div>
 </div>
 
-
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<script>
-    function updateColorPreview(color) {
-    document.getElementById('colorPreview').textContent = 'Seçilen renk: ' + color;
-}
-document.querySelector('input[name="theme_color"]').addEventListener('input', function(e) {
-   document.querySelector('.text-muted').textContent = 'Seçilen renk: ' + e.target.value;
-});
-
-document.getElementById('orderCodeSettingsForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = {
-        order_code_required: document.getElementById('orderCodeRequired').checked ? 1 : 0,
-        order_code_length: document.getElementById('orderCodeLength').value
-    };
-    
-    fetch('ajax/save_settings.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Başarılı!',
-                text: 'Ayarlar kaydedildi',
-                showConfirmButton: false,
-                timer: 1500
-            });
-        } else {
-            throw new Error(data.message || 'Bir hata oluştu');
-        }
-    })
-    .catch(error => {
-        Swal.fire('Hata!', error.message, 'error');
-    });
-});
-
-$(document).ready(function() {
-    <?php if ($canEdit): ?>
-    // Ayarları kaydetme
-    $('#settingsForm').on('submit', function(e) {
-        e.preventDefault();
-        // ... mevcut kaydetme kodu ...
-    });
-    <?php endif; ?>
-});
-</script>
 <?php include '../includes/media-modal.php'; ?>
+
+<script type="text/javascript">
+    // Yetki değişkenlerini tanımla
+    const permissions = {
+        canView: <?php echo $canViewSettings ? 'true' : 'false' ?>,
+        canEdit: <?php echo $canEditSettings ? 'true' : 'false' ?>
+    };
+
+    // Media seçici fonksiyonları
+    function openMediaModal(targetField) {
+        const modal = new bootstrap.Modal(document.getElementById('mediaModal'));
+        window.currentMediaField = targetField; // Seçilen alanı global değişkende tut
+        modal.show();
+    }
+
+    function selectMedia(fileName) {
+        const targetField = window.currentMediaField;
+        if (!targetField) return;
+
+        // Input ve görüntüleme alanlarını güncelle
+        const input = document.getElementById(targetField);
+        const display = document.getElementById(targetField + 'Display');
+        const preview = document.getElementById(targetField + 'Preview');
+        
+        if (input) input.value = fileName;
+        if (display) display.value = fileName;
+        
+        if (preview) {
+            preview.src = '../uploads/' + fileName;
+            preview.style.display = 'block';
+        }
+        
+        // Modal'ı kapat
+        const modal = bootstrap.Modal.getInstance(document.getElementById('mediaModal'));
+        if (modal) modal.hide();
+    }
+
+    // Sayfa yüklendiğinde çalışacak kodlar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form gönderimi için event listener
+        const settingsForm = document.getElementById('settingsForm');
+        if (settingsForm) {
+            settingsForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Form gönderimini durdur
+                
+                if (!permissions.canEdit) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Yetki Hatası',
+                        text: 'Ayarları düzenleme yetkiniz bulunmamaktadır!',
+                        confirmButtonText: 'Tamam'
+                    });
+                    return;
+                }
+
+                // Onay modalını göster
+                Swal.fire({
+                    title: 'Emin misiniz?',
+                    text: "Ayarlar güncellenecek. Bu işlemi onaylıyor musunuz?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Evet, Kaydet',
+                    cancelButtonText: 'İptal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        settingsForm.submit(); // Formu gönder
+                    }
+                });
+            });
+        }
+
+        // Renk seçici için event listener
+        const colorInput = document.querySelector('input[name="theme_color"]');
+        if (colorInput) {
+            colorInput.addEventListener('input', function(e) {
+                const colorPreview = document.getElementById('colorPreview');
+                if (colorPreview) {
+                    colorPreview.textContent = 'Seçilen renk: ' + e.target.value;
+                }
+            });
+        }
+    });
+</script>
 </body>
 </html>

@@ -53,9 +53,6 @@ $allPermissions = [
         'title' => 'Siparişler',
         'permissions' => [
             'view' => 'Görüntüleme',
-            'add' => 'Ekleme',
-            'update' => 'Güncelleme',
-            'delete' => 'Silme',
         ]
     ],
     'tables' => [
@@ -115,6 +112,29 @@ $allPermissions = [
             'view' => 'Görüntüleme',
             'create' => 'Ödeme Alma',
             'cancel' => 'Ödeme İptal'
+        ]
+    ],
+    'reservations' => [
+        'title' => 'Rezervasyonlar',
+        'permissions' => [
+            'view' => 'Görüntüleme',
+            'add' => 'Ekleme',
+            'edit' => 'Düzenleme',
+            'delete' => 'Silme',
+            'approve' => 'Onaylama',
+            'reject' => 'Reddetme',
+            'settings' => 'Ayarları Yönetme'
+        ]
+    ],
+    'order_settings' => [
+        'title' => 'Sipariş Ayarları',
+        'permissions' => [
+            'view' => 'Görüntüleme',
+            'edit' => 'Düzenleme',
+            'payment_methods' => 'Ödeme Yöntemleri',
+            'discount_rules' => 'İndirim Kuralları',
+            'tax_settings' => 'Vergi Ayarları',
+            'printer_settings' => 'Yazıcı Ayarları'
         ]
     ]
 ];

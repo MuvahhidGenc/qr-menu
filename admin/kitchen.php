@@ -1,7 +1,7 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-include 'navbar.php';
+
 
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // Yetki kontrolü
 if (!hasPermission('kitchen.view')) {
     header('Location: dashboard.php');
+    ob_end_flush(); // Tamponu temizle ve çıktıyı gönder
     exit();
 }
 
@@ -32,7 +33,7 @@ $orders = $db->query("
     ORDER BY o.created_at ASC
 ")->fetchAll();
 ?>
-
+<?php include 'navbar.php'; ?>
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Mutfak Ekranı</h2>

@@ -2,14 +2,17 @@
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
+
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
-    header('Location: login.php');
+// Yetki kontrolü
+if (!hasPermission('reports.view')) {
+    header('Location: dashboard.php');
+    ob_end_flush(); // Tamponu temizle ve çıktıyı gönder
+
     exit();
 }
 

@@ -6,6 +6,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Yetki kontrolleri
+$canViewSettings = hasPermission('order_settings.view');
+$canEditSettings = hasPermission('order_settings.edit');
+$canManagePayments = hasPermission('order_settings.payment_methods');
+$canManageDiscounts = hasPermission('order_settings.discount_rules');
+$canManageTaxes = hasPermission('order_settings.tax_settings');
+
+// Sayfa erişim kontrolü
+if (!$canViewSettings) {
+    header('Location: dashboard.php');
+    exit();
+}
+
 // Oturum kontrolü
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -356,9 +369,29 @@ include 'navbar.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// PHP'den yetki değişkenlerini JS'e aktar
+const permissions = {
+    canView: <?php echo $canViewSettings ? 'true' : 'false' ?>,
+    canEdit: <?php echo $canEditSettings ? 'true' : 'false' ?>,
+    canManagePayments: <?php echo $canManagePayments ? 'true' : 'false' ?>,
+    canManageDiscounts: <?php echo $canManageDiscounts ? 'true' : 'false' ?>,
+    canManageTaxes: <?php echo $canManageTaxes ? 'true' : 'false' ?>
+};
+
+// Form gönderimi için yetki kontrolü
 document.getElementById('orderCodeSettingsForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    if (!permissions.canEdit) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Ayarları düzenleme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
+
     const formData = {
         code_required: document.getElementById('codeRequired').checked ? 1 : 0,
         code_length: document.getElementById('codeLength').value
@@ -390,7 +423,18 @@ document.getElementById('orderCodeSettingsForm').addEventListener('submit', func
     });
 });
 
+// Yeni kod üretme fonksiyonu için yetki kontrolü
 function generateNewCode() {
+    if (!permissions.canEdit) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Yeni kod üretme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
+
     Swal.fire({
         title: 'Yeni Kod Üretilecek',
         text: 'Mevcut kod varsa pasif hale getirilecektir. Devam etmek istiyor musunuz?',
@@ -436,7 +480,18 @@ function generateNewCode() {
     });
 }
 
+// Yazdırma fonksiyonu için yetki kontrolü
 function printCodes(format) {
+    if (!permissions.canView) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Kodları görüntüleme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
+
     // Aktif kod kontrolü
     const currentCode = document.querySelector('.display-4');
     if (!currentCode) {
@@ -490,7 +545,18 @@ function printCodes(format) {
         });
 }
 
+// Doğrudan yazdırma fonksiyonu için yetki kontrolü
 function printDirectly() {
+    if (!permissions.canView) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetki Hatası',
+            text: 'Kodları görüntüleme yetkiniz bulunmamaktadır!',
+            confirmButtonText: 'Tamam'
+        });
+        return;
+    }
+
     const currentCode = document.querySelector('.display-4');
     if (!currentCode) {
         Swal.fire('Hata!', 'Aktif kod bulunamadı', 'error');
@@ -609,6 +675,27 @@ function printDirectly() {
             Swal.fire('Hata!', error.message, 'error');
         });
 }
+
+// Sayfa yüklendiğinde form elemanlarını yetkilere göre devre dışı bırak
+document.addEventListener('DOMContentLoaded', function() {
+    if (!permissions.canEdit) {
+        // Form elemanlarını devre dışı bırak
+        document.getElementById('codeRequired').disabled = true;
+        document.getElementById('codeLength').disabled = true;
+        
+        // Kaydet butonunu gizle
+        document.querySelector('#orderCodeSettingsForm button[type="submit"]').style.display = 'none';
+        
+        // Yeni kod üretme butonunu gizle
+        document.querySelector('button[onclick="generateNewCode()"]').style.display = 'none';
+    }
+
+    if (!permissions.canView) {
+        // Yazdırma butonlarını gizle
+        document.querySelectorAll('button[onclick^="printCodes"]').forEach(btn => btn.style.display = 'none');
+        document.querySelector('button[onclick="printDirectly()"]').style.display = 'none';
+    }
+});
 </script>
 
 </body>

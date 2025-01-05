@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 03 Oca 2025, 14:45:16
+-- Üretim Zamanı: 05 Oca 2025, 12:11:16
 -- Sunucu sürümü: 10.4.32-MariaDB
--- PHP Sürümü: 8.0.30
+-- PHP Sürümü: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -30,17 +30,22 @@ SET time_zone = "+00:00";
 CREATE TABLE `admins` (
   `id` int(11) NOT NULL,
   `username` varchar(50) DEFAULT NULL,
+  `name` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
   `password` varchar(255) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `email` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `role_id` int(11) DEFAULT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Tablo döküm verisi `admins`
 --
 
-INSERT INTO `admins` (`id`, `username`, `password`, `email`, `created_at`) VALUES
-(1, 'admin', '$argon2id$v=19$m=65536,t=4,p=3$dFdyYnNzd1BlaEZNWEpBMA$mHfkCjKRFwJ0OU3g7CBDAih+84cmWNV4dxzkJUf2Kwk', 'admin@example.com', '2024-12-24 06:40:16');
+INSERT INTO `admins` (`id`, `username`, `name`, `phone`, `password`, `email`, `created_at`, `role_id`, `status`) VALUES
+(1, 'admin', 'Sistem Yöneticisi', '', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@example.com', '2024-12-24 06:40:16', 1, 1),
+(2, 'test', 'Deneme deneme', '', '$argon2id$v=19$m=65536,t=4,p=3$Z0ExTFFyMjhMYzQ0R2dHVw$cifv/NHZid8ZU5Xhju6HsHQ0yzh/QXDa2mFe/iOD+Oo', '', '2025-01-04 07:36:37', 4, 1);
 
 -- --------------------------------------------------------
 
@@ -63,7 +68,7 @@ CREATE TABLE `categories` (
 
 INSERT INTO `categories` (`id`, `name`, `status`, `sort_order`, `created_at`, `image`) VALUES
 (6, 'ANA YEMEK', 1, 0, '2025-01-01 12:16:22', '676a6e1cc23fc.jpg'),
-(7, 'TATLI', 1, 0, '2025-01-01 12:19:12', '677532bcbcc11.jpg'),
+(7, 'TATLI', 1, 0, '2025-01-01 12:19:12', '676a664757925.jpg'),
 (8, 'ÇORBA', 1, 0, '2025-01-01 12:19:28', '6774e8b62a116.jpg'),
 (9, 'İÇEÇEK', 1, 0, '2025-01-01 12:20:01', '676a6e27408af.jpg');
 
@@ -122,12 +127,58 @@ INSERT INTO `notifications` (`id`, `order_id`, `type`, `message`, `is_read`, `cr
 (58, 18, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 13:32:05'),
 (59, 18, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 13:33:52'),
 (60, 18, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 13:36:24'),
-(61, 21, 'new_order', 'Masa Masa 1\'dan yeni sipariş geldi!', 0, '2025-01-03 13:37:47'),
-(62, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 0, '2025-01-03 13:38:04'),
-(63, 22, 'new_order', 'Masa Masa 3\'dan yeni sipariş geldi!', 0, '2025-01-03 13:38:49'),
-(64, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 0, '2025-01-03 13:39:20'),
+(61, 21, 'new_order', 'Masa Masa 1\'dan yeni sipariş geldi!', 1, '2025-01-03 13:37:47'),
+(62, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 13:38:04'),
+(63, 22, 'new_order', 'Masa Masa 3\'dan yeni sipariş geldi!', 1, '2025-01-03 13:38:49'),
+(64, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 13:39:20'),
 (65, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 13:40:18'),
-(66, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 0, '2025-01-03 13:40:50');
+(66, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 13:40:50'),
+(67, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 18:09:15'),
+(68, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 18:09:41'),
+(69, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 18:10:01'),
+(70, 23, 'new_order', 'Masa Masa 1\'dan yeni sipariş geldi!', 1, '2025-01-03 18:10:20'),
+(71, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-03 18:11:03'),
+(72, 24, 'new_order', 'Masa Masa 1\'dan yeni sipariş geldi!', 1, '2025-01-03 18:11:27'),
+(73, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:15:35'),
+(74, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:16:52'),
+(75, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:16:57'),
+(76, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:17:03'),
+(77, 22, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:17:09'),
+(78, 25, 'new_order', 'Masa Masa 3\'dan yeni sipariş geldi!', 1, '2025-01-03 18:19:32'),
+(79, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:21:50'),
+(80, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:28:44'),
+(81, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:29:17'),
+(82, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:30:56'),
+(83, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:32:14'),
+(84, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:33:13'),
+(85, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-03 18:35:47'),
+(86, 24, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:09:36'),
+(87, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 13:09:57'),
+(88, 24, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:16:21'),
+(89, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:22:54'),
+(90, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:23:02'),
+(91, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:33:33'),
+(92, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:57:35'),
+(93, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:57:46'),
+(94, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 13:57:53'),
+(95, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 14:05:37'),
+(96, 23, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 14:11:20'),
+(97, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 15:23:51'),
+(98, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 15:24:08'),
+(99, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 15:24:14'),
+(100, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 15:24:28'),
+(101, 21, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-04 15:25:03'),
+(102, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 15:53:02'),
+(103, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 15:53:13'),
+(104, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 15:53:24'),
+(105, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 15:53:31'),
+(106, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 17:29:05'),
+(107, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 17:29:11'),
+(108, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 17:29:14'),
+(109, 25, 'order_updated', 'Masa Masa 3\'a yeni ürünler eklendi', 1, '2025-01-04 17:29:17'),
+(110, 27, 'new_order', 'Masa Masa 2\'dan yeni sipariş geldi!', 1, '2025-01-05 10:44:25'),
+(111, 27, 'order_updated', 'Masa Masa 2\'a yeni ürünler eklendi', 0, '2025-01-05 10:45:05'),
+(112, 27, 'order_updated', 'Masa Masa 2\'a yeni ürünler eklendi', 0, '2025-01-05 10:45:29');
 
 -- --------------------------------------------------------
 
@@ -161,8 +212,10 @@ INSERT INTO `orders` (`id`, `table_id`, `status`, `order_code`, `total_amount`, 
 (18, 1, 'completed', NULL, 6210.00, NULL, 'asdasd asdas das\n---\n16:28: karışık adana', '2025-01-02 13:25:19', '2025-01-03 13:37:37', 6, '2025-01-03 13:37:37'),
 (19, 1, 'completed', NULL, 250.00, NULL, NULL, '2025-01-03 13:29:36', '2025-01-03 13:37:37', 6, '2025-01-03 13:37:37'),
 (20, 1, 'completed', NULL, 250.00, NULL, NULL, '2025-01-03 13:30:07', '2025-01-03 13:37:37', 6, '2025-01-03 13:37:37'),
-(21, 1, 'pending', NULL, 500.00, NULL, NULL, '2025-01-03 13:37:47', '2025-01-03 13:38:04', NULL, NULL),
-(22, 3, 'pending', NULL, 1710.00, NULL, '16:38: Test\n---\n16:39: fındığı bol\n---\n16:40: test2', '2025-01-03 13:38:49', '2025-01-03 13:40:50', NULL, NULL);
+(21, 1, 'completed', NULL, 3750.00, NULL, NULL, '2025-01-03 13:37:47', '2025-01-04 15:51:28', 8, '2025-01-04 15:51:28'),
+(22, 3, 'completed', NULL, 3960.00, NULL, '16:38: Test\n---\n16:39: fındığı bol\n---\n16:40: test2\n---\n21:15: soğansız', '2025-01-03 13:38:49', '2025-01-03 18:17:27', 7, '2025-01-03 18:17:27'),
+(25, 3, 'preparing', NULL, 5000.00, NULL, NULL, '2025-01-03 18:19:32', '2025-01-05 09:31:30', NULL, NULL),
+(27, 2, 'preparing', NULL, 1150.00, NULL, '13:44: Test', '2025-01-05 10:44:25', '2025-01-05 10:45:57', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -186,7 +239,8 @@ INSERT INTO `order_codes` (`id`, `code`, `active`, `created_at`, `expires_at`) V
 (1, '0344', 0, '2025-01-03 06:47:04', '2025-01-04 06:47:04'),
 (2, '5245', 0, '2025-01-03 06:47:19', '2025-01-04 06:47:19'),
 (3, '897267', 0, '2025-01-03 06:47:26', '2025-01-04 06:47:26'),
-(4, '516992', 1, '2025-01-03 07:04:59', '2025-01-04 07:04:59');
+(4, '516992', 0, '2025-01-03 07:04:59', '2025-01-04 07:04:59'),
+(5, '647739', 1, '2025-01-05 10:04:11', '2025-01-06 10:04:11');
 
 -- --------------------------------------------------------
 
@@ -221,13 +275,20 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (184, 18, 3, 3, 250.00, '2025-01-03 13:02:22'),
 (185, 19, 3, 1, 250.00, '2025-01-03 13:29:36'),
 (186, 20, 1, 1, 250.00, '2025-01-03 13:30:07'),
-(187, 21, 1, 1, 250.00, '2025-01-03 13:37:47'),
-(188, 21, 3, 1, 250.00, '2025-01-03 13:38:04'),
+(188, 21, 3, 8, 250.00, '2025-01-03 13:38:04'),
 (189, 22, 5, 1, 60.00, '2025-01-03 13:38:49'),
-(190, 22, 1, 2, 250.00, '2025-01-03 13:38:49'),
+(190, 22, 1, 5, 250.00, '2025-01-03 13:38:49'),
 (191, 22, 8, 1, 150.00, '2025-01-03 13:39:20'),
-(192, 22, 3, 2, 250.00, '2025-01-03 13:40:50'),
-(193, 22, 7, 2, 250.00, '2025-01-03 13:40:50');
+(192, 22, 3, 7, 250.00, '2025-01-03 13:40:50'),
+(193, 22, 7, 3, 250.00, '2025-01-03 13:40:50'),
+(197, 25, 1, 9, 250.00, '2025-01-03 18:19:32'),
+(198, 25, 3, 10, 250.00, '2025-01-04 13:09:57'),
+(200, 21, 1, 3, 250.00, '2025-01-04 15:24:08'),
+(201, 21, 7, 4, 250.00, '2025-01-04 15:24:14'),
+(203, 25, 7, 1, 250.00, '2025-01-04 17:29:11'),
+(206, 27, 1, 1, 250.00, '2025-01-05 10:44:25'),
+(207, 27, 3, 2, 250.00, '2025-01-05 10:44:25'),
+(208, 27, 6, 4, 100.00, '2025-01-05 10:45:29');
 
 -- --------------------------------------------------------
 
@@ -274,7 +335,9 @@ INSERT INTO `payments` (`id`, `table_id`, `payment_method`, `total_amount`, `pai
 (3, 1, 'pos', 60.00, 60.00, NULL, '2025-01-02 12:55:58'),
 (4, 1, 'pos', 310.00, 310.00, NULL, '2025-01-02 13:00:38'),
 (5, 1, 'pos', 240.00, 240.00, NULL, '2025-01-02 13:25:13'),
-(6, 1, 'cash', 6710.00, 6710.00, NULL, '2025-01-03 13:37:37');
+(6, 1, 'cash', 6710.00, 6710.00, NULL, '2025-01-03 13:37:37'),
+(7, 3, 'pos', 3960.00, 3960.00, NULL, '2025-01-03 18:17:27'),
+(8, 1, 'pos', 3750.00, 3750.00, NULL, '2025-01-04 15:51:28');
 
 -- --------------------------------------------------------
 
@@ -304,8 +367,7 @@ INSERT INTO `products` (`id`, `category_id`, `name`, `description`, `price`, `im
 (3, 6, 'Kuş Başı Kebap', 'asdasd', 250.00, '6774e519e3e6f.jpg', 1, '2025-01-01 12:24:49', 0, 0),
 (5, 9, 'KOLA', 'ASDAS DASD ASD AS', 60.00, '676a97b066ef6.jpg', 1, '2025-01-01 12:28:02', 0, 0),
 (6, 8, 'Çorba', 'asdasdasdas', 100.00, '6774e8b62a116.jpg', 1, '2025-01-01 12:28:45', 0, 0),
-(7, 6, 'Karışık Kebap', 'asdas dasd asd asd as', 250.00, '676a6e1cc23fc.jpg', 1, '2025-01-01 12:30:20', 0, 0),
-(8, 7, 'TATLI', 'asdas dasd asd asd as', 150.00, '677532bcbcc11.jpg', 1, '2025-01-01 12:49:30', 0, 0);
+(7, 6, 'Karışık Kebap', 'asdas dasd asd asd as', 250.00, '676a6e1cc23fc.jpg', 1, '2025-01-01 12:30:20', 0, 0);
 
 -- --------------------------------------------------------
 
@@ -341,6 +403,13 @@ CREATE TABLE `reservations` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Tablo döküm verisi `reservations`
+--
+
+INSERT INTO `reservations` (`id`, `customer_name`, `customer_phone`, `customer_email`, `table_id`, `guest_count`, `reservation_date`, `reservation_time`, `special_requests`, `status`, `created_at`) VALUES
+(1, 'ömer', '05392833498', 'omer.yyildirim@gmail.com', 1, 3, '2025-01-05', '14:59:00', '', 'cancelled', '2025-01-05 09:59:19');
+
 -- --------------------------------------------------------
 
 --
@@ -356,6 +425,33 @@ CREATE TABLE `reviews` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `status` enum('pending','approved','rejected') DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Tablo için tablo yapısı `roles`
+--
+
+CREATE TABLE `roles` (
+  `id` int(11) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `slug` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  `permissions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`permissions`)),
+  `is_system` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Tablo döküm verisi `roles`
+--
+
+INSERT INTO `roles` (`id`, `name`, `slug`, `description`, `permissions`, `is_system`, `created_at`, `updated_at`) VALUES
+(1, 'Süper Admin', 'super-admin', 'Tam yetkili sistem yöneticisi', '{\"dashboard\":{\"view\":true},\"categories\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true,\"kitchen_only\":true},\"products\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true},\"orders\":{\"view\":true,\"add\":true,\"update\":true,\"delete\":true,\"payment\":true},\"tables\":{\"view\":true,\"manage\":true},\"kitchen\":{\"view\":true,\"manage\":true},\"users\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true},\"roles\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true},\"settings\":{\"view\":true,\"edit\":true},\"reports\":{\"view\":true}}', 1, '2025-01-04 07:46:12', '2025-01-04 11:29:15'),
+(2, 'Yönetici', 'admin', 'Genel sistem yöneticisi', '{\r\n    \"dashboard\": true,\r\n    \"categories\": {\"view\": true, \"add\": true, \"edit\": true, \"delete\": true},\r\n    \"products\": {\"view\": true, \"add\": true, \"edit\": true, \"delete\": true},\r\n    \"orders\": {\"view\": true, \"add\": true, \"edit\": true, \"delete\": true, \"payment\": true},\r\n    \"tables\": {\"view\": true, \"manage\": true},\r\n    \"users\": true,\r\n    \"roles\": true,\r\n    \"settings\": true,\r\n    \"reports\": true\r\n}', 1, '2025-01-04 07:46:12', '2025-01-04 07:46:12'),
+(3, 'Mutfak', 'kitchen', 'Mutfak personeli', '{\r\n    \"dashboard\": true,\r\n    \"categories\": {\"view\": true, \"kitchen_only\": true},\r\n    \"products\": {\"view\": true},\r\n    \"orders\": {\"view\": true, \"update\": true},\r\n    \"kitchen\": {\"view\": true, \"manage\": true}\r\n}', 1, '2025-01-04 07:46:12', '2025-01-04 07:46:12'),
+(4, 'Garson', 'waiter', 'Servis personeli', '{\"dashboard\":{\"view\":true},\"categories\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true,\"kitchen_only\":false},\"products\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true},\"orders\":{\"view\":true,\"add\":true,\"update\":true,\"delete\":true},\"tables\":{\"view\":true,\"manage\":false,\"payment\":false,\"sales\":true,\"add_order\":true,\"edit_order\":true,\"delete_order\":true,\"save_order\":true},\"kitchen\":{\"view\":false,\"manage\":false},\"users\":{\"view\":false,\"add\":false,\"edit\":false,\"delete\":false},\"roles\":{\"view\":false,\"add\":false,\"edit\":false,\"delete\":false},\"settings\":{\"view\":true,\"edit\":true},\"reports\":{\"view\":false},\"payments\":{\"view\":false,\"create\":false,\"cancel\":false},\"reservations\":{\"view\":true,\"add\":true,\"edit\":true,\"delete\":true,\"approve\":true,\"reject\":true,\"settings\":false},\"order_settings\":{\"view\":true,\"edit\":true,\"payment_methods\":false,\"discount_rules\":false,\"tax_settings\":false,\"printer_settings\":false}}', 1, '2025-01-04 07:46:12', '2025-01-05 10:42:49');
 
 -- --------------------------------------------------------
 
@@ -377,10 +473,10 @@ CREATE TABLE `settings` (
 --
 
 INSERT INTO `settings` (`setting_key`, `setting_value`, `updated_at`, `header_bg`, `order_code_required`, `order_code_length`) VALUES
-('currency', 'TL', '2024-12-24 06:48:18', NULL, 0, '4'),
-('header_bg', '', '2025-01-02 13:41:13', NULL, 0, '4'),
-('logo', '', '2025-01-02 13:41:13', NULL, 0, '4'),
-('restaurant_name', 'Test Restaurant', '2024-12-24 07:48:18', NULL, 0, '4'),
+('currency', 'TL', '2025-01-05 10:18:47', NULL, 0, '4'),
+('header_bg', '676a6e27408af.jpg', '2025-01-05 10:38:55', NULL, 0, '4'),
+('logo', '676a6b29d3f6a.png', '2025-01-05 10:38:55', NULL, 0, '4'),
+('restaurant_name', 'Test Restuarant', '2025-01-05 10:38:55', NULL, 0, '4'),
 ('theme_color', '#e74c3c', '2025-01-02 13:41:13', NULL, 0, '4');
 
 -- --------------------------------------------------------
@@ -409,7 +505,8 @@ INSERT INTO `tables` (`id`, `table_no`, `capacity`, `qr_code`, `status`, `create
 (3, 'Masa 3', 4, NULL, 'active', '2025-01-01 12:14:55', NULL),
 (4, 'Masa 4', 4, NULL, 'active', '2025-01-01 12:15:00', NULL),
 (5, 'Masa 5', 4, NULL, 'active', '2025-01-01 12:15:06', NULL),
-(6, 'Masa 6', 4, NULL, 'active', '2025-01-02 12:45:45', NULL);
+(6, 'Masa 6', 4, NULL, 'active', '2025-01-02 12:45:45', NULL),
+(8, '7', 4, NULL, 'active', '2025-01-04 15:42:05', NULL);
 
 --
 -- Dökümü yapılmış tablolar için indeksler
@@ -419,7 +516,8 @@ INSERT INTO `tables` (`id`, `table_no`, `capacity`, `qr_code`, `status`, `create
 -- Tablo için indeksler `admins`
 --
 ALTER TABLE `admins`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `role_id` (`role_id`);
 
 --
 -- Tablo için indeksler `categories`
@@ -501,6 +599,13 @@ ALTER TABLE `reviews`
   ADD KEY `order_id` (`order_id`);
 
 --
+-- Tablo için indeksler `roles`
+--
+ALTER TABLE `roles`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `slug` (`slug`);
+
+--
 -- Tablo için indeksler `settings`
 --
 ALTER TABLE `settings`
@@ -520,37 +625,37 @@ ALTER TABLE `tables`
 -- Tablo için AUTO_INCREMENT değeri `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=113;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_codes`
 --
 ALTER TABLE `order_codes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=194;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=209;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_settings`
@@ -562,13 +667,13 @@ ALTER TABLE `order_settings`
 -- Tablo için AUTO_INCREMENT değeri `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `product_reviews`
@@ -580,7 +685,7 @@ ALTER TABLE `product_reviews`
 -- Tablo için AUTO_INCREMENT değeri `reservations`
 --
 ALTER TABLE `reservations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `reviews`
@@ -589,14 +694,28 @@ ALTER TABLE `reviews`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- Tablo için AUTO_INCREMENT değeri `roles`
+--
+ALTER TABLE `roles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
 -- Tablo için AUTO_INCREMENT değeri `tables`
 --
 ALTER TABLE `tables`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- Dökümü yapılmış tablolar için kısıtlamalar
 --
+
+--
+-- Tablo kısıtlamaları `admins`
+--
+ALTER TABLE `admins`
+  ADD CONSTRAINT `admins_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+  ADD CONSTRAINT `admins_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+  ADD CONSTRAINT `admins_ibfk_3` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
 
 --
 -- Tablo kısıtlamaları `orders`

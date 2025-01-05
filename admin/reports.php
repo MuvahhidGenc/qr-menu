@@ -10,6 +10,8 @@ if (session_status() === PHP_SESSION_NONE) {
 // Yetki kontrolü
 if (!hasPermission('reports.view')) {
     header('Location: dashboard.php');
+    ob_end_flush(); // Tamponu temizle ve çıktıyı gönder
+
     exit();
 }
 
@@ -57,7 +59,7 @@ $table_stats = $db->query("SELECT
     ORDER BY total_revenue DESC", 
     [$start_date, $end_date])->fetchAll();
 ?>
-
+<?php include 'navbar.php'; ?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
