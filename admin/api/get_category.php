@@ -1,11 +1,14 @@
 <?php
 require_once '../../includes/config.php';
-require_once '../../includes/session.php';
+require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
 try {
-    checkAuth();
+    // Yetki kontrolü
+    if (!hasPermission('categories.view')) {
+        throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
+    }
     
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     
@@ -26,7 +29,7 @@ try {
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(403);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

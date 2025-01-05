@@ -1,12 +1,15 @@
 <?php
 require_once '../../includes/config.php';
-require_once '../../includes/session.php';
+require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
 try {
-    checkAuth();
-    
+    // Yetki kontrolü
+    if (!hasPermission('categories.delete')) {
+        throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
     $category_id = isset($input['category_id']) ? (int)$input['category_id'] : 0;
     
@@ -35,7 +38,7 @@ try {
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(403);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

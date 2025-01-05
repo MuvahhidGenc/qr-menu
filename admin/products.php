@@ -1,5 +1,4 @@
-<?php
-require_once '../includes/config.php';
+<?php require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
 // Session kontrolü
@@ -13,72 +12,24 @@ if (!hasPermission('products.view')) {
     exit();
 }
 
+// Yetkileri tanımla
+$canViewProducts = hasPermission('products.view');
+$canAddProduct = hasPermission('products.add');
+$canEditProduct = hasPermission('products.edit');
+$canDeleteProduct = hasPermission('products.delete');
+
+
 // Sayfa içeriği
 $db = new Database();
 
-// İşlem yetki kontrolleri
-$canAdd = hasPermission('products.add');
-$canEdit = hasPermission('products.edit');
-$canDelete = hasPermission('products.delete');
-
-// Ürün İşlemleri
-if(isset($_POST['add_product'])) {
-    $name = cleanInput($_POST['name']);
-    $description = cleanInput($_POST['description']);
-    $price = floatval($_POST['price']);
-    $category_id = (int)$_POST['category_id'];
-    $status = isset($_POST['status']) ? 1 : 0;
-    $image = $_POST['image'] ?? '';
-    
-    $db->query("INSERT INTO products (name, description, price, category_id, image, status) 
-                VALUES (?, ?, ?, ?, ?, ?)", 
-               [$name, $description, $price, $category_id, $image, $status]);
- }
-
-if(isset($_POST['delete_product'])) {
-   $id = (int)$_POST['id'];
-   $db->query("DELETE FROM products WHERE id = ?", [$id]);
-   $_SESSION['message'] = 'Ürün silindi.';
-   $_SESSION['message_type'] = 'success';
-   header('Location: products.php');
-   exit;
-}
-
-// Ürün Güncelleme İşlemi
-if(isset($_POST['update_product'])) {
-    $id = (int)$_POST['product_id'];
-    $name = cleanInput($_POST['name']);
-    $description = cleanInput($_POST['description']);
-    $price = floatval($_POST['price']);
-    $category_id = (int)$_POST['category_id'];
-    $status = isset($_POST['status']) ? 1 : 0;
-    $image = $_POST['image'] ?? '';
-    
-    $db->query("UPDATE products 
-                SET name = ?, 
-                    description = ?, 
-                    price = ?, 
-                    category_id = ?, 
-                    image = ?, 
-                    status = ? 
-                WHERE id = ?", 
-               [$name, $description, $price, $category_id, $image, $status, $id]);
-
-    $_SESSION['message'] = 'Ürün güncellendi.';
-    $_SESSION['message_type'] = 'success';
-    header('Location: products.php');
-    exit;
-}
-
-// Ürünleri ve Kategorileri Çek
-$products = $db->query("
-    SELECT p.*, c.name as category_name 
-    FROM products p 
-    JOIN categories c ON p.category_id = c.id 
-    ORDER BY p.id DESC
-")->fetchAll();
-
-$categories = $db->query("SELECT * FROM categories")->fetchAll();
+// Kategorileri ve ürünleri tek sorguda getir
+$categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
+$products = $db->query(
+    "SELECT p.*, c.name as category_name 
+     FROM products p 
+     LEFT JOIN categories c ON p.category_id = c.id 
+     ORDER BY p.name"
+)->fetchAll();
 
 include 'navbar.php';
 ?>
@@ -236,7 +187,7 @@ include 'navbar.php';
    <div class="card">
        <div class="card-header d-flex justify-content-between align-items-center">
            <h5 class="mb-0">Ürünler</h5>
-           <?php if ($canAdd): ?>
+           <?php if ($canAddProduct): ?>
            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
                <i class="fas fa-plus"></i> Yeni Ürün
            </button>
@@ -259,11 +210,12 @@ include 'navbar.php';
                        <?php foreach($products as $product): ?>
                        <tr>
                            <td>
-                               <?php if($product['image']): ?>
-                                   <img src="../uploads/<?= $product['image'] ?>" 
-                                        style="width:50px;height:50px;object-fit:cover;border-radius:5px">
+                               <?php if ($product['image']): ?>
+                                   <img src="../uploads/<?= htmlspecialchars($product['image']) ?>" 
+                                        class="product-image" 
+                                        alt="<?= htmlspecialchars($product['name']) ?>">
                                <?php else: ?>
-                                   <div class="bg-light" style="width:50px;height:50px;border-radius:5px"></div>
+                                   <img src="assets/img/no-image.png" class="product-image" alt="No Image">
                                <?php endif; ?>
                            </td>
                            <td class="align-middle">
@@ -280,19 +232,17 @@ include 'navbar.php';
                                </div>
                            </td>
                            <td class="align-middle">
-                               <?php if ($canEdit): ?>
-                               <button type="button" class="btn btn-sm btn-primary edit-product" data-id="<?= $product['id'] ?>">
-                                   <i class="fas fa-edit"></i> Düzenle
-                               </button>
+                               <?php if ($canEditProduct): ?>
+                                <button type="button" class="btn btn-sm btn-primary" 
+                                        onclick="editProduct(<?= $product['id'] ?>)">
+                                    <i class="fas fa-edit"></i> Düzenle
+                                </button>
                                <?php endif; ?>
-                               <?php if ($canDelete): ?>
-                               <form method="POST" style="display:inline">
-                                   <input type="hidden" name="id" value="<?= $product['id'] ?>">
-                                   <button type="submit" name="delete_product" class="btn btn-sm btn-danger delete-product"
-                                           onclick="return confirm('Ürünü silmek istediğinizden emin misiniz?')">
-                                       <i class="fas fa-trash"></i> Sil
-                                   </button>
-                               </form>
+                               <?php if ($canDeleteProduct): ?>
+                               <button type="button" class="btn btn-sm btn-danger" 
+                                       onclick="deleteProduct(<?= $product['id'] ?>)">
+                                   <i class="fas fa-trash"></i> Sil
+                               </button>
                                <?php endif; ?>
                            </td>
                        </tr>
@@ -341,14 +291,12 @@ include 'navbar.php';
                                </div>
                                <div class="mb-3">
                                     <div class="mb-2">
-                                        <img id="productImagePreview" src="<?= !empty($product['image']) ? '../uploads/'.$product['image'] : '' ?>" 
-                                            style="max-height:100px;<?= empty($product['image']) ? 'display:none' : '' ?>" class="img-thumbnail">
+                                        <img id="addProductImagePreview" src="" style="max-height:100px;display:none" class="img-thumbnail">
                                     </div>
                                     <div class="input-group">
-                                        <input type="hidden" id="productImage" name="image" value="<?= $product['image'] ?? '' ?>">
-                                        <input type="text" class="form-control" id="productImageDisplay" 
-                                            value="<?= $product['image'] ?? '' ?>" readonly>
-                                        <button type="button" class="btn btn-primary" onclick="openMediaModal('productImage', 'productImagePreview')">
+                                        <input type="hidden" id="addProductImage" name="image">
+                                        <input type="text" class="form-control" id="addProductImageDisplay" readonly>
+                                        <button type="button" class="btn btn-primary" onclick="openMediaModal('addProductImage', 'addProductImagePreview')">
                                             <i class="fas fa-image"></i> Dosya Seç
                                         </button>
                                     </div>
@@ -379,7 +327,7 @@ include 'navbar.php';
                    <h5 class="modal-title">Ürün Düzenle</h5>
                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                </div>
-               <form method="POST">
+               <form id="editProductForm" method="POST">
                    <input type="hidden" name="product_id" id="edit_product_id">
                    <div class="modal-body">
                        <div class="row">
@@ -409,18 +357,20 @@ include 'navbar.php';
                                    <input type="number" step="0.01" name="price" id="edit_product_price" class="form-control" required>
                                </div>
                                <div class="mb-3">
-                                   <div class="mb-2">
-                                       <img id="editProductImagePreview" src="" 
-                                            style="max-height:100px;display:none" class="img-thumbnail">
-                                   </div>
-                                   <div class="input-group">
-                                       <input type="hidden" id="editProductImage" name="image">
-                                       <input type="text" class="form-control" id="editProductImageDisplay" readonly>
-                                       <button type="button" class="btn btn-primary" onclick="openMediaModal('editProductImage', 'editProductImagePreview')">
-                                           <i class="fas fa-image"></i> Dosya Seç
-                                       </button>
-                                   </div>
-                               </div>
+                                    <div class="mb-2">
+                                        <img id="editProductImagePreview" 
+                                             src="<?= $product['image'] ? '../uploads/' . htmlspecialchars($product['image']) : '' ?>" 
+                                             style="max-height:100px;<?= $product['image'] ? '' : 'display:none' ?>" 
+                                             class="img-thumbnail">
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="hidden" id="editProductImage" name="image">
+                                        <input type="text" class="form-control" id="editProductImageDisplay" readonly>
+                                        <button type="button" class="btn btn-primary" onclick="openMediaModal('editProductImage', 'editProductImagePreview')">
+                                            <i class="fas fa-image"></i> Dosya Seç
+                                        </button>
+                                    </div>
+                                </div>
                                <div class="mb-3">
                                    <div class="form-check">
                                        <input type="checkbox" name="status" id="edit_product_status" class="form-check-input">
@@ -454,149 +404,306 @@ include 'navbar.php';
    }
 
    // Global değişkenler
-   let currentMediaInput = null;
-   let currentMediaPreview = null;
-   let productModal = null;
+   let activeModal = null;
+   let previousModal = null;
 
-   // Medya seçici modalını açma fonksiyonu
-   function openMediaModal(inputId, previewId) {
-       // Input ve preview ID'lerini sakla
-       currentMediaInput = inputId;
-       currentMediaPreview = previewId;
+   // DOMContentLoaded içine taşıyalım
+   document.addEventListener('DOMContentLoaded', function() {
+       // Media modal işlemleri
+       const mediaModal = document.getElementById('mediaModal');
        
-       // Mevcut ürün modalını sakla ve gizle
-       productModal = bootstrap.Modal.getInstance(
-           document.getElementById(
-               inputId.includes('edit') ? 'editProductModal' : 'addProductModal'
-           )
-       );
-       if (productModal) {
-           productModal.hide();
+       if (mediaModal) {
+           mediaModal.addEventListener('hidden.bs.modal', function (event) {
+               // Eğer başka bir modal açılmadıysa ve aktif modal varsa, onu aç
+               setTimeout(() => {
+                   if (activeModal && !document.querySelector('.modal.show')) {
+                       activeModal.show();
+                   }
+               }, 300);
+           });
+       }
+   });
+
+   function openMediaModal(inputId, previewId) {
+       // Açık olan modalı sakla
+       const currentModal = document.querySelector('.modal.show');
+       if (currentModal) {
+           previousModal = bootstrap.Modal.getInstance(currentModal);
+           previousModal.hide();
        }
        
-       // Medya modalını aç
+       // Input ve preview elementlerini sakla
+       window.selectedImageInput = document.getElementById(inputId);
+       window.selectedImagePreview = document.getElementById(previewId);
+       
+       // Media modalı aç
        const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
        mediaModal.show();
    }
 
-   // Medya seçildiğinde çalışacak fonksiyon
-   function selectMedia(mediaUrl) {
-       if (currentMediaInput && currentMediaPreview) {
-           // Input değerlerini güncelle
-           document.getElementById(currentMediaInput).value = mediaUrl;
-           
-           // Önizleme resmini güncelle
-           const previewImg = document.getElementById(currentMediaPreview);
-           if (previewImg) {
-               previewImg.src = '../uploads/' + mediaUrl;
-               previewImg.style.display = 'block';
-           }
-           
-           // Display input'u güncelle
-           const displayInput = document.getElementById(currentMediaInput + 'Display');
+   function selectMedia(imagePath) {
+       // Input ve preview güncelleme
+       if (window.selectedImageInput) {
+           window.selectedImageInput.value = imagePath;
+       }
+       
+       if (window.selectedImagePreview) {
+           window.selectedImagePreview.src = '../uploads/' + imagePath;
+           window.selectedImagePreview.style.display = 'block';
+       }
+       
+       // Display input güncelleme
+       if (window.selectedImageInput) {
+           const displayInput = document.getElementById(window.selectedImageInput.id + 'Display');
            if (displayInput) {
-               displayInput.value = mediaUrl;
+               displayInput.value = imagePath;
            }
        }
-
-       // Medya modalını kapat
+       
+       // Modal geçişleri
        const mediaModal = bootstrap.Modal.getInstance(document.getElementById('mediaModal'));
-       if (mediaModal) {
-           mediaModal.hide();
+       mediaModal.hide();
+       
+       if (previousModal) {
+           previousModal.show();
        }
-
-       // Ürün modalını tekrar göster
-       setTimeout(() => {
-           if (productModal) {
-               productModal.show();
-           }
-       }, 150);
    }
-
-   // Sayfa yüklendiğinde
-   document.addEventListener('DOMContentLoaded', function() {
-       // Medya modalı kapandığında
-       const mediaModal = document.getElementById('mediaModal');
-       if (mediaModal) {
-           mediaModal.addEventListener('hidden.bs.modal', function() {
-               // Eğer bir medya seçilmediyse ve ürün modalı varsa geri göster
-               setTimeout(() => {
-                   if (productModal && !document.querySelector('.modal.show')) {
-                       productModal.show();
-                   }
-               }, 150);
-           });
-       }
-   });
 
    // Ürün düzenleme fonksiyonu
    function editProduct(productId) {
+       if (!userPermissions.canEditProduct) {
+           Swal.fire('Yetkisiz İşlem', 'Ürün düzenleme yetkiniz bulunmuyor.', 'error');
+           return;
+       }
+
+       // Ürün bilgilerini getir
        fetch(`api/get_product.php?id=${productId}`)
            .then(response => response.json())
            .then(data => {
                if (data.success) {
+                   // Form alanlarını doldur
                    document.getElementById('edit_product_id').value = data.product.id;
                    document.getElementById('edit_product_name').value = data.product.name;
                    document.getElementById('edit_product_description').value = data.product.description;
-                   document.getElementById('edit_product_price').value = data.product.price;
                    document.getElementById('edit_product_category').value = data.product.category_id;
+                   document.getElementById('edit_product_price').value = data.product.price;
                    document.getElementById('edit_product_status').checked = data.product.status == 1;
-                   document.getElementById('editProductImage').value = data.product.image || '';
-                   document.getElementById('editProductImageDisplay').value = data.product.image || '';
                    
+                   // Resim önizleme
                    const preview = document.getElementById('editProductImagePreview');
+                   const imageInput = document.getElementById('editProductImage');
+                   const imageDisplay = document.getElementById('editProductImageDisplay');
+                   
                    if (data.product.image) {
                        preview.src = '../uploads/' + data.product.image;
                        preview.style.display = 'block';
+                       imageInput.value = data.product.image;
+                       imageDisplay.value = data.product.image;
                    } else {
                        preview.style.display = 'none';
+                       imageInput.value = '';
+                       imageDisplay.value = '';
                    }
-                   
-                   new bootstrap.Modal(document.getElementById('editProductModal')).show();
+
+                   // Düzenleme modalını göster
+                   const editModal = new bootstrap.Modal(document.getElementById('editProductModal'));
+                   editModal.show();
+               } else {
+                   throw new Error(data.message || 'Ürün bilgileri alınamadı');
                }
            })
            .catch(error => {
                console.error('Error:', error);
-               alert('Ürün bilgileri alınamadı');
+               Swal.fire('Hata!', error.message, 'error');
            });
    }
 
-   // Form submit işlemi
-   document.getElementById('editProductForm').addEventListener('submit', function(e) {
-       e.preventDefault();
+   // Ürün düzenleme form işlemi
+   document.addEventListener('DOMContentLoaded', function() {
+       const editProductForm = document.getElementById('editProductForm');
        
-       const formData = new FormData(this);
-       
-       fetch('api/update_product.php', {
-           method: 'POST',
-           body: formData
-       })
-       .then(response => response.json())
-       .then(data => {
-           if (data.success) {
-               Swal.fire({
-                   icon: 'success',
-                   title: 'Başarılı!',
-                   text: 'Ürün güncellendi',
-                   showConfirmButton: false,
-                   timer: 1500
-               }).then(() => {
-                   window.location.reload();
+       if (editProductForm) {
+           editProductForm.addEventListener('submit', function(e) {
+               e.preventDefault();
+               
+               if (!userPermissions.canEditProduct) {
+                   Swal.fire('Yetkisiz İşlem', 'Ürün düzenleme yetkiniz bulunmuyor.', 'error');
+                   return;
+               }
+
+               const data = {
+                   id: document.getElementById('edit_product_id').value,
+                   name: document.getElementById('edit_product_name').value,
+                   description: document.getElementById('edit_product_description').value,
+                   category_id: document.getElementById('edit_product_category').value,
+                   price: document.getElementById('edit_product_price').value,
+                   image: document.getElementById('editProductImage').value,
+                   status: document.getElementById('edit_product_status').checked ? 1 : 0
+               };
+
+               // Form verilerini kontrol et
+               if (!data.name || !data.category_id) {
+                   Swal.fire('Hata!', 'Lütfen zorunlu alanları doldurun.', 'error');
+                   return;
+               }
+
+               fetch('api/update_product.php', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                   },
+                   body: JSON.stringify(data)
+               })
+               .then(response => response.json())
+               .then(data => {
+                   if (data.success) {
+                       Swal.fire({
+                           icon: 'success',
+                           title: 'Başarılı!',
+                           text: 'Ürün başarıyla güncellendi',
+                           showConfirmButton: false,
+                           timer: 1500
+                       }).then(() => {
+                           window.location.reload();
+                       });
+                   } else {
+                       throw new Error(data.message || 'Bir hata oluştu');
+                   }
+               })
+               .catch(error => {
+                   console.error('Error:', error);
+                   Swal.fire('Hata!', error.message, 'error');
                });
-           } else {
-               throw new Error(data.message || 'Bir hata oluştu');
-           }
-       })
-       .catch(error => {
-           console.error('Error:', error);
-           Swal.fire('Hata!', error.message, 'error');
-       });
+           });
+       }
    });
+
+   // Ürün ekleme form işlemi
+   document.addEventListener('DOMContentLoaded', function() {
+       const addProductForm = document.querySelector('#addProductModal form');
+       
+       if (addProductForm) {
+           addProductForm.addEventListener('submit', function(e) {
+               e.preventDefault();
+               
+               if (!userPermissions.canAddProduct) {
+                   Swal.fire('Yetkisiz İşlem', 'Ürün ekleme yetkiniz bulunmuyor.', 'error');
+                   return;
+               }
+
+               const formData = new FormData(this);
+               
+               fetch('add_product.php', {
+                   method: 'POST',
+                   body: formData
+               })
+               .then(response => response.json())
+               .then(data => {
+                   if (data.success) {
+                       Swal.fire({
+                           icon: 'success',
+                           title: 'Başarılı!',
+                           text: data.message,
+                           showConfirmButton: false,
+                           timer: 1500
+                       }).then(() => {
+                           // Modal'ı kapat
+                           bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
+                           // Sayfayı yenile
+                           window.location.reload();
+                       });
+                   } else {
+                       throw new Error(data.message || 'Bir hata oluştu');
+                   }
+               })
+               .catch(error => {
+                   console.error('Error:', error);
+                   Swal.fire('Hata!', error.message, 'error');
+               });
+           });
+       }
+   });
+
+   // Silme fonksiyonu
+   function deleteProduct(productId) {
+       if (!userPermissions.canDeleteProduct) {
+           Swal.fire('Yetkisiz İşlem', 'Ürün silme yetkiniz bulunmuyor.', 'error');
+           return;
+       }
+
+       Swal.fire({
+           title: 'Emin misiniz?',
+           text: "Bu ürün kalıcı olarak silinecek!",
+           icon: 'warning',
+           showCancelButton: true,
+           confirmButtonColor: '#d33',
+           cancelButtonColor: '#3085d6',
+           confirmButtonText: 'Evet, sil!',
+           cancelButtonText: 'İptal'
+       }).then((result) => {
+           if (result.isConfirmed) {
+               fetch('api/delete_product.php', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                   },
+                   body: JSON.stringify({ product_id: productId })
+               })
+               .then(response => response.json())
+               .then(data => {
+                   if (data.success) {
+                       Swal.fire({
+                           icon: 'success',
+                           title: 'Başarılı!',
+                           text: 'Ürün başarıyla silindi',
+                           showConfirmButton: false,
+                           timer: 1500
+                       }).then(() => {
+                           window.location.reload();
+                       });
+                   } else {
+                       throw new Error(data.message || 'Bir hata oluştu');
+                   }
+               })
+               .catch(error => {
+                   console.error('Error:', error);
+                   Swal.fire('Hata!', error.message, 'error');
+               });
+           }
+       });
+   }
+
+   // Resim seçimini temizle
+   function clearMediaSelection() {
+       if (window.selectedImageInput && window.selectedImagePreview) {
+           window.selectedImageInput.value = '';
+           window.selectedImagePreview.src = '';
+           window.selectedImagePreview.style.display = 'none';
+           
+           const displayInput = document.getElementById(window.selectedImageInput.id + 'Display');
+           if (displayInput) {
+               displayInput.value = '';
+           }
+       }
+       
+       // Media modalı kapat
+       bootstrap.Modal.getInstance(document.getElementById('mediaModal')).hide();
+   }
    </script>
+   
+
+
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
+<script>
+const userPermissions = {
+    canViewProducts: <?php echo $canViewProducts ? 'true' : 'false' ?>,
+    canAddProduct: <?php echo $canAddProduct ? 'true' : 'false' ?>,
+    canEditProduct: <?php echo $canEditProduct ? 'true' : 'false' ?>,
+    canDeleteProduct: <?php echo $canDeleteProduct ? 'true' : 'false' ?>
+};
+</script>
 <?php include '../includes/media-modal.php'; ?>
 </body>
 </html>

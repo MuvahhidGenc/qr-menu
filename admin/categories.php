@@ -2,15 +2,31 @@
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
-// Session kontrolü
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Oturum kontrolü
+if (!isLoggedIn()) {
+    header('Location: login.php');
+    exit();
 }
 
-// Yetki kontrolü
+// Kategori görüntüleme yetkisi kontrolü
 if (!hasPermission('categories.view')) {
     header('Location: dashboard.php');
     exit();
+}
+
+// Yetkileri tanımla
+$canViewCategories = hasPermission('categories.view');
+$canAddCategory = hasPermission('categories.add');
+$canEditCategory = hasPermission('categories.edit');
+$canDeleteCategory = hasPermission('categories.delete');
+
+// JavaScript için yetkileri aktar
+
+
+
+// Session kontrolü
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 $db = new Database();
@@ -411,19 +427,24 @@ include 'navbar.php';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <?php include '../includes/media-modal.php'; ?>
     <script>
+        
+const userPermissions = {
+    canViewCategories: <?php echo $canViewCategories ? 'true' : 'false' ?>,
+    canAddCategory: <?php echo $canAddCategory ? 'true' : 'false' ?>,
+    canEditCategory: <?php echo $canEditCategory ? 'true' : 'false' ?>,
+    canDeleteCategory: <?php echo $canDeleteCategory ? 'true' : 'false' ?>
+};
+
     function editCategory(categoryId) {
-        // Kategori bilgilerini getir
         fetch(`api/get_category.php?id=${categoryId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Form alanlarını doldur
                     document.getElementById('edit_category_id').value = data.category.id;
                     document.getElementById('edit_category_name').value = data.category.name;
                     document.getElementById('editCategoryImage').value = data.category.image || '';
                     document.getElementById('editCategoryImageDisplay').value = data.category.image || '';
                     
-                    // Resim önizleme
                     const preview = document.getElementById('editCategoryImagePreview');
                     if (data.category.image) {
                         preview.src = '../uploads/' + data.category.image;
@@ -432,7 +453,6 @@ include 'navbar.php';
                         preview.style.display = 'none';
                     }
                     
-                    // Modal'ı aç
                     new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
                 } else {
                     Swal.fire('Hata!', data.message, 'error');
@@ -444,15 +464,33 @@ include 'navbar.php';
             });
     }
 
-    // Form submit işlemi
+    // Kategori güncelleme formu gönderimi
     document.getElementById('editCategoryForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const formData = new FormData(this);
-        
+        if (!userPermissions.canEditCategory) {
+            Swal.fire('Yetkisiz İşlem', 'Kategori düzenleme yetkiniz bulunmuyor.', 'error');
+            return;
+        }
+
+        const formData = {
+            category_id: document.getElementById('edit_category_id').value,
+            name: document.getElementById('edit_category_name').value,
+            image: document.getElementById('editCategoryImage').value
+        };
+
+        // Form verilerini kontrol et
+        if (!formData.category_id || !formData.name) {
+            Swal.fire('Hata!', 'Lütfen tüm alanları doldurun.', 'error');
+            return;
+        }
+
         fetch('api/update_category.php', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
         })
         .then(response => response.json())
         .then(data => {
@@ -460,7 +498,7 @@ include 'navbar.php';
                 Swal.fire({
                     icon: 'success',
                     title: 'Başarılı!',
-                    text: 'Kategori güncellendi',
+                    text: 'Kategori başarıyla güncellendi',
                     showConfirmButton: false,
                     timer: 1500
                 }).then(() => {
@@ -471,13 +509,17 @@ include 'navbar.php';
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             Swal.fire('Hata!', error.message, 'error');
         });
     });
 
     // Kategori ekleme form submit
     document.getElementById('addCategoryForm').addEventListener('submit', function(e) {
+        if (!userPermissions.canAddCategory) {
+        Swal.fire('Yetkisiz İşlem', 'Kategori ekleme yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+        
         e.preventDefault();
         
         const formData = new FormData(this);
@@ -512,6 +554,32 @@ include 'navbar.php';
         });
     });
 
+    // Kategori düzenleme butonları için event listener
+    document.querySelectorAll('.edit-category').forEach(button => {
+        button.addEventListener('click', function() {
+            if (!userPermissions.canEditCategory) {
+                Swal.fire('Yetkisiz İşlem', 'Kategori düzenleme yetkiniz bulunmuyor.', 'error');
+                return;
+            }
+            const categoryId = this.getAttribute('data-id');
+            editCategory(categoryId);
+        });
+    });
+
+    // Kategori silme butonları için event listener
+    document.querySelectorAll('.delete-category').forEach(button => {
+        button.addEventListener('click', function() {
+            if (!userPermissions.canDeleteCategory) {
+                Swal.fire('Yetkisiz İşlem', 'Kategori silme yetkiniz bulunmuyor.', 'error');
+                return;
+            }
+            const categoryId = this.getAttribute('data-id');
+            const categoryName = this.closest('tr').querySelector('td:nth-child(2)').textContent;
+            deleteCategory(categoryId, categoryName);
+        });
+    });
+
+    // Kategori silme fonksiyonu
     function deleteCategory(categoryId, categoryName) {
         Swal.fire({
             title: 'Emin misiniz?',
@@ -550,7 +618,6 @@ include 'navbar.php';
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
                     Swal.fire('Hata!', error.message, 'error');
                 });
             }

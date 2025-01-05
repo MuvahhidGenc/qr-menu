@@ -1,43 +1,42 @@
 <?php
 require_once '../../includes/config.php';
-$db = new Database();
+require_once '../../includes/auth.php';
 
-// Admin kontrolü
-if(!isset($_SESSION['admin'])) {
-    echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
-    exit;
-}
+header('Content-Type: application/json');
 
-// ID kontrolü
-if(!isset($_GET['id'])) {
-    echo json_encode(['success' => false, 'message' => 'Ürün ID\'si gerekli']);
-    exit;
-}
+try {
+    // Yetki kontrolü
+    if (!hasPermission('products.edit')) {
+        throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
+    }
 
-$id = (int)$_GET['id'];
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    
+    if (!$id) {
+        throw new Exception('Geçersiz ürün ID');
+    }
 
-// Ürün bilgilerini getir
-$product = $db->query("
-    SELECT p.*, c.name as category_name 
-    FROM products p 
-    LEFT JOIN categories c ON p.category_id = c.id 
-    WHERE p.id = ?
-", [$id])->fetch();
+    $db = new Database();
+    
+    // Ürün bilgilerini getir
+    $product = $db->query(
+        "SELECT * FROM products WHERE id = ?", 
+        [$id]
+    )->fetch();
+    
+    if (!$product) {
+        throw new Exception('Ürün bulunamadı');
+    }
 
-if($product) {
     echo json_encode([
         'success' => true,
-        'product' => [
-            'id' => $product['id'],
-            'name' => $product['name'],
-            'description' => $product['description'],
-            'price' => $product['price'],
-            'category_id' => $product['category_id'],
-            'category_name' => $product['category_name'],
-            'image' => $product['image'],
-            'status' => $product['status']
-        ]
+        'product' => $product
     ]);
-} else {
-    echo json_encode(['success' => false, 'message' => 'Ürün bulunamadı']);
+
+} catch(Exception $e) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 } 

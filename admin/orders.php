@@ -1,7 +1,7 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
-include 'navbar.php';
+
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -16,10 +16,10 @@ if (!hasPermission('orders.view')) {
 $db = new Database();
 
 // İşlem yetki kontrolleri
-$canAdd = hasPermission('orders.add');
-$canUpdate = hasPermission('orders.update');
-$canDelete = hasPermission('orders.delete');
-$canTakePayment = hasPermission('orders.payment');
+$canViewOrders = hasPermission('orders.view');
+$canAddOrder = hasPermission('orders.add');
+$canEditOrder = hasPermission('orders.edit');
+$canDeleteOrder = hasPermission('orders.delete');
 
 // Filtreleme parametreleri
 $status = $_GET['status'] ?? 'all';
@@ -251,7 +251,7 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
 }
 
 </style>
-
+<?php include 'navbar.php'; ?>  
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Siparişler</h5>
@@ -439,4 +439,13 @@ $(document).ready(function() {
         printWindow.document.close();
     });
 });
+</script>
+
+<script>
+const userPermissions = {
+    canViewOrders: <?php echo $canViewOrders ? 'true' : 'false' ?>,
+    canAddOrder: <?php echo $canAddOrder ? 'true' : 'false' ?>,
+    canEditOrder: <?php echo $canEditOrder ? 'true' : 'false' ?>,
+    canDeleteOrder: <?php echo $canDeleteOrder ? 'true' : 'false' ?>
+};
 </script>

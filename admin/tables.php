@@ -994,6 +994,7 @@ function loadTableOrders(tableId, retryCount = 0) {
 
             container.innerHTML = html;
             document.getElementById('paymentTotal').textContent = formatPrice(total);
+            currentTotal = total;
             console.log('Orders rendered successfully');
         } else {
             throw new Error(data.message || 'Siparişler yüklenirken bir hata oluştu');

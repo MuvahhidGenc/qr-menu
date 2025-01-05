@@ -1,6 +1,13 @@
-
 <?php
 require_once '../includes/config.php';
+require_once '../includes/auth.php';
+
+// Yetki kontrolü
+if (!hasPermission('products.edit')) {
+    header('Location: dashboard.php');
+    exit();
+}
+
 $db = new Database();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
