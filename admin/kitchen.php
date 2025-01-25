@@ -127,6 +127,67 @@ function updateStatus(orderId, status) {
         }
     });
 }
+
+// Hazırla butonu için event listener
+document.querySelectorAll('.prepare-order').forEach(button => {
+    button.addEventListener('click', function() {
+        const orderId = this.dataset.id;
+        updateOrderStatus(orderId, 'preparing');
+    });
+});
+
+// İptal butonu için event listener
+document.querySelectorAll('.cancel-order').forEach(button => {
+    button.addEventListener('click', function() {
+        const orderId = this.dataset.id;
+        
+        // İptal onayı iste
+        Swal.fire({
+            title: 'Emin misiniz?',
+            text: "Bu sipariş iptal edilecek!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Evet, İptal Et',
+            cancelButtonText: 'Vazgeç'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                updateOrderStatus(orderId, 'cancelled');
+            }
+        });
+    });
+});
+
+// Sipariş durumu güncelleme fonksiyonu
+function updateOrderStatus(orderId, status) {
+    fetch('ajax/update_order_status.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `order_id=${orderId}&status=${status}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            // Başarılı mesajı göster
+            let message = status === 'preparing' ? 'Sipariş hazırlanıyor' : 'Sipariş iptal edildi';
+            Swal.fire({
+                title: 'Başarılı!',
+                text: message,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                refreshOrders(); // Siparişleri yenile
+            });
+        } else {
+            throw new Error(data.message || 'Bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Hata!', error.message, 'error');
+    });
+}
 </script>
 
 <style>

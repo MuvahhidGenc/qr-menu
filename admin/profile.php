@@ -7,50 +7,83 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Oturum kontrolü
-if (!isLoggedIn()) {
+// Kullanıcı giriş yapmamışsa login sayfasına yönlendir
+if (!isset($_SESSION['admin_id'])) {
     header('Location: login.php');
     exit();
 }
+
+// Veritabanı bağlantısı
 $db = new Database();
 
-$admin_id = $_SESSION['admin'];
-$admin = $db->query("SELECT * FROM admins WHERE id = ?", [$admin_id])->fetch();
+// Kullanıcı bilgilerini al
+$admin = $db->query("SELECT * FROM admins WHERE id = ?", [$_SESSION['admin_id']])->fetch();
+
+if (!$admin) {
+    header('Location: login.php');
+    exit();
+}
+
+// Şifre değiştirme işlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $currentPassword = trim($_POST['current_password']);
+    $newPassword = trim($_POST['new_password']);
+    $confirmPassword = trim($_POST['confirm_password']);
+    
+    // Debug için
+    error_log('Current Password: ' . $currentPassword);
+    error_log('Admin Hashed Password: ' . $admin['password']);
+    
+    // Şifre doğrulama
+    if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+        $error = 'Tüm alanları doldurunuz';
+    } elseif (!password_verify($currentPassword, $admin['password'])) {
+        error_log('Password verification failed');
+        $error = 'Mevcut şifre yanlış';
+    } elseif ($newPassword !== $confirmPassword) {
+        $error = 'Yeni şifreler eşleşmiyor';
+    } elseif (strlen($newPassword) < 6) {
+        $error = 'Yeni şifre en az 6 karakter olmalıdır';
+    } else {
+        try {
+            // Yeni şifreyi hashle
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            
+            // Şifreyi güncelle
+            $result = $db->query(
+                "UPDATE admins SET password = ? WHERE id = ?",
+                [$hashedPassword, $_SESSION['admin_id']]
+            );
+
+            if ($result) {
+                $_SESSION['success'] = 'Şifreniz başarıyla güncellendi';
+                header('Location: profile.php');
+                exit();
+            } else {
+                $error = 'Şifre güncellenirken bir hata oluştu';
+            }
+        } catch (Exception $e) {
+            error_log('Password Update Error: ' . $e->getMessage());
+            $error = 'Bir hata oluştu: ' . $e->getMessage();
+        }
+    }
+}
+
+// Başarı mesajını göster
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
 
 if(isset($_POST['update_profile'])) {
    $username = cleanInput($_POST['username']);
    $email = cleanInput($_POST['email']);
    
    $db->query("UPDATE admins SET username = ?, email = ? WHERE id = ?", 
-              [$username, $email, $admin_id]);
+              [$username, $email, $_SESSION['admin_id']]);
               
    $_SESSION['message'] = 'Profil güncellendi.';
    $_SESSION['message_type'] = 'success';
-   header('Location: profile.php');
-   exit;
-}
-
-if(isset($_POST['change_password'])) {
-   $current_password = $_POST['current_password'];
-   $new_password = $_POST['new_password'];
-   $confirm_password = $_POST['confirm_password'];
-   
-   if(verifyPassword($current_password, $admin['password'])) {
-       if($new_password === $confirm_password) {
-           $hashed_password = hashPassword($new_password);
-           $db->query("UPDATE admins SET password = ? WHERE id = ?", 
-                      [$hashed_password, $admin_id]);
-                      
-           $_SESSION['message'] = 'Şifre güncellendi.';
-           $_SESSION['message_type'] = 'success';
-       } else {
-           $_SESSION['message'] = 'Yeni şifreler eşleşmiyor.';
-           $_SESSION['message_type'] = 'danger';
-       }
-   } else {
-       $_SESSION['message'] = 'Mevcut şifre hatalı.';
-       $_SESSION['message_type'] = 'danger';
-   }
    header('Location: profile.php');
    exit;
 }
@@ -177,18 +210,30 @@ include 'navbar.php';
                <h5 class="mb-0">Şifre Değiştir</h5>
            </div>
            <div class="card-body">
-               <form method="POST">
+               <?php if (isset($error)): ?>
+                   <div class="alert alert-danger">
+                       <?php echo htmlspecialchars($error); ?>
+                   </div>
+               <?php endif; ?>
+               
+               <?php if (isset($success)): ?>
+                   <div class="alert alert-success">
+                       <?php echo htmlspecialchars($success); ?>
+                   </div>
+               <?php endif; ?>
+
+               <form method="POST" onsubmit="return validateForm()">
                    <div class="mb-3">
                        <label>Mevcut Şifre</label>
                        <input type="password" name="current_password" class="form-control" required>
                    </div>
                    <div class="mb-3">
                        <label>Yeni Şifre</label>
-                       <input type="password" name="new_password" class="form-control" required>
+                       <input type="password" name="new_password" class="form-control" required minlength="6">
                    </div>
                    <div class="mb-3">
                        <label>Yeni Şifre Tekrar</label>
-                       <input type="password" name="confirm_password" class="form-control" required>
+                       <input type="password" name="confirm_password" class="form-control" required minlength="6">
                    </div>
                    <button type="submit" name="change_password" class="btn btn-warning">
                        <i class="fas fa-key"></i> Şifre Değiştir
@@ -198,6 +243,25 @@ include 'navbar.php';
        </div>
    </div>
 </div>
+
+<script>
+function validateForm() {
+    const newPassword = document.querySelector('input[name="new_password"]').value;
+    const confirmPassword = document.querySelector('input[name="confirm_password"]').value;
+    
+    if (newPassword !== confirmPassword) {
+        alert('Yeni şifreler eşleşmiyor!');
+        return false;
+    }
+    
+    if (newPassword.length < 6) {
+        alert('Yeni şifre en az 6 karakter olmalıdır!');
+        return false;
+    }
+    
+    return true;
+}
+</script>
 
 </div>
 </div>

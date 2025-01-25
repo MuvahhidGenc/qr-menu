@@ -192,12 +192,194 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
         padding: 0.75rem;
     }
 }
+
+/* Modal stillerini özelleştir */
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 15px;
+}
+
+/* Form elemanları için stil */
+.form-control, .form-select {
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.list-group-item {
+    cursor: pointer;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#productList {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.product-img {
+    height: 200px;
+    object-fit: cover;
+    object-position: center;
+}
+
+.card {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,.125);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+#productList {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* Scrollbar stilleri */
+#productList::-webkit-scrollbar {
+    width: 8px;
+}
+
+#productList::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#productList::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#productList::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Kategori listesi stilleri */
+.list-group-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    border-left: 3px solid #0d6efd;
+}
+
+.list-group-item.active {
+    border-left: 3px solid #0d6efd;
+}
+
+/* Toast mesaj stili */
+.swal2-toast {
+    background: #fff;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.card-img-wrapper {
+    height: 200px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.product-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Modal z-index değerlerini ayarla */
+.modal {
+    z-index: 1050;
+}
+
+#productModal {
+    z-index: 1060;
+}
+
+.modal-backdrop:nth-child(2) {
+    z-index: 1055;
+}
+
+/* Modal stillerini güncelle */
+.modal {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-backdrop {
+    z-index: 1040;
+}
+
+.modal {
+    z-index: 1045;
+}
+
+#productModal {
+    z-index: 1046;
+}
+
+.modal-dialog {
+    margin: 1.75rem auto;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-backdrop + .modal-backdrop {
+    opacity: 0.1;
+}
+
+/* Ürün kartı hover efekti */
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
 </style>
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Rezervasyonlar</h2>
             <?php if ($canAddReservation): ?>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addReservationModal">
+            <button type="button" class="btn btn-primary btn-add-reservation">
                 <i class="fas fa-plus"></i> Yeni Rezervasyon
             </button>
             <?php endif; ?>
@@ -295,59 +477,141 @@ $tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
     </div>
 </div>
 
-<!-- Yeni Rezervasyon Modal -->
-<div class="modal fade" id="addReservationModal" tabindex="-1" aria-labelledby="addReservationModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- Rezervasyon Modal -->
+<div class="modal fade" id="addReservationModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addReservationModalLabel">Yeni Rezervasyon</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                <h5 class="modal-title">Yeni Rezervasyon</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="reservationForm">
-                    <div class="mb-3">
-                        <label>Müşteri Adı</label>
-                        <input type="text" name="customer_name" class="form-control" required>
+                    <!-- Rezervasyon Bilgileri -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Müşteri Adı *</label>
+                            <input type="text" name="customer_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Telefon *</label>
+                            <input type="tel" name="customer_phone" class="form-control" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Telefon</label>
-                        <input type="tel" name="customer_phone" class="form-control" required>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Masa *</label>
+                            <select name="table_id" class="form-select" required>
+                                <option value="">Masa Seçiniz</option>
+                                <?php foreach ($tables as $table): ?>
+                                <option value="<?= $table['id'] ?>"><?= $table['table_no'] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Kişi Sayısı *</label>
+                            <input type="number" name="guest_count" class="form-control" min="1" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label>E-posta</label>
-                        <input type="email" name="customer_email" class="form-control">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tarih *</label>
+                            <input type="date" name="reservation_date" class="form-control" required min="<?= date('Y-m-d') ?>">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Saat *</label>
+                            <input type="time" name="reservation_time" class="form-control" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Masa</label>
-                        <select name="table_id" class="form-select" required>
-                            <option value="">Masa Seçin</option>
-                            <?php foreach($tables as $table): ?>
-                                <option value="<?= $table['id'] ?>">Masa <?= $table['table_no'] ?></option>
-                            <?php endforeach; ?>
-                        </select>
+
+                    <!-- Ön Sipariş Bölümü -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Ön Sipariş</h6>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="showProductModal()">
+                                    <i class="fas fa-plus"></i> Ürün Ekle
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Kişi Sayısı</label>
-                        <input type="number" name="guest_count" class="form-control" required min="1">
+
+                    <!-- Seçilen Ürünler Tablosu -->
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="preOrderTable">
+                            <thead>
+                                <tr>
+                                    <th>Ürün</th>
+                                    <th>Adet</th>
+                                    <th>Fiyat</th>
+                                    <th>Toplam</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Genel Toplam:</strong></td>
+                                    <td colspan="2"><strong id="preOrderTotal">0.00 ₺</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
-                    <div class="mb-3">
-                        <label>Tarih</label>
-                        <input type="date" name="reservation_date" class="form-control" required 
-                               min="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div class="mb-3">
-                        <label>Saat</label>
-                        <input type="time" name="reservation_time" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label>Özel İstekler</label>
-                        <textarea name="special_requests" class="form-control" rows="3"></textarea>
+
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Özel İstekler</label>
+                            <textarea name="special_requests" class="form-control" rows="3"></textarea>
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
                 <button type="button" class="btn btn-primary" onclick="saveReservation()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ürün Seçme Modalı -->
+<div class="modal fade" id="productModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ürün Seç</h5>
+                <button type="button" class="btn-close" onclick="closeProductModal()"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Kategoriler -->
+                    <div class="col-md-4 mb-3">
+                        <div class="list-group">
+                            <?php
+                            $categories = $db->query("SELECT * FROM categories WHERE status = 1 ORDER BY name")->fetchAll();
+                            foreach ($categories as $category):
+                            ?>
+                            <a href="#" class="list-group-item list-group-item-action" 
+                               onclick="loadProducts(<?= $category['id'] ?>)">
+                                <?= $category['name'] ?>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <!-- Ürünler -->
+                    <div class="col-md-8">
+                        <div class="row" id="productList">
+                            <div class="col-12 text-center text-muted">
+                                Lütfen kategori seçiniz
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Kapat</button>
             </div>
         </div>
     </div>
@@ -374,134 +638,274 @@ function getStatusText($status) {
 ?>
 
 <script>
-// Yetki değişkenlerini PHP'den JS'e aktar
-const permissions = {
-    canView: <?php echo $canViewReservations ? 'true' : 'false' ?>,
-    canAdd: <?php echo $canAddReservation ? 'true' : 'false' ?>,
-    canEdit: <?php echo $canEditReservation ? 'true' : 'false' ?>,
-    canDelete: <?php echo $canDeleteReservation ? 'true' : 'false' ?>,
-    canApprove: <?php echo $canApproveReservation ? 'true' : 'false' ?>,
-    canReject: <?php echo $canRejectReservation ? 'true' : 'false' ?>
-};
+let preOrderItems = [];
+let productModal = null;
+let reservationModal = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal nesnesini oluştur
-    const reservationModal = new bootstrap.Modal(document.getElementById('addReservationModal'));
+    // Modal'ları başlat
+    productModal = new bootstrap.Modal(document.getElementById('productModal'), {
+        backdrop: 'static'
+    });
+    reservationModal = new bootstrap.Modal(document.getElementById('addReservationModal'), {
+        backdrop: 'static'
+    });
 
-    // Form gönderme işlemi
-    window.saveReservation = function() {
-        if (!permissions.canAdd) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Yetki Hatası',
-                text: 'Rezervasyon ekleme yetkiniz bulunmamaktadır!',
-                confirmButtonText: 'Tamam'
-            });
-            return;
-        }
-
-        const form = document.getElementById('reservationForm');
-        const formData = new FormData(form);
-
-        // Form validasyonu
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
-
-        fetch('ajax/save_reservation.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                // Modalı kapat
-                reservationModal.hide();
-                
-                // Başarılı mesajı göster
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Başarılı!',
-                    text: 'Rezervasyon başarıyla kaydedildi.',
-                    confirmButtonText: 'Tamam'
-                }).then(() => {
-                    location.reload();
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Hata!',
-                    text: data.message || 'Bir hata oluştu!',
-                    confirmButtonText: 'Tamam'
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Hata!',
-                text: 'Bir hata oluştu!',
-                confirmButtonText: 'Tamam'
-            });
-        });
-    };
-
-    // Modal kapanınca formu sıfırla
-    document.getElementById('addReservationModal').addEventListener('hidden.bs.modal', function () {
-        document.getElementById('reservationForm').reset();
+    // Yeni Rezervasyon butonu için event listener
+    document.querySelector('.btn-add-reservation').addEventListener('click', function(e) {
+        e.preventDefault();
+        showNewReservationModal();
     });
 });
 
-function updateStatus(id, status) {
-    if (!permissions.canView) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Yetki Hatası',
-            text: 'Rezervasyon görüntüleme yetkiniz bulunmamaktadır!',
-            confirmButtonText: 'Tamam'
+function loadProducts(categoryId) {
+    fetch(`ajax/get_products.php?category_id=${categoryId}`)
+        .then(response => response.json())
+        .then(products => {
+            const productList = document.getElementById('productList');
+            productList.innerHTML = '';
+            
+            products.forEach(product => {
+                // Resim yolunu düzelt - tam yol kullanarak
+                const defaultImage = '/qr-menu/admin/assets/images/no-image.jpg';
+                const imageUrl = product.image 
+                    ? `../uploads/${product.image}` 
+                    : defaultImage;
+                
+                productList.innerHTML += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-img-wrapper">
+                                <img src="${imageUrl}" class="card-img-top product-img" 
+                                     alt="${product.name}" 
+                                     onerror="this.src='${defaultImage}'">
+                            </div>
+                            <div class="card-body">
+                                <h6 class="card-title">${product.name}</h6>
+                                <p class="card-text text-primary fw-bold">${product.price} ₺</p>
+                                <div class="d-flex align-items-center">
+                                    <input type="number" class="form-control form-control-sm me-2" 
+                                           id="qty_${product.id}" value="1" min="1" style="width: 70px">
+                                    <button class="btn btn-primary btn-sm" 
+                                            onclick="addToPreOrder(${product.id}, '${product.name}', ${product.price})">
+                                        <i class="fas fa-plus"></i> Ekle
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
         });
+}
+
+function showNewReservationModal() {
+    // Form'u sıfırla
+    document.getElementById('reservationForm').reset();
+    preOrderItems = [];
+    updatePreOrderTable();
+    
+    // Modalı aç
+    reservationModal.show();
+}
+
+function showProductModal() {
+    // Sadece ürün modalını aç, rezervasyon modalını kapatma
+    productModal.show();
+}
+
+function closeProductModal() {
+    // Sadece ürün modalını kapat
+    productModal.hide();
+}
+
+function addToPreOrder(productId, productName, productPrice) {
+    const quantity = parseInt(document.getElementById(`qty_${productId}`).value);
+    
+    if (quantity < 1) {
+        Swal.fire('Uyarı', 'Lütfen geçerli bir miktar giriniz', 'warning');
         return;
     }
 
+    const existingItem = preOrderItems.find(item => item.product_id === productId);
+
+    if (existingItem) {
+        existingItem.quantity += quantity;
+    } else {
+        preOrderItems.push({
+            product_id: productId,
+            name: productName,
+            price: productPrice,
+            quantity: quantity
+        });
+    }
+
+    updatePreOrderTable();
+    
+    // Miktar inputunu sıfırla
+    document.getElementById(`qty_${productId}`).value = 1;
+    
+    // Başarılı mesajı göster (modal kapanmadan)
     Swal.fire({
-        title: 'Emin misiniz?',
-        text: 'Rezervasyon durumunu güncellemek istediğinize emin misiniz?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Evet',
-        cancelButtonText: 'İptal'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch('ajax/update_reservation.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `id=${id}&status=${status}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Başarılı!',
-                        text: 'Rezervasyon durumu güncellendi.',
-                        confirmButtonText: 'Tamam'
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Hata!',
-                        text: data.message || 'Bir hata oluştu!',
-                        confirmButtonText: 'Tamam'
-                    });
-                }
+        icon: 'success',
+        title: 'Ürün Eklendi',
+        text: `${quantity} adet ${productName} sepete eklendi.`,
+        showConfirmButton: false,
+        timer: 1000,
+        position: 'top-end',
+        toast: true
+    });
+}
+
+function updatePreOrderTable() {
+    const tbody = document.querySelector('#preOrderTable tbody');
+    tbody.innerHTML = '';
+    let total = 0;
+
+    preOrderItems.forEach((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>${item.price.toFixed(2)} ₺</td>
+                <td>${itemTotal.toFixed(2)} ₺</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removePreOrderItem(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    document.getElementById('preOrderTotal').textContent = total.toFixed(2) + ' ₺';
+}
+
+function removePreOrderItem(index) {
+    preOrderItems.splice(index, 1);
+    updatePreOrderTable();
+}
+
+function saveReservation() {
+    const form = document.getElementById('reservationForm');
+    
+    // Form verilerini JSON formatında hazırla
+    const formData = {
+        customer_name: form.querySelector('[name="customer_name"]').value,
+        phone: form.querySelector('[name="customer_phone"]').value,
+        reservation_date: form.querySelector('[name="reservation_date"]').value,
+        reservation_time: form.querySelector('[name="reservation_time"]').value,
+        person_count: form.querySelector('[name="guest_count"]').value,
+        note: form.querySelector('[name="special_requests"]').value,
+        pre_order: JSON.stringify(preOrderItems)
+    };
+
+    // Konsola yazdırarak kontrol et
+    console.log('Gönderilen veriler:', formData);
+
+    // AJAX isteği
+    fetch('ajax/save_reservation.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Başarılı!',
+                text: 'Rezervasyon başarıyla kaydedildi.',
+                confirmButtonText: 'Tamam'
+            }).then(() => {
+                location.reload();
             });
+        } else {
+            throw new Error(data.message);
         }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Hata!',
+            text: error.message || 'Bir hata oluştu!',
+            confirmButtonText: 'Tamam'
+        });
+    });
+}
+
+function updateStatus(id, status) {
+    // Eğer onaylama işlemiyse, masa seçimi için modal göster
+    if (status === 'confirmed') {
+        Swal.fire({
+            title: 'Masa Seçimi',
+            html: `
+                <select id="table_id" class="form-select">
+                    <option value="">Masa Seçin</option>
+                    ${tables.map(table => `
+                        <option value="${table.id}">Masa ${table.table_no}</option>
+                    `).join('')}
+                </select>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Onayla',
+            cancelButtonText: 'İptal',
+            preConfirm: () => {
+                const tableId = document.getElementById('table_id').value;
+                if (!tableId) {
+                    Swal.showValidationMessage('Lütfen bir masa seçin');
+                }
+                return tableId;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                updateReservationStatus(id, status, result.value);
+            }
+        });
+    } else {
+        updateReservationStatus(id, status);
+    }
+}
+
+function updateReservationStatus(id, status, tableId = null) {
+    const formData = new FormData();
+    formData.append('id', id);
+    formData.append('status', status);
+    if (tableId) {
+        formData.append('table_id', tableId);
+    }
+
+    fetch('ajax/update_reservation.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Başarılı!',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Hata!',
+            text: error.message
+        });
     });
 }
 
@@ -538,4 +942,7 @@ function viewReservation(id) {
             }
         });
 }
+
+// Mevcut masaları global değişkene ata
+const tables = <?php echo json_encode($tables); ?>;
 </script> 

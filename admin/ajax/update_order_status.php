@@ -1,44 +1,34 @@
 <?php
 require_once '../../includes/config.php';
-header('Content-Type: application/json');
+require_once '../../includes/auth.php';
+
+// Yetki kontrolü
+if (!hasPermission('kitchen.manage')) {
+    echo json_encode(['success' => false, 'message' => 'Yetkiniz yok']);
+    exit;
+}
+
+$orderId = $_POST['order_id'] ?? null;
+$status = $_POST['status'] ?? null;
+
+if (!$orderId || !$status) {
+    echo json_encode(['success' => false, 'message' => 'Geçersiz parametreler']);
+    exit;
+}
+
+$db = new Database();
 
 try {
-    if(empty($_POST['order_id']) || empty($_POST['status'])) {
-        throw new Exception('Eksik parametreler');
-    }
+    $result = $db->query(
+        "UPDATE orders SET status = ? WHERE id = ?",
+        [$status, $orderId]
+    );
 
-    $db = new Database();
-    $order_id = (int)$_POST['order_id'];
-    $status = $_POST['status'];
-
-    // Debug için
-    error_log("SQL Parametreleri: order_id = $order_id, status = $status");
-
-    // Sipariş var mı kontrol et
-    $check = $db->query("SELECT id, status FROM orders WHERE id = ?", [$order_id])->fetch();
-    if(!$check) {
-        throw new Exception('Sipariş bulunamadı');
-    }
-
-    // Güncelleme yap
-    $stmt = $db->query("UPDATE orders SET status = ? WHERE id = ?", [$status, $order_id]);
-    
-    // Debug için
-    error_log("Etkilenen satır sayısı: " . $stmt->rowCount());
-
-    if($stmt->rowCount() > 0) {
-        echo json_encode([
-            'success' => true,
-            'message' => 'Sipariş durumu güncellendi'
-        ]);
+    if ($result) {
+        echo json_encode(['success' => true]);
     } else {
-        throw new Exception('Güncelleme başarısız oldu');
+        echo json_encode(['success' => false, 'message' => 'Güncelleme başarısız']);
     }
-
-} catch(Exception $e) {
-    error_log('Hata: ' . $e->getMessage());
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
