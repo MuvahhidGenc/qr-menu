@@ -5,6 +5,11 @@ header('Content-Type: application/json');
 
 require_once '../../includes/config.php';
 require_once '../../includes/db.php';
+require_once '../../includes/auth.php';
+
+if (!isLoggedIn()) {
+    die(json_encode(['success' => false, 'message' => 'Yetkisiz erişim']));
+}
 
 try {
     $db = new Database();
@@ -26,43 +31,37 @@ try {
         throw new Exception('Lütfen tüm zorunlu alanları doldurun');
     }
 
-    // Ön siparişleri al
-    $preOrders = json_decode($data['pre_order'] ?? '[]', true);
-
     // Rezervasyon kaydet
     $query = "INSERT INTO reservations (
-        customer_name,
-        customer_phone,
-        reservation_date,
-        reservation_time,
-        guest_count,
-        special_requests,
-        status
-    ) VALUES (?, ?, ?, ?, ?, ?, 'pending')";
+        customer_name, customer_phone, table_id, guest_count,
+        reservation_date, reservation_time, special_requests, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')";
 
-    $params = [
+    $stmt = $db->prepare($query);
+    $stmt->execute([
         $data['customer_name'],
-        $data['phone'] ?? null,
+        $data['phone'],
+        $data['table_id'],
+        $data['person_count'],
         $data['reservation_date'],
         $data['reservation_time'],
-        $data['person_count'],
-        $data['note'] ?? null
-    ];
+        $data['note']
+    ]);
 
-    $db->query($query, $params);
     $reservationId = $db->lastInsertId();
 
-    // Ön siparişleri reservation_orders tablosuna kaydet
-    if (!empty($preOrders)) {
+    // Ön sipariş ürünlerini kaydet
+    if (!empty($data['pre_order'])) {
+        $preOrders = json_decode($data['pre_order'], true);
+        
+        $query = "INSERT INTO pre_orders (
+            reservation_id, product_id, quantity, price
+        ) VALUES (?, ?, ?, ?)";
+        
+        $stmt = $db->prepare($query);
+        
         foreach ($preOrders as $item) {
-            $itemQuery = "INSERT INTO reservation_orders (
-                reservation_id,
-                product_id,
-                quantity,
-                price
-            ) VALUES (?, ?, ?, ?)";
-
-            $db->query($itemQuery, [
+            $stmt->execute([
                 $reservationId,
                 $item['product_id'],
                 $item['quantity'],

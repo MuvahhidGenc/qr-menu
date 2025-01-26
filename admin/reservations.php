@@ -374,6 +374,62 @@ textarea.form-control {
     transform: translateY(-5px);
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
+
+/* Rezervasyon Detay Modal Stilleri */
+.reservation-modal .swal2-html-container {
+    margin: 0;
+    padding: 0;
+}
+
+.reservation-details .card {
+    background: #fff;
+    border-radius: 15px;
+}
+
+.reservation-details .info-group label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.reservation-details .info-group h6 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.reservation-details .badge {
+    font-size: 0.85rem;
+    padding: 0.5em 1em;
+    border-radius: 8px;
+}
+
+.pre-order-section {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.pre-order-section h6 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.pre-order-section .table {
+    margin-bottom: 0;
+}
+
+.pre-order-section .table th {
+    font-weight: 600;
+    color: #495057;
+    border-top: none;
+}
+
+.pre-order-section .table td {
+    vertical-align: middle;
+}
+
+.pre-order-section .table tfoot {
+    background: #fff;
+}
 </style>
     <div class="container-fluid p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -910,39 +966,149 @@ function updateReservationStatus(id, status, tableId = null) {
 }
 
 function viewReservation(id) {
-    if (!permissions.canView) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Yetki Hatası',
-            text: 'Rezervasyon görüntüleme yetkiniz bulunmamaktadır!',
-            confirmButtonText: 'Tamam'
-        });
-        return;
-    }
     fetch(`ajax/get_reservation.php?id=${id}`)
         .then(response => response.json())
         .then(data => {
-            if(data.success) {
+            if (data.success) {
+                const reservation = data.reservation;
+                const statusBadge = `<span class="badge bg-${getStatusBadgeClass(reservation.status)}">${getStatusText(reservation.status)}</span>`;
+                
+                // Ön sipariş ürünlerini formatlayalım
+                const preOrderItems = JSON.parse(reservation.pre_order_items || '[]');
+                const preOrderHtml = preOrderItems.length > 0 ? `
+                    <div class="pre-order-section mt-4">
+                        <h6 class="border-bottom pb-2 mb-3">Ön Sipariş Ürünleri</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Ürün</th>
+                                        <th>Adet</th>
+                                        <th>Fiyat</th>
+                                        <th>Toplam</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${preOrderItems.map(item => `
+                                        <tr>
+                                            <td>${item?.name || '-'}</td>
+                                            <td>${item?.quantity || 0}</td>
+                                            <td>${item?.price || 0} ₺</td>
+                                            <td>${item?.total || 0} ₺</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>Toplam:</strong></td>
+                                        <td><strong>${preOrderItems.reduce((total, item) => total + (parseFloat(item?.total) || 0), 0).toFixed(2)} ₺</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                ` : '<p class="text-muted mt-3 mb-0">Ön sipariş bulunmamaktadır.</p>';
+
                 Swal.fire({
-                    title: 'Rezervasyon Detayları',
+                    title: '<h5 class="text-primary mb-0">Rezervasyon Detayları</h5>',
                     html: `
-                        <div class="text-start">
-                            <p><strong>Müşteri:</strong> ${data.reservation.customer_name}</p>
-                            <p><strong>Telefon:</strong> ${data.reservation.customer_phone}</p>
-                            <p><strong>E-posta:</strong> ${data.reservation.customer_email || '-'}</p>
-                            <p><strong>Masa:</strong> ${data.reservation.table_no}</p>
-                            <p><strong>Kişi Sayısı:</strong> ${data.reservation.guest_count}</p>
-                            <p><strong>Tarih:</strong> ${data.reservation.reservation_date}</p>
-                            <p><strong>Saat:</strong> ${data.reservation.reservation_time}</p>
-                            <p><strong>Özel İstekler:</strong> ${data.reservation.special_requests || '-'}</p>
+                        <div class="reservation-details">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body p-4">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Müşteri Adı</label>
+                                                <h6 class="mb-0">${reservation.customer_name}</h6>
+                                            </div>
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Telefon</label>
+                                                <h6 class="mb-0">${reservation.customer_phone}</h6>
+                                            </div>
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Kişi Sayısı</label>
+                                                <h6 class="mb-0">${reservation.guest_count} Kişi</h6>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Masa</label>
+                                                <h6 class="mb-0">${reservation.table_no ? 'Masa ' + reservation.table_no : '-'}</h6>
+                                            </div>
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Tarih & Saat</label>
+                                                <h6 class="mb-0">${reservation.reservation_date} ${reservation.reservation_time}</h6>
+                                            </div>
+                                            <div class="info-group mb-3">
+                                                <label class="text-muted small mb-1">Durum</label>
+                                                <div>${statusBadge}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <label class="text-muted small mb-1">Özel İstekler</label>
+                                        <p class="mb-0">${reservation.special_requests || '-'}</p>
+                                    </div>
+
+                                    ${preOrderHtml}
+                                    
+                                    <div class="mt-3 pt-3 border-top">
+                                        <label class="text-muted small mb-1">Oluşturulma Tarihi</label>
+                                        <p class="mb-0 small">${reservation.created_at}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `,
-                    confirmButtonText: 'Kapat'
+                    confirmButtonText: 'Kapat',
+                    confirmButtonColor: '#3085d6',
+                    width: '800px',
+                    customClass: {
+                        container: 'reservation-modal'
+                    }
                 });
+            } else {
+                Swal.fire('Hata!', data.message || 'Rezervasyon bilgileri alınamadı.', 'error');
             }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            Swal.fire('Hata!', 'Bir hata oluştu.', 'error');
         });
 }
 
 // Mevcut masaları global değişkene ata
 const tables = <?php echo json_encode($tables); ?>;
+
+// Helper fonksiyonları ekleyelim
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'pending': return 'warning';
+        case 'confirmed': return 'success';
+        case 'cancelled': return 'danger';
+        case 'completed': return 'info';
+        default: return 'secondary';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'pending': return 'Bekliyor';
+        case 'confirmed': return 'Onaylandı';
+        case 'cancelled': return 'İptal';
+        case 'completed': return 'Tamamlandı';
+        default: return status;
+    }
+}
+
+// Yetkileri PHP'den JavaScript'e aktaralım
+const permissions = {
+    canView: <?php echo $canViewReservations ? 'true' : 'false'; ?>,
+    canAdd: <?php echo $canAddReservation ? 'true' : 'false'; ?>,
+    canEdit: <?php echo $canEditReservation ? 'true' : 'false'; ?>,
+    canDelete: <?php echo $canDeleteReservation ? 'true' : 'false'; ?>,
+    canApprove: <?php echo $canApproveReservation ? 'true' : 'false'; ?>,
+    canReject: <?php echo $canRejectReservation ? 'true' : 'false'; ?>
+};
 </script> 

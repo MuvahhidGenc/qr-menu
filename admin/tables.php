@@ -426,6 +426,161 @@ error_log('Active Products: ' . $dbCheck['active_products']);
 .sales-modal .modal-content {
     animation: slideIn 0.3s ease-out;
 }
+
+/* Modal Genel Stilleri */
+#transferModal .modal-dialog {
+    max-width: 1200px; /* Modal genişliği artırıldı */
+}
+
+#transferModal .modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    min-height: 80vh;
+}
+
+#transferModal .modal-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border-radius: 15px 15px 0 0;
+    padding: 1.5rem;
+}
+
+#transferModal .modal-title i {
+    margin-right: 10px;
+}
+
+#transferModal .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+/* Sipariş Listesi Alanı */
+#transferModal .source-orders,
+#transferModal .target-orders {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    height: 500px; /* Yükseklik artırıldı */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    position: relative;
+}
+
+/* Sipariş Öğeleri */
+#transferModal .order-item {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid #eee;
+}
+
+#transferModal .order-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border-color: #3498db;
+}
+
+/* Toplam Tutar Alanı */
+#transferModal .order-total {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 15px;
+    border-top: 2px solid #eee;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+    margin-top: auto;
+    z-index: 10;
+}
+
+#transferModal .total-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+#transferModal .total-label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+#transferModal .total-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #3498db;
+}
+
+/* Masa Seçim Alanı */
+#transferModal .form-select {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+#transferModal .form-select:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52,152,219,0.25);
+}
+
+/* Transfer Butonları */
+#transferModal .btn-transfer {
+    width: 100%;
+    padding: 12px;
+    margin: 5px 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+#transferModal .btn-transfer:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52,152,219,0.3);
+}
+
+/* Scroll Stilleri */
+#transferModal .source-orders::-webkit-scrollbar,
+#transferModal .target-orders::-webkit-scrollbar {
+    width: 6px;
+}
+
+#transferModal .source-orders::-webkit-scrollbar-track,
+#transferModal .target-orders::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#transferModal .source-orders::-webkit-scrollbar-thumb,
+#transferModal .target-orders::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+/* Responsive Düzenlemeler */
+@media (max-width: 1200px) {
+    #transferModal .modal-dialog {
+        max-width: 95%;
+        margin: 1rem auto;
+    }
+}
+
+@media (max-width: 768px) {
+    #transferModal .source-orders,
+    #transferModal .target-orders {
+        height: 400px;
+    }
+}
 </style>
 <div class="category-content">
     <div class="container-fluid p-3">
@@ -503,6 +658,10 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                                     <?php endif; ?>
                                     <button class="btn btn-outline-info" onclick="showQRCode(<?= $table['id'] ?>)">
                                         <i class="fas fa-qrcode"></i>
+                                    </button>
+                                    <!-- Masa Aktarma Butonu -->
+                                    <button class="btn btn-outline-warning" onclick="showTransferModal(<?= $table['id'] ?>)">
+                                        <i class="fas fa-exchange-alt" title="Sipariş Aktar"></i>
                                     </button>
                                 </div>
                             </div>
@@ -959,7 +1118,7 @@ function loadTableOrders(tableId, retryCount = 0) {
                                     <span class="fw-bold">${order.product_name}</span>
                                     <div class="text-muted small">
                                         ${order.quantity} x ${formatPrice(order.price)}
-                                        <span class="badge ${order.status === 'pending' ? 'bg-warning' : 'bg-info'} ms-2">
+                                        <span class="badge ${order.status === 'pending' ? 'badge-warning' : 'badge-info'} ms-2">
                                             ${order.status === 'pending' ? 'Bekliyor' : 'Hazırlanıyor'}
                                         </span>
                                     </div>
@@ -1198,15 +1357,15 @@ function getOrderItemHtml(order, item) {
                 <div class="d-flex align-items-center gap-2">
                     <div class="quantity-controls btn-group btn-group-sm">
                         <button type="button" class="btn btn-outline-secondary" 
-                                onclick="updateOrderQuantity(${order.id}, ${item.id}, -1)">
+                                onclick="updateNewItemQuantity('${productId}', -1)">
                             <i class="fas fa-minus"></i>
                         </button>
                         <button type="button" class="btn btn-outline-secondary" 
-                                onclick="updateOrderQuantity(${order.id}, ${item.id}, 1)">
+                                onclick="updateNewItemQuantity('${productId}', 1)">
                             <i class="fas fa-plus"></i>
                         </button>
                         <button type="button" class="btn btn-outline-danger" 
-                                onclick="removeOrderItem(${order.id}, ${item.id})">
+                                onclick="removeNewItem('${productId}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1374,7 +1533,7 @@ function saveTable() {
         return;
     }
 
-    const tableNumber = document.getElementById('tableNumber').value;
+    const tableNumber = document.getElementById('tableNo').value;
     
     if (!tableNumber) {
         Swal.fire('Hata!', 'Masa numarası giriniz', 'error');
@@ -1632,6 +1791,352 @@ function openSalesModal(tableId) {
     modal.addEventListener('shown.bs.modal', function () {
         loadTableOrders(tableId);
     }, { once: true }); // Event listener'ı bir kez çalıştır
+}
+
+// Masa aktarma modalını göster
+function showTransferModal(tableId) {
+    const modal = `
+        <div class="modal fade" id="transferModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Sipariş Aktarma</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <!-- Sol Masa -->
+                            <div class="col-5">
+                                <div class="mb-3">
+                                    <label for="sourceTable" class="form-label">Kaynak Masa</label>
+                                    <select class="form-select" id="sourceTable" onchange="loadSourceOrders(this.value)">
+                                        <option value="">Masa Seçin</option>
+                                        <?php foreach($tables as $table): ?>
+                                            <option value="<?= $table['id'] ?>">Masa <?= $table['table_no'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="source-orders order-list"></div>
+                            </div>
+
+                            <!-- Transfer Butonları -->
+                            <div class="col-2 d-flex flex-column align-items-center justify-content-center gap-3">
+                                <button class="btn btn-outline-primary" onclick="transferAllOrders('right')">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="transferAllOrders('left')">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                            </div>
+
+                            <!-- Sağ Masa -->
+                            <div class="col-5">
+                                <div class="mb-3">
+                                    <label for="targetTable" class="form-label">Hedef Masa</label>
+                                    <select class="form-select" id="targetTable" onchange="loadTargetOrders(this.value)">
+                                        <option value="">Masa Seçin</option>
+                                        <?php foreach($tables as $table): ?>
+                                            <option value="<?= $table['id'] ?>">Masa <?= $table['table_no'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="target-orders order-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .order-list {
+                height: 400px;
+                overflow-y: auto;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                padding: 10px;
+            }
+            .order-item {
+                padding: 10px;
+                margin-bottom: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .order-item:hover {
+                background-color: #f8f9fa;
+            }
+        </style>
+    `;
+
+    // Varolan modalı kaldır
+    const existingModal = document.getElementById('transferModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', modal);
+    document.getElementById('sourceTable').value = tableId;
+    loadSourceOrders(tableId); // Seçilen masanın siparişlerini yükle
+    const modalElement = document.getElementById('transferModal');
+    const bsModal = new bootstrap.Modal(modalElement);
+    bsModal.show();
+
+    // Çift tıklama olaylarını ekle
+    document.querySelector('.source-orders').addEventListener('dblclick', function(e) {
+        const orderItem = e.target.closest('.order-item');
+        if (orderItem) transferOrder(orderItem, 'right');
+    });
+
+    document.querySelector('.target-orders').addEventListener('dblclick', function(e) {
+        const orderItem = e.target.closest('.order-item');
+        if (orderItem) transferOrder(orderItem, 'left');
+    });
+}
+
+// Kaynak masa siparişlerini yükle
+function loadSourceOrders(tableId) {
+    if (!tableId) return;
+    fetch('ajax/get_table_orders.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ table_id: tableId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Source orders:', data); // Debug için
+        updateOrderList(data, 'source');
+    })
+    .catch(error => {
+        console.error('Error loading source orders:', error);
+    });
+}
+
+// Hedef masa siparişlerini yükle
+function loadTargetOrders(tableId) {
+    if (!tableId) return;
+    fetch('ajax/get_table_orders.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ table_id: tableId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Target orders:', data); // Debug için
+        updateOrderList(data, 'target');
+    })
+    .catch(error => {
+        console.error('Error loading target orders:', error);
+    });
+}
+
+// Sipariş listesini güncelle
+function updateOrderList(data, type) {
+    const container = document.querySelector(`.${type}-orders`);
+    if (!container) return;
+
+    let html = `
+        <div class="order-list-container">
+            <div class="order-items-wrapper">
+    `;
+    
+    let totalAmount = 0;
+
+    if (data.success && data.orders && data.orders.length > 0) {
+        data.orders.forEach(order => {
+            totalAmount += parseFloat(order.total);
+            html += `
+                <div class="order-item" 
+                     data-order-id="${order.order_id}" 
+                     data-item-id="${order.item_id}"
+                     onclick="handleOrderTransfer(this, '${type}')">
+                    <div class="order-content">
+                        <div class="order-details">
+                            <h6 class="product-name">${order.product_name}</h6>
+                            <div class="order-meta">
+                                <span class="quantity">${order.quantity} x ${formatPrice(order.price)} ₺</span>
+                                <span class="badge ${order.status === 'pending' ? 'badge-warning' : 'badge-info'}">
+                                    ${order.status === 'pending' ? 'Bekliyor' : 'Hazırlanıyor'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="order-price">
+                            ${formatPrice(order.total)} ₺
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += '<div class="no-orders">Sipariş bulunmuyor</div>';
+    }
+
+    html += `
+            </div>
+            <div class="order-total">
+                <div class="total-line"></div>
+                <div class="total-content">
+                    <span class="total-label">Toplam Tutar:</span>
+                    <span class="total-amount">${formatPrice(totalAmount)} ₺</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+// Sipariş transfer işleyicisi
+function handleOrderTransfer(element, type) {
+    const orderId = element.dataset.orderId;
+    const itemId = element.dataset.itemId;
+    const sourceSelect = document.getElementById('sourceTable');
+    const targetSelect = document.getElementById('targetTable');
+    
+    // type === 'source' ise soldan sağa, 'target' ise sağdan sola
+    let sourceTableId, targetTableId, sourceTableNo, targetTableNo;
+    
+    if (type === 'source') {
+        // Soldan sağa aktarma
+        sourceTableId = sourceSelect.value;
+        targetTableId = targetSelect.value;
+        sourceTableNo = sourceSelect.options[sourceSelect.selectedIndex].text;
+        targetTableNo = targetSelect.options[targetSelect.selectedIndex].text;
+    } else {
+        // Sağdan sola aktarma
+        sourceTableId = targetSelect.value;
+        targetTableId = sourceSelect.value;
+        sourceTableNo = targetSelect.options[targetSelect.selectedIndex].text;
+        targetTableNo = sourceSelect.options[sourceSelect.selectedIndex].text;
+    }
+
+    if (!sourceTableId || !targetTableId) {
+        Swal.fire('Uyarı', 'Lütfen kaynak ve hedef masaları seçin', 'warning');
+        return;
+    }
+
+    Swal.fire({
+        title: 'Sipariş Aktar',
+        text: `${sourceTableNo}'dan ${targetTableNo}'ya seçili siparişi aktarmak istiyor musunuz?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Evet, Aktar',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('ajax/transfer_order.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    item_id: itemId,
+                    source_table: sourceTableId,
+                    target_table: targetTableId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Siparişleri yeniden yükle
+                    loadSourceOrders(sourceSelect.value);
+                    loadTargetOrders(targetSelect.value);
+                    
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+
+                    Toast.fire({
+                        icon: 'success',
+                        title: `${sourceTableNo}'dan ${targetTableNo}'ya sipariş aktarıldı`
+                    });
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
+}
+
+// Tüm siparişleri aktar
+function transferAllOrders(direction) {
+    const sourceSelect = document.getElementById('sourceTable');
+    const targetSelect = document.getElementById('targetTable');
+    
+    let sourceTableId, targetTableId, sourceTableNo, targetTableNo;
+    
+    if (direction === 'right') {
+        // Soldan sağa aktarma
+        sourceTableId = sourceSelect.value;
+        targetTableId = targetSelect.value;
+        sourceTableNo = sourceSelect.options[sourceSelect.selectedIndex].text;
+        targetTableNo = targetSelect.options[targetSelect.selectedIndex].text;
+    } else {
+        // Sağdan sola aktarma
+        sourceTableId = targetSelect.value;
+        targetTableId = sourceSelect.value;
+        sourceTableNo = targetSelect.options[targetSelect.selectedIndex].text;
+        targetTableNo = sourceSelect.options[sourceSelect.selectedIndex].text;
+    }
+
+    if (!sourceTableId || !targetTableId) {
+        Swal.fire('Uyarı', 'Lütfen kaynak ve hedef masaları seçin', 'warning');
+        return;
+    }
+
+    Swal.fire({
+        title: 'Siparişleri Aktar',
+        text: `${sourceTableNo}'dan ${targetTableNo}'ya tüm siparişler aktarılacak. Onaylıyor musunuz?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Evet, Aktar',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('ajax/transfer_all_orders.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_table: sourceTableId,
+                    target_table: targetTableId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Siparişleri yeniden yükle
+                    loadSourceOrders(sourceSelect.value);
+                    loadTargetOrders(targetSelect.value);
+                    
+                    Swal.fire(
+                        'Başarılı!',
+                        `${sourceTableNo}'dan ${targetTableNo}'ya tüm siparişler aktarıldı`,
+                        'success'
+                    );
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
 }
 </script>
 

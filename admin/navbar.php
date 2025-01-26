@@ -187,6 +187,10 @@
         background: rgba(255,255,255,0.1);
         border-radius: 4px;
     }
+
+    .btn-toggle:active {
+        transform: translateY(1px);
+    }
 }
 
 /* Mobil */
@@ -1119,6 +1123,14 @@
                             <i class="fas fa-users-cog me-2"></i>Personel Yönetimi
                         </a>
                     </li>-->
+                    <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="completed_payments.php">
+                                <i class="fas fa-money-bill-wave me-2"></i>
+                                Alınmış Ödemeler
+                            </a>
+                        </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
         </div>

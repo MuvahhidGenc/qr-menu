@@ -1,9 +1,8 @@
 <?php
 class Database {
     private $pdo;
-    public function getConnection() {
-        return $this->pdo;
-    }
+    private $stmt;
+
     public function __construct() {
         try {
             $this->pdo = new PDO(
@@ -22,13 +21,13 @@ class Database {
     }
 
     public function query($query, $params = []) {
-        try {
-            $stmt = $this->pdo->prepare($query);
-            $stmt->execute($params);
-            return $stmt;
-        } catch(PDOException $e) {
-            throw new Exception("Sorgu hatası: " . $e->getMessage());
-        }
+        $this->stmt = $this->pdo->prepare($query);
+        $this->stmt->execute($params);
+        return $this->stmt;
+    }
+
+    public function prepare($query) {
+        return $this->pdo->prepare($query);
     }
 
     public function lastInsertId() {
