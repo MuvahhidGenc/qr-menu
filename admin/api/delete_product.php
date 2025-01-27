@@ -13,11 +13,11 @@ try {
     // JSON verisini al
     $input = json_decode(file_get_contents('php://input'), true);
     
-    if (!$input || !isset($input['product_id'])) {
+    if (!$input || !isset($input['id'])) {
         throw new Exception('Geçersiz veri formatı');
     }
 
-    $product_id = (int)$input['product_id'];
+    $product_id = (int)$input['id'];
 
     if (!$product_id) {
         throw new Exception('Geçersiz ürün ID');
