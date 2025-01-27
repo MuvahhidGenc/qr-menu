@@ -1,53 +1,53 @@
 <?php
 class Database {
-    private $pdo;
-    private $stmt;
+    private $host = "localhost";
+    private $db_name = "qr_menu";
+    private $username = "root";
+    private $password = "";
+    private $conn;
 
     public function __construct() {
         try {
-            $this->pdo = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-                DB_USER,
-                DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false
-                ]
+            $this->conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $this->db_name,
+                $this->username,
+                $this->password,
+                array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8")
             );
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch(PDOException $e) {
-            die("Veritabanı bağlantı hatası: " . $e->getMessage());
+            echo "Bağlantı hatası: " . $e->getMessage();
         }
     }
 
-    public function query($query, $params = []) {
-        $this->stmt = $this->pdo->prepare($query);
-        $this->stmt->execute($params);
-        return $this->stmt;
+    // PDO bağlantısını döndüren metod
+    public function getConnection() {
+        return $this->conn;
     }
 
-    public function prepare($query) {
-        return $this->pdo->prepare($query);
+    public function query($sql, $params = array()) {
+        try {
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch(PDOException $e) {
+            throw new Exception("Sorgu hatası: " . $e->getMessage());
+        }
     }
 
     public function lastInsertId() {
-        return $this->pdo->lastInsertId();
+        return $this->conn->lastInsertId();
     }
 
-    // Transaction metodları
     public function beginTransaction() {
-        return $this->pdo->beginTransaction();
+        return $this->conn->beginTransaction();
     }
 
     public function commit() {
-        return $this->pdo->commit();
+        return $this->conn->commit();
     }
 
-    public function rollBack() {
-        return $this->pdo->rollBack();
-    }
-
-    public function inTransaction() {
-        return $this->pdo->inTransaction();
+    public function rollback() {
+        return $this->conn->rollback();
     }
 }

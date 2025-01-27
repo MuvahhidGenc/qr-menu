@@ -1016,6 +1016,14 @@
                             <i class="fas fa-utensils me-2"></i>Ürünler
                         </a>
                     </li>
+                    <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="completed_payments.php">
+                                <i class="fas fa-money-bill-wave me-2"></i>
+                                Alınmış Ödemeler
+                            </a>
+                        </li>
+                    <?php endif; ?>
                     <!-- Genel İstatistikler panel menüsü -->
                     <li class="nav-item">
                         <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'active show' : '' ?>" 
@@ -1118,19 +1126,13 @@
                         </div>
                     </li>
                     
+                    
                    <!-- <li class="nav-item">
                         <a href="admins.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>">
                             <i class="fas fa-users-cog me-2"></i>Personel Yönetimi
                         </a>
                     </li>-->
-                    <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="completed_payments.php">
-                                <i class="fas fa-money-bill-wave me-2"></i>
-                                Alınmış Ödemeler
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                   
                 </ul>
             </nav>
         </div>

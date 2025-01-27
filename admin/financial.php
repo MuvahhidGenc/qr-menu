@@ -22,7 +22,7 @@ $db = new Database();
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
 
-// Ödeme türlerine göre toplam satışlar
+// Aktif ödemeler için istatistikler
 $payment_stats = $db->query(
     "SELECT 
         payment_method,
@@ -30,9 +30,33 @@ $payment_stats = $db->query(
         SUM(total_amount) as total_amount
      FROM payments 
      WHERE DATE(created_at) BETWEEN ? AND ?
+     AND status = 'completed'
      GROUP BY payment_method",
     [$start_date, $end_date]
 )->fetchAll();
+
+// İptal edilen ödemeler için istatistikler
+$cancelled_stats = $db->query(
+    "SELECT 
+        p.payment_method,
+        p.created_at,
+        p.total_amount,
+        p.payment_note,
+        o.table_id,
+        COUNT(*) as total_transactions
+     FROM payments p
+     LEFT JOIN orders o ON p.id = o.payment_id
+     WHERE DATE(p.created_at) BETWEEN ? AND ?
+     AND p.status = 'cancelled'
+     GROUP BY p.id, p.payment_method, p.created_at, p.total_amount, p.payment_note, o.table_id",
+    [$start_date, $end_date]
+)->fetchAll();
+
+// İptal edilen toplam tutarı hesapla
+$total_cancelled = 0;
+foreach ($cancelled_stats as $stat) {
+    $total_cancelled += $stat['total_amount'];
+}
 
 // Saatlik satış grafiği için veriler
 $hourly_sales = $db->query(
@@ -119,10 +143,14 @@ function getPaymentMethodText($method) {
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="stat-card card bg-success text-white h-100">
+                <div class="stat-card card bg-danger text-white h-100">
                     <div class="card-body">
-                        <h6 class="card-title">Toplam İşlem</h6>
-                        <h3 class="card-text"><?= $total_transactions ?></h3>
+                        <h6 class="card-title">İptal Edilen Ödemeler</h6>
+                        <h3 class="card-text"><?= number_format($total_cancelled, 2) ?> ₺</h3>
+                        <small><?= array_sum(array_column($cancelled_stats, 'total_transactions')) ?> işlem</small>
+                        <button class="btn btn-sm btn-outline-light mt-2" onclick="showCancelledPayments()">
+                            Detayları Gör
+                        </button>
                     </div>
                 </div>
             </div>
@@ -156,9 +184,57 @@ function getPaymentMethodText($method) {
         </div>
     </div>
 
+    <!-- İptal Edilen Ödemeler Modal -->
+    <div class="modal fade" id="cancelledPaymentsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">İptal Edilen Ödemeler</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Masa</th>
+                                    <th>Ödeme Türü</th>
+                                    <th>Tutar</th>
+                                    <th>İptal Nedeni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($cancelled_stats)): ?>
+                                <tr>
+                                    <td colspan="5" class="text-center">İptal edilen ödeme bulunmuyor.</td>
+                                </tr>
+                                <?php else: ?>
+                                    <?php foreach ($cancelled_stats as $stat): ?>
+                                    <tr>
+                                        <td><?= date('d.m.Y H:i', strtotime($stat['created_at'])) ?></td>
+                                        <td><?= $stat['table_id'] ? 'Masa ' . $stat['table_id'] : '-' ?></td>
+                                        <td><?= getPaymentMethodText($stat['payment_method']) ?></td>
+                                        <td><?= number_format($stat['total_amount'], 2) ?> ₺</td>
+                                        <td><?= $stat['payment_note'] ?? '-' ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
+        function showCancelledPayments() {
+            new bootstrap.Modal(document.getElementById('cancelledPaymentsModal')).show();
+        }
+
         // Saatlik satış grafiği
         const hourlyData = <?= json_encode($hourly_sales) ?>;
         const hours = [...new Set(hourlyData.map(item => item.hour))];

@@ -379,47 +379,44 @@ const permissions = {
 };
 
 // Form gönderimi için yetki kontrolü
-document.getElementById('orderCodeSettingsForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    if (!permissions.canEdit) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Yetki Hatası',
-            text: 'Ayarları düzenleme yetkiniz bulunmamaktadır!',
-            confirmButtonText: 'Tamam'
-        });
-        return;
-    }
+$(document).ready(function() {
+    $('#orderCodeSettingsForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            code_required: $('#codeRequired').is(':checked') ? 1 : 0,
+            code_length: $('#codeLength').val()
+        };
 
-    const formData = {
-        code_required: document.getElementById('codeRequired').checked ? 1 : 0,
-        code_length: document.getElementById('codeLength').value
-    };
-    
-    fetch('ajax/save_settings.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Başarılı!',
-                text: 'Ayarlar kaydedildi',
-                showConfirmButton: false,
-                timer: 1500
-            });
-        } else {
-            throw new Error(data.message || 'Bir hata oluştu');
-        }
-    })
-    .catch(error => {
-        Swal.fire('Hata!', error.message, 'error');
+        $.ajax({
+            url: 'ajax/save_order_settings.php', // URL'yi düzelttik
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı!',
+                        text: 'Ayarlar başarıyla kaydedildi.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Hata!',
+                        text: response.message || 'Bir hata oluştu!'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Hata!',
+                    text: 'Ayarlar kaydedilirken bir hata oluştu!'
+                });
+            }
+        });
     });
 });
 

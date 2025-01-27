@@ -14,9 +14,25 @@ include 'navbar.php';
 $db = new Database();
 
 // Filtreleme parametreleri
+$filter_type = $_GET['filter_type'] ?? 'active';
 $status = $_GET['status'] ?? 'all';
 $table_id = $_GET['table'] ?? 'all';
 $date = $_GET['date'] ?? date('Y-m-d');
+
+// Sipariş durumları
+$orderStatuses = [
+    'all' => 'Tüm Durumlar',
+    'pending' => 'Beklemede',
+    'preparing' => 'Hazırlanıyor',
+    'ready' => 'Hazır',
+    'delivered' => 'Teslim Edildi'
+];
+
+// Sipariş tipleri
+$orderTypes = [
+    'active' => 'Aktif Siparişler',
+    'completed' => 'Tamamlanan Siparişler'
+];
 
 // Sorgu oluştur
 $query = "SELECT o.*, t.table_no 
@@ -25,6 +41,13 @@ $query = "SELECT o.*, t.table_no
           WHERE 1=1";
 
 $params = [];
+
+// Aktif/Tamamlanan filtresi
+if ($filter_type === 'active') {
+    $query .= " AND o.status NOT IN ('completed', 'cancelled')";
+} else {
+    $query .= " AND o.status = 'completed'";
+}
 
 if($status != 'all') {
     $query .= " AND o.status = ?";
@@ -242,42 +265,92 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
     }
 }
 
+/* Disabled select için stil */
+select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+/* Sadece aktif siparişler için stil tanımlamaları */
+.filter-type-active .order-new {
+    border-left: 4px solid #28a745 !important;
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+.filter-type-active .order-waiting {
+    border-left: 4px solid #ffc107 !important;
+    background-color: rgba(255, 193, 7, 0.05);
+}
+
+/* Sipariş durumları için rozetler */
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Tablo satırları için hover efekti */
+.table tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+}
 </style>
 
     <div class="card">
         <div class="card-header">
-            <h5 class="mb-0">Siparişler</h5>
+            <h5 class="mb-0">
+                <?= $filter_type === 'active' ? 'Aktif Siparişler' : 'Tamamlanan Siparişler' ?>
+            </h5>
         </div>
         <div class="card-body">
             <!-- Filtreler -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                <select class="form-select" id="statusFilter">
-                    <option value="all">Tümü</option>
-                    <option value="pending" <?= isset($_GET['status']) && $_GET['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
-                    <option value="preparing" <?= isset($_GET['status']) && $_GET['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
-                    <option value="ready" <?= isset($_GET['status']) && $_GET['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
-                    <option value="delivered" <?= isset($_GET['status']) && $_GET['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
-                    <option value="cancelled" <?= isset($_GET['status']) && $_GET['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
-                </select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="tableFilter">
-                        <option value="all">Tüm Masalar</option>
-                        <?php foreach($tables as $table): ?>
-                            <option value="<?= $table['id'] ?>" <?= $table_id == $table['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($table['table_no']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <input type="date" class="form-control" id="dateFilter" value="<?= $date ?>">
-                </div>
-                <div class="col-md-3">
-                    <button type="button" class="btn btn-primary" id="applyFilters">
-                        <i class="fas fa-filter"></i> Filtrele
-                    </button>
+            <div class="filters-section mb-4">
+                <div class="row g-3">
+                    <!-- Sipariş Tipi Filtresi -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterType">
+                            <?php foreach($orderTypes as $key => $value): ?>
+                                <option value="<?= $key ?>" <?= $filter_type === $key ? 'selected' : '' ?>>
+                                    <?= $value ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Sipariş Durumu Filtresi -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter">
+                            <?php foreach($orderStatuses as $key => $value): ?>
+                                <option value="<?= $key ?>" <?= $status === $key ? 'selected' : '' ?>>
+                                    <?= $value ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <!-- Masa Filtresi -->
+                    <div class="col-md-2">
+                        <select class="form-select" id="tableFilter">
+                            <option value="all">Tüm Masalar</option>
+                            <?php foreach($tables as $table): ?>
+                                <option value="<?= $table['id'] ?>" <?= $table_id == $table['id'] ? 'selected' : '' ?>>
+                                    Masa <?= htmlspecialchars($table['table_no']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <!-- Tarih Filtresi -->
+                    <div class="col-md-2">
+                        <input type="date" class="form-control" id="dateFilter" value="<?= $date ?>">
+                    </div>
+                    
+                    <!-- Filtreleme Butonu -->
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Filtrele
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -290,33 +363,90 @@ $tables = $db->query("SELECT * FROM tables")->fetchAll();
                             <th>Masa</th>
                             <th>Tutar</th>
                             <th>Durum</th>
-                            <th>Tarih</th>
+                            <?php if($filter_type === 'active'): ?>
+                                <th>Bekleme Süresi</th>
+                            <?php else: ?>
+                                <th>Tamamlanma Tarihi</th>
+                            <?php endif; ?>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach($orders as $order): ?>
-                            <tr data-table-id="<?= $order['table_id'] ?>">
-                                <td>#<?= $order['id'] ?></td>
-                                <td><?= htmlspecialchars($order['table_no']) ?></td>
-                                <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
-                                <td>
-                                <select class="form-select form-select-sm status-select" data-order-id="<?= $order['id'] ?>">
-                                    <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
-                                    <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
-                                    <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
-                                    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
-                                    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Edildi</option>
-                                </select>
-                                </td>
-                                <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
-                                <td>
-                                    <button type="button" class="btn btn-info btn-sm view-order" data-order-id="<?= $order['id'] ?>">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
+                    <tbody class="filter-type-<?= $filter_type ?>">
+                        <?php if(empty($orders)): ?>
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <?= $filter_type === 'active' ? 'Aktif sipariş bulunmuyor.' : 'Tamamlanan sipariş bulunmuyor.' ?>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php foreach($orders as $order): 
+                                $rowClass = '';
+                                
+                                if($filter_type === 'active') {
+                                    // Sadece aktif siparişler için zaman hesaplaması ve sınıf ataması
+                                    $orderTime = strtotime($order['created_at']);
+                                    $currentTime = time();
+                                    $waitingTime = $currentTime - $orderTime;
+                                    $waitingMinutes = floor($waitingTime / 60);
+                                    
+                                    if($order['status'] === 'pending') {
+                                        $rowClass = 'order-new';
+                                    } elseif($waitingMinutes > 30) {
+                                        $rowClass = 'order-waiting';
+                                    }
+                                }
+                            ?>
+                                <tr class="<?= $rowClass ?>">
+                                    <td>
+                                        #<?= $order['id'] ?>
+                                        <?php if($filter_type === 'active' && $waitingMinutes < 5): ?>
+                                            <span class="badge bg-success">Yeni</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>Masa <?= htmlspecialchars($order['table_no']) ?></td>
+                                    <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
+                                    <td>
+                                        <?php if($filter_type === 'active'): ?>
+                                            <select class="form-select form-select-sm status-select" 
+                                                    data-order-id="<?= $order['id'] ?>"
+                                                    style="max-width: 150px;">
+                                                <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
+                                                <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
+                                                <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
+                                                <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                            </select>
+                                        <?php else: ?>
+                                            <span class="badge bg-success">Tamamlandı</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if($filter_type === 'active'): ?>
+                                            <?php
+                                            if($waitingMinutes < 60) {
+                                                echo $waitingMinutes . ' dakika';
+                                            } else {
+                                                $hours = floor($waitingMinutes / 60);
+                                                $mins = $waitingMinutes % 60;
+                                                echo $hours . ' saat ' . $mins . ' dakika';
+                                            }
+                                            if($waitingMinutes > 30) {
+                                                echo ' <span class="badge bg-warning">Uzun Bekleme</span>';
+                                            }
+                                            ?>
+                                        <?php else: ?>
+                                            <?= date('d.m.Y H:i', strtotime($order['completed_at'])) ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-info btn-sm view-order" 
+                                                data-order-id="<?= $order['id'] ?>"
+                                                title="Detayları Görüntüle">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -410,6 +540,58 @@ $(document).ready(function() {
         printWindow.document.write('</scr' + 'ipt>');
         
         printWindow.document.close();
+    });
+});
+
+function applyFilters() {
+    const filterType = document.getElementById('filterType').value;
+    const status = document.getElementById('statusFilter').value;
+    const tableId = document.getElementById('tableFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    
+    window.location.href = `orders.php?filter_type=${filterType}&status=${status}&table=${tableId}&date=${date}`;
+}
+
+// Filtre değişikliklerini dinle
+document.getElementById('filterType').addEventListener('change', function() {
+    // Eğer tamamlanan siparişler seçilirse, durum filtresini gizle
+    const statusFilter = document.getElementById('statusFilter');
+    if (this.value === 'completed') {
+        statusFilter.value = 'all';
+        statusFilter.disabled = true;
+    } else {
+        statusFilter.disabled = false;
+    }
+});
+
+// Sayfa yüklendiğinde durum filtresinin durumunu kontrol et
+document.addEventListener('DOMContentLoaded', function() {
+    const filterType = document.getElementById('filterType').value;
+    const statusFilter = document.getElementById('statusFilter');
+    if (filterType === 'completed') {
+        statusFilter.value = 'all';
+        statusFilter.disabled = true;
+    }
+});
+
+// Durum değişikliği için AJAX
+$(document).on('change', '.status-select', function() {
+    const orderId = $(this).data('order-id');
+    const newStatus = $(this).val();
+    
+    $.post('ajax/update_order_status.php', {
+        order_id: orderId,
+        status: newStatus
+    }, function(response) {
+        if(response.success) {
+            // Başarılı güncelleme bildirimi
+            toastr.success('Sipariş durumu güncellendi');
+            
+            // Sayfayı yenileme
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toastr.error('Bir hata oluştu!');
+        }
     });
 });
 </script>
