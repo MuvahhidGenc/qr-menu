@@ -10,35 +10,42 @@ try {
         throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
     }
 
+    // JSON verisini al
     $input = json_decode(file_get_contents('php://input'), true);
-    $category_id = isset($input['category_id']) ? (int)$input['category_id'] : 0;
     
-    if (!$category_id) {
+    if (!isset($input['category_id'])) {
         throw new Exception('Kategori ID gerekli');
     }
-    
+
     $db = new Database();
     
-    // Önce bu kategoriye bağlı ürün var mı kontrol et
-    $productCount = $db->query(
-        "SELECT COUNT(*) as count FROM products WHERE category_id = ?", 
-        [$category_id]
-    )->fetch()['count'];
+    // Transaction başlat
+    $db->beginTransaction();
     
-    if ($productCount > 0) {
-        throw new Exception('Bu kategoriye ait ürünler bulunmaktadır. Önce ürünleri silmelisiniz.');
+    try {
+        $categoryId = (int)$input['category_id'];
+        
+        // Önce kategoriye ait ürünleri sil
+        $db->query("DELETE FROM products WHERE category_id = ?", [$categoryId]);
+        
+        // Sonra kategoriyi sil
+        $db->query("DELETE FROM categories WHERE id = ?", [$categoryId]);
+        
+        // Transaction'ı tamamla
+        $db->commit();
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Kategori ve ilişkili ürünler başarıyla silindi'
+        ]);
+    } catch (Exception $e) {
+        // Hata durumunda rollback yap
+        $db->rollBack();
+        throw $e;
     }
-    
-    // Kategoriyi sil
-    $db->query("DELETE FROM categories WHERE id = ?", [$category_id]);
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Kategori başarıyla silindi'
-    ]);
 
-} catch (Exception $e) {
-    http_response_code(403);
+} catch(Exception $e) {
+    http_response_code(400);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

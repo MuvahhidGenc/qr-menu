@@ -59,6 +59,25 @@ try {
         'message' => 'Kategori başarıyla güncellendi'
     ]);
 
+    // Kategori durumu güncelleme için
+    if (isset($input['field']) && $input['field'] === 'status') {
+        $value = (int)$input['value'];
+        if (!in_array($value, [0, 1])) {
+            throw new Exception('Geçersiz durum değeri');
+        }
+        
+        $db->query(
+            "UPDATE categories SET status = ? WHERE id = ?",
+            [$value, $input['category_id']]
+        );
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Kategori durumu güncellendi'
+        ]);
+        exit;
+    }
+
 } catch (Exception $e) {
     http_response_code(403);
     echo json_encode([

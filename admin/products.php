@@ -302,6 +302,24 @@ toastr.options = {
 .category-products {
     padding: 0.5rem 0;
 }
+
+/* Toggle switch stilleri */
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    cursor: pointer;
+}
+
+/* Pasif ürün stili */
+.product-row[data-status="0"] {
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+/* Toggle hover efekti */
+.form-switch .form-check-input:hover {
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
 </style>
 <div class="container-fluid products-container">
     <div class="card">
@@ -320,14 +338,14 @@ toastr.options = {
             <div class="category-list">
                 <?php foreach ($categories as $category): ?>
                 <div class="category-item" data-category-id="<?= $category['id'] ?>">
-                    <div class="category-header">
-                        <i class="fas fa-bars category-drag-handle"></i>
-                        <img src="<?= $category['image'] ? '../uploads/' . $category['image'] : '../assets/images/default-category.jpg' ?>" 
-                             class="category-image" 
-                             alt="<?= htmlspecialchars($category['name']) ?>">
-                        <h5 class="category-name"><?= htmlspecialchars($category['name']) ?></h5>
-                        
-                        <!-- Kategori işlem butonları -->
+                    <div class="category-header d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-bars category-drag-handle"></i>
+                            <img src="<?= $category['image'] ? '../uploads/' . $category['image'] : '../assets/images/default-category.jpg' ?>" 
+                                 class="category-image" 
+                                 alt="<?= htmlspecialchars($category['name']) ?>">
+                            <h5 class="category-name"><?= htmlspecialchars($category['name']) ?></h5>
+                        </div>
                         <div class="category-actions">
                             <?php if ($canAddProduct): ?>
                             <button class="btn btn-sm btn-outline-success quick-add-product" 
@@ -337,13 +355,9 @@ toastr.options = {
                                 <i class="fas fa-plus"></i>
                             </button>
                             <?php endif; ?>
-                            <?php if ($canEditProduct): ?>
-                            <button class="btn btn-sm btn-outline-primary edit-category" data-id="<?= $category['id'] ?>">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <?php endif; ?>
+                            
                             <?php if ($canDeleteProduct): ?>
-                            <button class="btn btn-sm btn-outline-danger delete-category" data-id="<?= $category['id'] ?>">
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-category" data-id="<?= $category['id'] ?>">
                                 <i class="fas fa-trash"></i>
                             </button>
                             <?php endif; ?>
@@ -386,12 +400,13 @@ toastr.options = {
                                 </div>
                                 <div class="product-actions">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input status-toggle" type="checkbox" 
-                                               <?= $product['status'] ? 'checked' : '' ?>
-                                               data-product-id="<?= $product['id'] ?>">
+                                        <input class="form-check-input status-toggle" 
+                                               type="checkbox" 
+                                               data-product-id="<?= $product['id'] ?>"
+                                               <?= $product['status'] ? 'checked' : '' ?>>
                                     </div>
                                     <?php if ($canDeleteProduct): ?>
-                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle delete-product" 
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-product" 
                                             data-id="<?= $product['id'] ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -730,7 +745,7 @@ toastr.options = {
             document.getElementById('quickProductImage').value = '';
             document.getElementById('quickProductImagePreview').style.display = 'none';
             document.getElementById('quickProductImagePreview').src = '';
-            document.getElementById('quickProductImagePath').value = '';
+            document.getElementById('quickProductImagePreview').src = '';
         });
 
         // Hızlı ürün ekleme form submit
@@ -854,10 +869,16 @@ toastr.options = {
 
         // Açıklama alanı için inline edit
         document.querySelectorAll('.editable-description').forEach(field => {
+            // Boş açıklama kontrolü ve placeholder ekleme
+            if (!field.textContent.trim()) {
+                field.innerHTML = '<em class="text-muted">Açıklama ekle...</em>';
+            }
+
             field.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                const currentValue = this.textContent.trim();
+                // Placeholder varsa gerçek değeri boş string olarak al
+                const currentValue = this.querySelector('em') ? '' : this.textContent.trim();
                 const productId = this.closest('.product-row').dataset.productId;
                 
                 // Textarea oluştur
@@ -865,6 +886,7 @@ toastr.options = {
                 textarea.value = currentValue;
                 textarea.className = 'form-control form-control-sm';
                 textarea.rows = 3;
+                textarea.placeholder = 'Ürün açıklaması girin...';
                 
                 // Textarea'yı yerleştir
                 this.style.display = 'none';
@@ -874,33 +896,36 @@ toastr.options = {
                 // Textarea blur olduğunda kaydet
                 textarea.addEventListener('blur', function() {
                     const newValue = this.value.trim();
-                    if (newValue !== currentValue) {
-                        // AJAX ile güncelle
-                        fetch('api/update_product.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                id: productId,
-                                field: 'description',
-                                value: newValue
-                            })
+                    
+                    fetch('api/update_product.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: productId,
+                            field: 'description',
+                            value: newValue
                         })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                field.innerHTML = newValue ? nl2br(newValue) : '';
-                                toastr.success('Güncelleme başarılı');
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Boş değer kontrolü
+                            if (newValue) {
+                                field.innerHTML = nl2br(newValue);
                             } else {
-                                throw new Error(data.message);
+                                field.innerHTML = '<em class="text-muted">Açıklama ekle...</em>';
                             }
-                        })
-                        .catch(error => {
-                            toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
-                            field.textContent = currentValue;
-                        });
-                    }
+                            toastr.success('Açıklama güncellendi');
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
+                        field.innerHTML = currentValue || '<em class="text-muted">Açıklama ekle...</em>';
+                    });
                     
                     // Textarea'yı kaldır ve div'i göster
                     this.remove();
@@ -1506,6 +1531,83 @@ toastr.options = {
         `;
 
         document.head.appendChild(style);
+
+        // Ürün durumu toggle
+        document.querySelectorAll('.status-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const productId = this.dataset.productId;
+                const newStatus = this.checked ? 1 : 0;
+                
+                fetch('api/update_product.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: productId,
+                        field: 'status',
+                        value: newStatus
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const productRow = this.closest('.product-row');
+                        if (newStatus === 0) {
+                            productRow.style.opacity = '0.5';
+                        } else {
+                            productRow.style.opacity = '1';
+                        }
+                        toastr.success('Ürün durumu güncellendi');
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(error => {
+                    toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
+                    this.checked = !this.checked; // Toggle'ı eski haline getir
+                });
+            });
+        });
+
+        // Kategori silme işlemi
+        document.querySelectorAll('.delete-category').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const categoryItem = this.closest('.category-item');
+                const categoryId = categoryItem.dataset.categoryId;
+                const productCount = categoryItem.querySelectorAll('.product-row').length;
+                
+                let confirmMessage = 'Bu kategoriyi silmek istediğinize emin misiniz?';
+                if (productCount > 0) {
+                    confirmMessage = `Bu kategoride ${productCount} ürün bulunuyor. Kategoriyi sildiğinizde tüm ürünler de silinecektir.\n\nDevam etmek istiyor musunuz?`;
+                }
+                
+                if (confirm(confirmMessage)) {
+                    fetch('api/delete_category.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            category_id: categoryId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            categoryItem.remove();
+                            toastr.success('Kategori başarıyla silindi');
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        toastr.error(error.message || 'Kategori silinirken bir hata oluştu');
+                    });
+                }
+            });
+        });
     });
     </script>
    
