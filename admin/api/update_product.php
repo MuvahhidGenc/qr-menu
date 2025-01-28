@@ -91,14 +91,21 @@ try {
         $field = $input['field'];
         $value = $input['value'];
 
+        // Debug log ekleyelim
+        error_log("Updating product ID: $id, Field: $field, Value: $value");
+
         // İzin verilen alanları kontrol et
-        $allowedFields = ['name', 'description', 'price', 'image', 'status'];
+        $allowedFields = ['name', 'description', 'price', 'image', 'status', 'sort_order'];
         if (!in_array($field, $allowedFields)) {
-            throw new Exception('Geçersiz alan');
+            throw new Exception('Geçersiz alan: ' . $field);
         }
 
         // Veri temizleme ve doğrulama
         switch ($field) {
+            case 'sort_order':
+                $value = (int)$value;
+                error_log("Sort order value after casting: $value");
+                break;
             case 'price':
                 $value = (float)$value;
                 if ($value < 0) {
@@ -122,14 +129,33 @@ try {
                 break;
         }
 
-        // Tek alan güncelleme
-        $query = "UPDATE products SET {$field} = ? WHERE id = ?";
-        $db->query($query, [$value, $id]);
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Alan başarıyla güncellendi'
-        ]);
+        try {
+            // Sorguyu backtick ile güvenli hale getirelim
+            $query = "UPDATE `products` SET `{$field}` = ? WHERE `id` = ?";
+            error_log("SQL Query: " . $query);
+            
+            $result = $db->query($query, [$value, $id]);
+            error_log("Query executed. Affected rows: " . $result->rowCount());
+            
+            // Son sorguyu kontrol edelim
+            $checkQuery = "SELECT `{$field}` FROM `products` WHERE `id` = ?";
+            $check = $db->query($checkQuery, [$id])->fetch();
+            error_log("Value after update: " . print_r($check, true));
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Alan başarıyla güncellendi',
+                'debug' => [
+                    'id' => $id,
+                    'field' => $field,
+                    'value' => $value,
+                    'result' => $check
+                ]
+            ]);
+        } catch (Exception $e) {
+            error_log("Database error: " . $e->getMessage());
+            throw new Exception('Veritabanı hatası: ' . $e->getMessage());
+        }
         exit;
     }
 

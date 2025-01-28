@@ -29,11 +29,12 @@ $categories = $db->query("
     ORDER BY sort_order, name"
 )->fetchAll();
 
+// Ürünleri sıralı şekilde getir
 $products = $db->query("
     SELECT p.*, c.name as category_name 
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
-    ORDER BY p.name"
+    ORDER BY p.category_id, p.sort_order, p.name"
 )->fetchAll();
 
 include 'navbar.php';
@@ -264,6 +265,42 @@ toastr.options = {
     display: flex;
     gap: 0.5rem;
     margin-left: auto;
+}
+
+/* Kategori header stilleri */
+.category-header {
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.category-header.active {
+    background-color: rgba(0,0,0,0.02);
+}
+
+/* Kategori ok ikonu */
+.category-arrow {
+    transition: transform 0.3s ease;
+}
+
+/* Kategori içerik animasyonları */
+.category-products {
+    transition: all 0.3s ease;
+}
+
+/* Hover efekti */
+.category-header:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+/* Aktif kategori stilleri */
+.category-header.active {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Kategori içerik padding */
+.category-products {
+    padding: 0.5rem 0;
 }
 </style>
 <div class="container-fluid products-container">
@@ -584,7 +621,7 @@ toastr.options = {
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Kategori açma/kapama işlevselliği
+        // Kategori açma/kapama animasyonları
         document.querySelectorAll('.category-header').forEach(header => {
             header.addEventListener('click', function(e) {
                 // Eğer tıklanan element butonlardan biri ise, açma/kapama işlemini engelle
@@ -596,10 +633,58 @@ toastr.options = {
                 const categoryProducts = categoryItem.querySelector('.category-products');
                 
                 if (categoryProducts) {
-                    if (categoryProducts.style.display === 'none') {
+                    // Animasyon için gerekli stiller
+                    categoryProducts.style.transition = 'all 0.3s ease';
+                    categoryProducts.style.overflow = 'hidden';
+                    
+                    if (categoryProducts.style.display === 'none' || !categoryProducts.style.display) {
+                        // Açılma animasyonu
                         categoryProducts.style.display = 'block';
+                        const height = categoryProducts.scrollHeight;
+                        categoryProducts.style.maxHeight = '0px';
+                        
+                        // Force reflow
+                        categoryProducts.offsetHeight;
+                        
+                        categoryProducts.style.maxHeight = height + 'px';
+                        
+                        // Kategori header'a active class ekle
+                        this.classList.add('active');
+                        
+                        // Ok ikonunu döndür (eğer varsa)
+                        const arrow = this.querySelector('.category-arrow');
+                        if (arrow) {
+                            arrow.style.transform = 'rotate(180deg)';
+                        }
+                        
+                        // Animasyon tamamlandıktan sonra
+                        setTimeout(() => {
+                            categoryProducts.style.maxHeight = 'none';
+                        }, 300);
                     } else {
-                        categoryProducts.style.display = 'none';
+                        // Kapanma animasyonu
+                        const height = categoryProducts.scrollHeight;
+                        categoryProducts.style.maxHeight = height + 'px';
+                        
+                        // Force reflow
+                        categoryProducts.offsetHeight;
+                        
+                        categoryProducts.style.maxHeight = '0px';
+                        
+                        // Kategori header'dan active class'ı kaldır
+                        this.classList.remove('active');
+                        
+                        // Ok ikonunu eski haline getir (eğer varsa)
+                        const arrow = this.querySelector('.category-arrow');
+                        if (arrow) {
+                            arrow.style.transform = 'rotate(0deg)';
+                        }
+                        
+                        // Animasyon tamamlandıktan sonra
+                        setTimeout(() => {
+                            categoryProducts.style.display = 'none';
+                            categoryProducts.style.maxHeight = 'none';
+                        }, 300);
                     }
                 }
             });
@@ -611,48 +696,33 @@ toastr.options = {
         // Hızlı ürün ekleme modalında resim seçme butonu
         document.getElementById('quickProductImageSelect').addEventListener('click', function(e) {
             e.preventDefault();
-            selectedImageElement = document.getElementById('quickProductImagePreview');
             
-            // Önce quick add modalı kapat
-            const quickAddModal = bootstrap.Modal.getInstance(document.getElementById('quickAddProductModal'));
-            if (quickAddModal) {
-                quickAddModal.hide();
-                // Modal tamamen kapandıktan sonra media modalı aç
-                document.getElementById('quickAddProductModal').addEventListener('hidden.bs.modal', function handler() {
-                    const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
-                    mediaModal.show();
-                    // Event listener'ı temizle
-                    this.removeEventListener('hidden.bs.modal', handler);
-                });
-            }
-        });
-
-        // Media seçildiğinde
-        window.selectMedia = function(mediaUrl, mediaId) {
-            if (selectedImageElement) {
+            // Media modalını aç
+            const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+            mediaModal.show();
+            
+            // Özel bir selectMedia fonksiyonu tanımla
+            window.selectMedia = function(mediaUrl) {
                 const imageFileName = String(mediaUrl).split('/').pop();
                 const fullPath = 'uploads/' + imageFileName;
                 
-                selectedImageElement.src = '../uploads/' + imageFileName;
-                selectedImageElement.style.display = 'block';
-                
+                // Hızlı ürün ekleme modalındaki resim alanlarını güncelle
+                document.getElementById('quickProductImagePreview').src = '../uploads/' + imageFileName;
+                document.getElementById('quickProductImagePreview').style.display = 'block';
                 document.getElementById('quickProductImage').value = imageFileName;
                 document.getElementById('quickProductImagePath').value = fullPath;
                 
-                // Önce media modalı kapat
-                const mediaModal = bootstrap.Modal.getInstance(document.getElementById('mediaModal'));
-                if (mediaModal) {
-                    mediaModal.hide();
-                    // Media modal kapandıktan sonra quick add modalı aç
-                    document.getElementById('mediaModal').addEventListener('hidden.bs.modal', function handler() {
-                        const quickAddModal = new bootstrap.Modal(document.getElementById('quickAddProductModal'));
-                        quickAddModal.show();
-                        // Event listener'ı temizle
-                        this.removeEventListener('hidden.bs.modal', handler);
-                    });
+                // Media modalını kapat
+                mediaModal.hide();
+                
+                // Modal arkaplanını temizle
+                document.body.classList.remove('modal-open');
+                const modalBackdrop = document.querySelector('.modal-backdrop');
+                if (modalBackdrop) {
+                    modalBackdrop.remove();
                 }
-            }
-        };
+            };
+        });
 
         // Resim silme işlemi
         document.getElementById('quickProductImageRemove').addEventListener('click', function(e) {
@@ -882,7 +952,7 @@ toastr.options = {
             });
         });
 
-        // Kategori sıralama özelliği
+        // Kategori ve ürün sıralama özelliği
         const categoryList = document.querySelector('.category-list');
         if (categoryList) {
             new Sortable(categoryList, {
@@ -897,15 +967,15 @@ toastr.options = {
                             sort_order: index
                         }));
                     
-                    fetch('api/update_category.php', {  // Endpoint düzeltildi
+                    fetch('api/update_category.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
                             categories: categories,
-                            field: 'sort_order',  // Veritabanındaki alan adı
-                            action: 'update_order'  // İşlem türü belirtildi
+                            field: 'sort_order',
+                            action: 'update_order'
                         })
                     })
                     .then(response => response.json())
@@ -922,6 +992,58 @@ toastr.options = {
                 }
             });
         }
+
+        // Önce tüm ürün satırlarını bulalım ve başlarına grip ikonunu ekleyelim
+        document.querySelectorAll('.product-content').forEach(content => {
+            // Grip ikonunu en başa ekle
+            content.insertAdjacentHTML('afterbegin', `
+                <div class="product-drag-handle">
+                    <i class="fas fa-grip-vertical"></i>
+                </div>
+            `);
+        });
+
+        // Sonra her kategori için sürükleme özelliğini ekleyelim
+        document.querySelectorAll('.category-products').forEach(category => {
+            new Sortable(category, {
+                handle: '.product-drag-handle',
+                animation: 150,
+                draggable: '.product-row',
+                onEnd: function(evt) {
+                    const categoryProducts = evt.to.children;
+                    const updates = [];
+                    
+                    // Tüm ürünlerin yeni sırasını hesapla
+                    Array.from(categoryProducts).forEach((product, index) => {
+                        const productId = product.dataset.productId;
+                        updates.push(
+                            fetch('api/update_product.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    id: productId,
+                                    field: 'sort_order',
+                                    value: index
+                                })
+                            }).then(r => r.json())
+                        );
+                    });
+                    
+                    // Tüm güncellemeleri yap
+                    Promise.all(updates)
+                        .then(() => {
+                            toastr.success('Ürün sıralaması güncellendi');
+                        })
+                        .catch(error => {
+                            console.error('Güncelleme hatası:', error);
+                            toastr.error('Sıralama güncellenirken hata oluştu');
+                            location.reload();
+                        });
+                }
+            });
+        });
 
         // Kategori adı düzenleme
         document.querySelectorAll('.category-name').forEach(nameElement => {
@@ -1036,7 +1158,7 @@ toastr.options = {
                 mediaModal.show();
                 
                 // Media seçildiğinde
-                window.selectMedia = function(mediaUrl, mediaId) {
+                window.selectMedia = function(mediaUrl) {
                     const imageFileName = String(mediaUrl).split('/').pop();
                     const endpoint = isCategory ? 'update_category.php' : 'update_product.php';
                     
@@ -1131,18 +1253,84 @@ toastr.options = {
 
         // Medya seçici için event listener
         document.addEventListener('click', function(e) {
-            if (e.target.closest('.select-media')) {
+            if (e.target.closest('.select-media:not(#quickProductImageSelect)')) {
                 const button = e.target.closest('.select-media');
                 const targetInput = button.dataset.target;
+                const parentModal = button.closest('.modal');
                 
-                // Medya modalını aç
+                // Media modalını aç
                 const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
                 mediaModal.show();
                 
-                // Medya seçildiğinde
+                // Normal selectMedia fonksiyonu
                 window.selectMedia = function(mediaUrl) {
-                    document.getElementById(targetInput).value = mediaUrl.split('/').pop();
+                    const imageFileName = mediaUrl.split('/').pop();
+                    
+                    // Hedef input'u güncelle
+                    document.getElementById(targetInput).value = imageFileName;
+                    
+                    // Medya modalını kapat
                     mediaModal.hide();
+                    
+                    // Eğer bir ürün/kategori düzenleme işlemi ise API'ye gönder
+                    if (!parentModal) {
+                        const itemContainer = button.closest('.product-row, .category-item');
+                        if (itemContainer) {
+                            const isCategory = itemContainer.classList.contains('category-item');
+                            const itemId = itemContainer.dataset[isCategory ? 'categoryId' : 'productId'];
+                            const endpoint = isCategory ? 'api/update_category.php' : 'api/update_product.php';
+                            
+                            let requestData;
+                            if (isCategory) {
+                                const itemName = itemContainer.querySelector('.category-name .editable-category-name').textContent.trim();
+                                requestData = {
+                                    category_id: itemId,
+                                    name: itemName,
+                                    image: imageFileName
+                                };
+                            } else {
+                                requestData = {
+                                    id: itemId,
+                                    field: 'image',
+                                    value: imageFileName
+                                };
+                            }
+                            
+                            fetch(endpoint, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(requestData)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const imgElement = itemContainer.querySelector('img');
+                                    if (imgElement) {
+                                        imgElement.src = '../uploads/' + imageFileName;
+                                    }
+                                    toastr.success(isCategory ? 'Kategori resmi güncellendi' : 'Ürün resmi güncellendi');
+                                    
+                                    // Form verilerini temizle
+                                    if (itemContainer.querySelector('form')) {
+                                        itemContainer.querySelector('form').reset();
+                                    }
+                                    
+                                    // Sayfayı güvenli bir şekilde yenile
+                                    setTimeout(() => {
+                                        window.location.href = window.location.href;
+                                    }, 1000);
+                                } else {
+                                    throw new Error(data.message);
+                                }
+                            })
+                            .catch(error => {
+                                toastr.error(error.message || 'Resim güncellenirken bir hata oluştu');
+                            });
+                        }
+                    }
+                    
                     // Modal arkaplanını temizle
                     document.body.classList.remove('modal-open');
                     const modalBackdrop = document.querySelector('.modal-backdrop');
@@ -1201,6 +1389,123 @@ toastr.options = {
                 toastr.error(error.message || 'Bir hata oluştu');
             });
         });
+
+        // Sayfa yüklendiğinde animasyonları başlat
+        document.querySelectorAll('.category-item').forEach((category, index) => {
+            category.style.opacity = '0';
+            category.style.transform = 'translateY(20px)';
+            category.style.transition = 'all 0.3s ease';
+            
+            setTimeout(() => {
+                category.style.opacity = '1';
+                category.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+
+        // Ürünlere fade-in ve hover efekti ekle
+        document.querySelectorAll('.product-row').forEach(product => {
+            // Temel stil
+            product.style.transition = 'all 0.2s ease';
+            
+            // Hover efekti
+            product.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateX(5px)';
+                this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            });
+            
+            product.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateX(0)';
+                this.style.boxShadow = 'none';
+            });
+        });
+
+        // Modal animasyonlarını geliştir
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('show.bs.modal', function() {
+                this.style.animation = 'modalFadeIn 0.3s ease';
+            });
+        });
+
+        // Butonlara hover efekti ekle
+        document.querySelectorAll('.btn').forEach(button => {
+            button.style.transition = 'all 0.2s ease';
+            
+            button.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px)';
+            });
+            
+            button.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Toastr bildirim stillerini özelleştir
+        toastr.options = {
+            progressBar: true,
+            timeOut: 3000,
+            positionClass: "toast-top-right",
+            preventDuplicates: true,
+            showMethod: 'fadeIn',
+            hideMethod: 'fadeOut',
+            showDuration: 300,
+            hideDuration: 300
+        };
+
+        // CSS stillerini güncelle
+        const style = document.createElement('style');
+        style.textContent += `
+            /* Ürün satırı düzeni */
+            .product-content {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px;
+                width: 100%;
+            }
+            
+            /* Sürükleme ikonu stilleri */
+            .product-drag-handle {
+                cursor: move;
+                padding: 5px;
+                opacity: 0.5;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                margin-right: 10px;
+                position: relative;
+                z-index: 1;
+                min-width: 20px;
+            }
+            
+            .product-drag-handle:hover {
+                opacity: 1;
+            }
+            
+            .product-drag-handle i {
+                font-size: 16px;
+                color: #6c757d;
+                display: inline-block !important;
+                visibility: visible !important;
+            }
+            
+            /* Sürükleme sırasındaki görünüm */
+            .sortable-ghost {
+                opacity: 0.5;
+                background: #f8f9fa !important;
+            }
+            
+            .sortable-drag {
+                background: #fff !important;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            }
+            
+            /* Ürün satırı hover efekti */
+            .product-row:hover .product-drag-handle {
+                opacity: 1;
+            }
+        `;
+
+        document.head.appendChild(style);
     });
     </script>
    
