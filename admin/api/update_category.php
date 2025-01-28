@@ -11,6 +11,29 @@ try {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
+    
+    // Sıralama güncelleme işlemi
+    if (isset($input['action']) && $input['action'] === 'update_order' && isset($input['categories'])) {
+        $db = new Database();
+        
+        foreach ($input['categories'] as $category) {
+            $id = (int)$category['id'];
+            $sort_order = (int)$category['sort_order'];
+            
+            $db->query(
+                "UPDATE categories SET sort_order = ? WHERE id = ?",
+                [$sort_order, $id]
+            );
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Kategori sıralaması güncellendi'
+        ]);
+        exit;
+    }
+
+    // Mevcut kategori güncelleme işlemi
     $category_id = isset($input['category_id']) ? (int)$input['category_id'] : 0;
     $name = cleanInput($input['name'] ?? '');
     $image = $input['image'] ?? '';

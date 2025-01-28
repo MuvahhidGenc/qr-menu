@@ -87,6 +87,14 @@ toastr.options = {
     cursor: pointer;
     background: linear-gradient(to right, #f8f9fa, #ffffff);
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    position: relative;
 }
 
 .category-header:hover {
@@ -183,16 +191,6 @@ toastr.options = {
     }
 }
 
-.category-header {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    background: white;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
 .category-drag-handle {
     cursor: grab;
     padding: 10px;
@@ -215,9 +213,29 @@ toastr.options = {
 }
 
 .category-name {
-    font-weight: 600;
-    margin: 0;
-    flex-grow: 1;
+    position: relative;
+    cursor: pointer;
+    flex: 1;
+}
+
+.editable-category-name {
+    cursor: pointer;
+}
+
+.editable-category-name:hover {
+    background-color: rgba(0,0,0,0.05);
+    border-radius: 3px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+}
+
+.edit-icon {
+    font-size: 0.8em;
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    right: -20px;
+    transform: translateY(-50%);
 }
 
 .category-list {
@@ -236,6 +254,16 @@ toastr.options = {
 .category-item.sortable-drag {
     opacity: 0.9;
     background: white;
+}
+
+.category-actions {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
 }
 </style>
 <div class="container-fluid products-container">
@@ -826,6 +854,212 @@ toastr.options = {
                     });
                 }
             });
+        });
+
+        // Kategori sıralama özelliği
+        const categoryList = document.querySelector('.category-list');
+        if (categoryList) {
+            new Sortable(categoryList, {
+                handle: '.category-drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const categories = Array.from(document.querySelectorAll('.category-item'))
+                        .map((item, index) => ({
+                            id: item.dataset.categoryId,
+                            sort_order: index
+                        }));
+                    
+                    fetch('api/update_category.php', {  // Endpoint düzeltildi
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            categories: categories,
+                            field: 'sort_order',  // Veritabanındaki alan adı
+                            action: 'update_order'  // İşlem türü belirtildi
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            toastr.success('Kategori sıralaması güncellendi');
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        toastr.error(error.message || 'Sıralama güncellenirken hata oluştu');
+                    });
+                }
+            });
+        }
+
+        // Kategori adı düzenleme
+        document.querySelectorAll('.category-name').forEach(nameElement => {
+            // Mevcut içeriği al
+            const originalText = nameElement.textContent.trim();
+            
+            // Düzenlenebilir span oluştur
+            const editableSpan = document.createElement('span');
+            editableSpan.className = 'editable-category-name';
+            editableSpan.textContent = originalText;
+            
+            // Mevcut içeriği temizle ve span'i ekle
+            nameElement.textContent = '';
+            nameElement.appendChild(editableSpan);
+            
+            // Kalem iconu ekle
+            const editIcon = document.createElement('i');
+            editIcon.className = 'fas fa-pencil-alt text-primary ms-2 edit-icon';
+            editIcon.style.display = 'none';
+            nameElement.appendChild(editIcon);
+
+            // Hover efekti
+            nameElement.addEventListener('mouseenter', function() {
+                editIcon.style.display = 'inline-block';
+            });
+            nameElement.addEventListener('mouseleave', function() {
+                editIcon.style.display = 'none';
+            });
+
+            // Düzenleme fonksiyonu
+            function makeEditable(e) {
+                // Eğer tıklanan element badge veya icon ise işlemi durdur
+                if (e.target.classList.contains('badge') || 
+                    e.target.classList.contains('edit-icon') || 
+                    e.target.closest('.category-actions')) {
+                    return;
+                }
+
+                const currentValue = editableSpan.textContent;
+                const categoryId = nameElement.closest('.category-item').dataset.categoryId;
+                const currentImage = nameElement.closest('.category-item').querySelector('.category-image').getAttribute('src').split('/').pop(); // Mevcut resmi al
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentValue;
+                input.className = 'form-control form-control-sm d-inline-block';
+                input.style.width = 'auto';
+                
+                editableSpan.style.display = 'none';
+                nameElement.insertBefore(input, editableSpan);
+                input.focus();
+                
+                function saveChanges() {
+                    const newValue = input.value.trim();
+                    if (newValue !== currentValue) {
+                        fetch('api/update_category.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                category_id: categoryId,
+                                name: newValue,
+                                image: currentImage // Mevcut resmi gönder
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                editableSpan.textContent = newValue;
+                                toastr.success('Kategori adı güncellendi');
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
+                            editableSpan.textContent = currentValue;
+                        });
+                    }
+                    input.remove();
+                    editableSpan.style.display = '';
+                }
+
+                input.addEventListener('blur', saveChanges);
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveChanges();
+                    }
+                });
+            }
+
+            // Hem span'e hem de kalem iconuna tıklama eventi ekle
+            editableSpan.addEventListener('click', makeEditable);
+            editIcon.addEventListener('click', makeEditable);
+        });
+
+        // Kategori ve ürün resmi düzenleme
+        document.querySelectorAll('.category-image, .product-image').forEach(img => {
+            img.addEventListener('click', function(e) {
+                e.preventDefault();
+                const isCategory = this.classList.contains('category-image');
+                const parentElement = this.closest(isCategory ? '.category-item' : '.product-row');
+                const itemId = parentElement.dataset[isCategory ? 'categoryId' : 'productId'];
+                const itemName = isCategory ? 
+                    parentElement.querySelector('.category-name .editable-category-name').textContent.trim() :
+                    parentElement.querySelector('.product-name').textContent.trim();
+                
+                // Media modalı aç
+                const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+                mediaModal.show();
+                
+                // Media seçildiğinde
+                window.selectMedia = function(mediaUrl, mediaId) {
+                    const imageFileName = String(mediaUrl).split('/').pop();
+                    const endpoint = isCategory ? 'update_category.php' : 'update_product.php';
+                    
+                    let requestData;
+                    if (isCategory) {
+                        requestData = {
+                            category_id: itemId,
+                            name: itemName,
+                            image: imageFileName
+                        };
+                    } else {
+                        requestData = {
+                            id: itemId,
+                            field: 'image',
+                            value: imageFileName
+                        };
+                    }
+                    
+                    fetch(`api/${endpoint}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            img.src = '../uploads/' + imageFileName;
+                            mediaModal.hide();
+                            toastr.success(isCategory ? 'Kategori resmi güncellendi' : 'Ürün resmi güncellendi');
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        toastr.error(error.message || 'Resim güncellenirken bir hata oluştu');
+                    });
+                };
+            });
+        });
+
+        // Kategori ürün sayısını göster
+        document.querySelectorAll('.category-item').forEach(category => {
+            const productCount = category.querySelectorAll('.product-row').length;
+            const countBadge = document.createElement('span');
+            countBadge.className = 'badge bg-primary ms-2';
+            countBadge.textContent = productCount;
+            category.querySelector('.category-name').appendChild(countBadge);
         });
     });
     </script>
