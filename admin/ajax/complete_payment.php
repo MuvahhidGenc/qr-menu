@@ -11,18 +11,22 @@ try {
         throw new Exception('Geçersiz veri formatı');
     }
 
-    $table_id = $input['table_id'] ?? null;
-    $payment_method = $input['payment_method'] ?? null;
-    $total_amount = $input['total_amount'] ?? 0;
+    $tableId = $input['table_id'] ?? null;
+    $paymentMethod = $input['payment_method'] ?? null;
+    $totalAmount = $input['total_amount'] ?? 0;
+    $subtotal = $input['subtotal'] ?? $totalAmount;
+    $discountType = $input['discount_type'] ?? null;
+    $discountValue = $input['discount_value'] ?? 0;
+    $discountAmount = $input['discount_amount'] ?? 0;
     
-    if (!$table_id || !$payment_method) {
+    if (!$tableId || !$paymentMethod) {
         throw new Exception('Gerekli alanlar eksik');
     }
 
     // Masanın durumunu kontrol et
     $tableCheck = $db->query(
         "SELECT status FROM tables WHERE id = ?",
-        [$table_id]
+        [$tableId]
     )->fetch();
 
     $db->beginTransaction();
@@ -34,7 +38,7 @@ try {
              WHERE table_id = ? 
              AND status IN ('pending', 'preparing', 'ready', 'delivered')
              AND payment_id IS NULL",
-            [$table_id]
+            [$tableId]
         )->fetchAll();
 
         // Ödeme kaydı oluştur
@@ -43,15 +47,21 @@ try {
                 table_id, 
                 payment_method, 
                 total_amount,
-                paid_amount,
+                subtotal,
+                discount_type,
+                discount_value, 
+                discount_amount,
                 status,
                 created_at
-            ) VALUES (?, ?, ?, ?, 'completed', NOW())",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', NOW())",
             [
-                $table_id,
-                $payment_method,
-                $total_amount,
-                $total_amount
+                $tableId,
+                $paymentMethod,
+                $totalAmount,
+                $subtotal,
+                $discountType,
+                $discountValue,
+                $discountAmount
             ]
         );
         
@@ -74,7 +84,7 @@ try {
             "UPDATE tables 
              SET status = 'empty'
              WHERE id = ?",
-            [$table_id]
+            [$tableId]
         );
 
         $db->commit();

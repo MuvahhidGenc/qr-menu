@@ -774,13 +774,36 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                             <!-- Ödeme Seçenekleri ve Toplam -->
                             <div class="border-top p-3">
                                 <div class="mb-3">
+                                    <!-- İskonto Alanı -->
+                                    <div class="discount-section mb-3">
+                                        <div class="d-flex gap-2 mb-2">
+                                            <select class="form-select" id="discountType" style="width: 120px;">
+                                                <option value="percent">Yüzde (%)</option>
+                                                <option value="amount">Tutar (₺)</option>
+                                            </select>
+                                            <input type="number" class="form-control" id="discountValue" min="0" step="0.01" placeholder="İskonto">
+                                            <button type="button" class="btn btn-outline-primary" onclick="calculateDiscount()">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Toplam Bilgileri -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="mb-0">Ara Toplam</h5>
+                                        <h5 class="mb-0" id="subtotalAmount"></h5>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2 text-danger" id="discountRow" style="display: none;">
+                                        <h5 class="mb-0">İskonto</h5>
+                                        <h5 class="mb-0" id="discountAmount">0.00 ₺</h5>
+                                    </div>
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h5 class="mb-0">Toplam</h5>
-                                        <h5 class="mb-0 text-primary" id="paymentTotal">0.00 ₺</h5>
+                                        <h5 class="mb-0 text-primary" id="paymentTotal"></h5>
                                     </div>
-                                    
-                                    <!-- Ödeme Yöntemi Seçimi -->
-                                    <div class="payment-methods mb-3" style="display: <?= $canTakePayment ? 'block' : 'none' ?>">
+
+                                    <!-- Mevcut Ödeme Yöntemi Seçimi -->
+                                    <div class="payment-methods mb-3" style="display: block">
                                         <div class="row g-2">
                                             <div class="col-6">
                                                 <input type="radio" class="btn-check" name="payment_method" id="cash" value="cash" checked>
@@ -927,6 +950,7 @@ let paymentItems = {};
 let currentTotal = 0;
 let currentTableOrders = [];
 let currentTableId = null;
+let originalTotal = 0; // Global değişken olarak orijinal tutarı saklayalım
 
 // Fiyat formatlama fonksiyonu
 function formatPrice(price) {
@@ -1264,6 +1288,48 @@ function saveNewItems() {
 
 // Ödemeyi tamamla
 function completePayment() {
+    // ... existing permission check ...
+
+    // Kaydedilmemiş sipariş kontrolü
+    const unsavedOrders = document.querySelectorAll('.order-item.unsaved');
+    if (unsavedOrders.length > 0) {
+        Swal.fire({
+            title: 'Kaydedilmemiş Siparişler',
+            text: 'Kaydedilmemiş siparişler var. Önce siparişleri kaydedip ödeme almak ister misiniz?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Evet, Kaydet ve Devam Et',
+            cancelButtonText: 'İptal',
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#dc3545'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Önce siparişleri kaydet
+                saveOrders().then(response => {
+                    if (response.success) {
+                        // Siparişler kaydedildikten sonra ödeme işlemine devam et
+                        processPayment();
+                    } else {
+                        Swal.fire('Hata!', 'Siparişler kaydedilemedi.', 'error');
+                    }
+                });
+            }
+        });
+        return;
+    }
+
+    // Eğer kaydedilmemiş sipariş yoksa direkt ödeme işlemine geç
+    processPayment();
+}
+
+// Ödeme işlemi fonksiyonu
+function processPayment() {
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+    if (!paymentMethod) {
+        Swal.fire('Uyarı', 'Lütfen ödeme yöntemi seçin!', 'warning');
+        return;
+    }
+
     if (!userPermissions.canTakePayment) {
         Swal.fire('Yetkisiz İşlem', 'Ödeme alma yetkiniz bulunmuyor.', 'error');
         return;
@@ -1286,36 +1352,51 @@ function completePayment() {
         return;
     }
 
-    const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
-    
-    if (!paymentMethod) {
-        Swal.fire('Uyarı!', 'Lütfen bir ödeme yöntemi seçin', 'warning');
-        return;
-    }
-    
-    if (currentTotal <= 0) {
-        Swal.fire('Uyarı!', 'Ödenecek tutar bulunamadı', 'warning');
-        return;
-    }
+    const discountType = document.getElementById('discountType').value;
+    const discountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+    const subtotal = originalTotal;
+    const discountAmount = parseFloat(document.getElementById('discountAmount')?.textContent.replace(/[^0-9.]/g, '')) || 0;
+    const finalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
 
+    // Ödeme onayı iste
     Swal.fire({
         title: 'Ödeme Onayı',
-        text: `Toplam ${formatPrice(currentTotal)} tutarındaki ödemeyi ${paymentMethod === 'cash' ? 'nakit' : 'POS'} ile tamamlamak istiyor musunuz?`,
+        html: `
+            <div class="text-center">
+                <h4 class="mb-3">Ödeme Detayları</h4>
+                ${discountAmount > 0 ? `
+                    <p class="mb-2">Ara Toplam: ${formatPrice(subtotal)} ₺</p>
+                    <p class="mb-2 text-danger">
+                        İskonto: ${formatPrice(discountAmount)} ₺ 
+                        (${discountType === 'percent' ? '%' + discountValue : formatPrice(discountValue) + ' ₺'})
+                    </p>
+                ` : ''}
+                <p class="mb-3"><strong>Ödenecek Tutar: ${formatPrice(finalTotal)} ₺</strong></p>
+                <p class="mb-2">Ödeme Yöntemi: ${paymentMethod === 'cash' ? 'Nakit' : 'POS'}</p>
+            </div>
+        `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Evet, Tamamla',
-        cancelButtonText: 'İptal'
+        confirmButtonText: 'Ödemeyi Tamamla',
+        cancelButtonText: 'İptal',
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#dc3545'
     }).then((result) => {
         if (result.isConfirmed) {
+            // Mevcut ödeme işlemi kodunu kullan
             fetch('ajax/complete_payment.php', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     table_id: currentTableId,
                     payment_method: paymentMethod,
-                    total_amount: currentTotal
+                    total_amount: finalTotal,
+                    subtotal: subtotal,
+                    discount_type: discountType,
+                    discount_value: discountValue,
+                    discount_amount: discountAmount
                 })
             })
             .then(response => response.json())
@@ -1323,16 +1404,15 @@ function completePayment() {
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Ödeme Tamamlandı!',
-                        text: 'Ödeme başarıyla kaydedildi',
+                        title: 'Başarılı!',
+                        text: 'Ödeme başarıyla tamamlandı.',
                         showConfirmButton: false,
                         timer: 1500
                     }).then(() => {
-                        $('#paymentModal').modal('hide');
                         location.reload();
                     });
                 } else {
-                    throw new Error(data.message || 'Bir hata oluştu');
+                    throw new Error(data.message);
                 }
             })
             .catch(error => {
@@ -2137,6 +2217,91 @@ function transferAllOrders(direction) {
             });
         }
     });
+}
+
+// İskonto hesaplama fonksiyonunu güncelleyelim
+function calculateDiscount() {
+    const type = document.getElementById('discountType').value;
+    const value = parseFloat(document.getElementById('discountValue').value) || 0;
+    
+    // İlk kez hesaplama yapılıyorsa orijinal tutarı kaydet
+    if (originalTotal === 0) {
+        originalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
+    }
+    
+    // İskonto değeri girilmediyse, iskontoyu temizle ve orijinal tutarı göster
+    if (!value) {
+        document.getElementById('paymentTotal').textContent = formatPrice(originalTotal) + ' ₺';
+        document.getElementById('discountRow').style.display = 'none';
+        document.getElementById('discountValue').value = '';
+        return;
+    }
+    
+    let discountAmount = 0;
+    
+    // Her zaman orijinal tutar üzerinden hesapla
+    if (type === 'percent') {
+        if (value > 100) {
+            Swal.fire('Uyarı', 'İskonto oranı 100\'den büyük olamaz!', 'warning');
+            document.getElementById('discountValue').value = '';
+            // Önceki iskonto varsa temizle, orijinal tutarı göster
+            document.getElementById('paymentTotal').textContent = formatPrice(originalTotal) + ' ₺';
+            document.getElementById('discountRow').style.display = 'none';
+            return;
+        }
+        discountAmount = (originalTotal * value) / 100;
+    } else {
+        if (value > originalTotal) {
+            Swal.fire('Uyarı', 'İskonto tutarı toplam tutardan büyük olamaz!', 'warning');
+            document.getElementById('discountValue').value = '';
+            // Önceki iskonto varsa temizle, orijinal tutarı göster
+            document.getElementById('paymentTotal').textContent = formatPrice(originalTotal) + ' ₺';
+            document.getElementById('discountRow').style.display = 'none';
+            return;
+        }
+        discountAmount = value;
+    }
+    
+    const finalTotal = originalTotal - discountAmount;
+    
+    // Görünümü güncelle - Her zaman orijinal tutarı göster
+    document.getElementById('subtotalAmount').textContent = formatPrice(originalTotal) + ' ₺';
+    document.getElementById('discountAmount').textContent = formatPrice(discountAmount) + ' ₺';
+    document.getElementById('paymentTotal').textContent = formatPrice(finalTotal) + ' ₺';
+    document.getElementById('discountRow').style.display = 'flex';
+
+    console.log('İskonto Hesaplaması:', {
+        originalTotal,
+        type,
+        value,
+        discountAmount,
+        finalTotal
+    });
+}
+
+// Mevcut showPaymentModal fonksiyonunu güncelle
+function showPaymentModal(tableId) {
+    currentTableId = tableId;
+    
+    // ... existing code ...
+    
+    // Toplam tutarı güncelle
+    document.getElementById('subtotalAmount').textContent = formatPrice(total) + ' ₺';
+    document.getElementById('totalAmount').textContent = formatPrice(total) + ' ₺';
+    
+    // Orijinal tutarı sıfırla ve yeni değeri kaydet
+    originalTotal = 0;
+    
+    // İskonto alanlarını sıfırla
+    document.getElementById('discountValue').value = '';
+    document.getElementById('discountRow').style.display = 'none';
+    
+    // ... rest of the existing code ...
+}
+
+// Para formatı fonksiyonu
+function formatPrice(price) {
+    return parseFloat(price).toFixed(2);
 }
 </script>
 
