@@ -581,6 +581,61 @@ error_log('Active Products: ' . $dbCheck['active_products']);
         height: 400px;
     }
 }
+
+/* Modal Genel Stilleri */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+/* Buton Hover Efektleri */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Badge Animasyonu */
+#tableStatus {
+    transition: all 0.3s ease;
+}
+
+#tableStatus:hover {
+    transform: scale(1.05);
+}
+
+/* Modal Başlık İkonu Animasyonu */
+.modal-title i {
+    transition: transform 0.3s ease;
+}
+
+.modal-title:hover i {
+    transform: rotate(15deg);
+}
+
+/* Gradient Buton Hover Efektleri */
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1e90ff 0%, #70a1ff 100%) !important;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%) !important;
+}
+
+/* Modal Kapanış Butonu */
+.btn-close {
+    opacity: 0.8;
+    transition: all 0.3s ease;
+}
+
+.btn-close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
 </style>
 <div class="category-content">
     <div class="container-fluid p-3">
@@ -677,13 +732,15 @@ error_log('Active Products: ' . $dbCheck['active_products']);
 <div class="modal fade" id="paymentModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-cash-register me-2"></i>
-                    <span id="paymentTableInfo">Masa</span>
-                    <span class="badge bg-light text-primary ms-2" id="tableStatus">-</span>
+            <!-- Modal Header -->
+            <div class="modal-header" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 1.5rem;">
+                <h5 class="modal-title d-flex align-items-center gap-2 text-white">
+                    <i class="fas fa-cash-register fa-lg"></i>
+                    <span id="paymentTableInfo" class="fw-bold">Masa</span>
+                    <span class="badge bg-white text-primary ms-2 fw-normal" id="tableStatus" 
+                          style="font-size: 0.9rem; padding: 0.5em 1em; border-radius: 50px;">-</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
                 <div class="row g-0">
@@ -758,11 +815,14 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                     <div class="col-md-5">
                         <div class="d-flex flex-column h-100">
                             <!-- Sipariş Başlığı -->
-                            <div class="p-3 bg-light border-bottom">
+                            <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">
                                     <i class="fas fa-shopping-cart me-2"></i>
                                     Sipariş Detayları
                                 </h6>
+                                <button type="button" class="btn btn-icon btn-sm btn-outline-secondary" onclick="printReceipt()" title="Fiş Yazdır">
+                                    <i class="fas fa-print"></i>
+                                </button>
                             </div>
                             
                             <!-- Siparişler -->
@@ -823,23 +883,51 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                                     </div>
 
                                     <div class="d-grid gap-2">
-                                        <div class="payment-buttons-container">
+                                       <!-- <div class="payment-buttons-container">
                                             <?php if ($canTakePayment): ?>
                                                 <button type="button" class="btn btn-success w-100" onclick="completePayment()">
                                                     <i class="fas fa-check-circle me-2"></i>Ödemeyi Tamamla
                                                 </button>
                                             <?php endif; ?>
                                         </div>
-                                        
+                                       
                                         <?php if ($canSaveOrder): ?>
                                             <button type="button" class="btn btn-primary" onclick="saveNewItems()">
                                                 <i class="fas fa-save me-2"></i>Siparişi Kaydet
                                             </button>
-                                        <?php endif; ?>
+                                        <?php endif; ?>-->
+                                        <button type="button" class="btn btn-secondary me-2" onclick="printReceipt()">
+                                            <i class="fas fa-print"></i> Fiş Yazdır
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="modal-footer" style="background: #f8f9fa; border-top: 1px solid rgba(0,0,0,0.05); padding: 1rem 1.5rem;">
+                <div class="d-flex gap-2 w-100 justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal"
+                            style="border-radius: 50px; font-weight: 500;">
+                        <i class="fas fa-times me-2"></i>İptal
+                    </button>
+                    
+                    <div class="d-flex gap-2">
+                        <?php if ($canSaveOrder): ?>
+                            <button type="button" class="btn btn-primary px-4" onclick="saveNewItems()"
+                                    style="border-radius: 50px; font-weight: 500; background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); border: none;">
+                                <i class="fas fa-save me-2"></i>Siparişi Kaydet
+                            </button>
+                        <?php endif; ?>
+
+                        <?php if ($canTakePayment): ?>
+                            <button type="button" class="btn btn-success px-4" onclick="completePayment()"
+                                    style="border-radius: 50px; font-weight: 500; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border: none;">
+                                <i class="fas fa-check-circle me-2"></i>Ödemeyi Tamamla
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -1184,14 +1272,8 @@ function loadTableOrders(tableId, retryCount = 0) {
         }
     })
     .catch(error => {
-        console.error('Sipariş yükleme hatası:', error);
-        if (container) {
-            container.innerHTML = `
-                <div class="alert alert-danger">
-                    Siparişler yüklenirken bir hata oluştu: ${error.message}
-                </div>
-            `;
-        }
+        console.error('Error loading orders:', error);
+        container.innerHTML = '<div class="alert alert-danger">Siparişler yüklenirken bir hata oluştu.</div>';
     });
 }
 
@@ -1402,14 +1484,13 @@ function processPayment() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Başarılı!',
-                        text: 'Ödeme başarıyla tamamlandı.',
-                        showConfirmButton: false,
-                        timer: 1500
-                    }).then(() => {
-                        location.reload();
+                    Swal.fire('Başarılı!', 'Ödeme başarıyla tamamlandı.', 'success')
+                    .then(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                        window.location.reload(); // Sadece bu satırı ekledik
                     });
                 } else {
                     throw new Error(data.message);
@@ -2303,6 +2384,66 @@ function showPaymentModal(tableId) {
 function formatPrice(price) {
     return parseFloat(price).toFixed(2);
 }
+
+// Fiş yazdırma fonksiyonu
+function printReceipt() {
+    // Masa numarasını al
+    const tableNo = document.getElementById('paymentTableInfo').textContent.replace('Masa ', '');
+    
+    // Sipariş öğelerini doğru seçicilerle al
+    const orderItems = document.querySelectorAll('#paymentOrderDetails .order-item');
+    const subtotal = originalTotal || parseFloat(document.getElementById('subtotalAmount').textContent.replace(/[^0-9.]/g, ''));
+    const discountAmount = parseFloat(document.getElementById('discountAmount')?.textContent.replace(/[^0-9.]/g, '')) || 0;
+    const finalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
+    
+    let receiptContent = `
+        <div style="font-family: 'Courier New', monospace; width: 300px; padding: 10px;">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h3 style="margin: 5px 0;">RESTORAN ADI</h3>
+                <p style="margin: 5px 0;">Tarih: ${new Date().toLocaleString('tr-TR')}</p>
+                <p style="margin: 5px 0;">Masa No: ${tableNo}</p>
+            </div>
+            <hr style="border-top: 1px dashed #000;">
+            <div style="margin-bottom: 10px;">
+                ${Array.from(orderItems).map(item => {
+                    const name = item.querySelector('.fw-bold').textContent;
+                    const quantityText = item.querySelector('.text-muted').textContent;
+                    const quantity = quantityText.split('x')[0].trim();
+                    const price = parseFloat(quantityText.split('x')[1].replace('₺', '').trim());
+                    const total = quantity * price;
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                            <span>${quantity}x ${name}</span>
+                            <span>${formatPrice(total)} ₺</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <hr style="border-top: 1px dashed #000;">
+            <div style="text-align: right; margin-bottom: 10px;">
+                <p style="margin: 5px 0;">Ara Toplam: ${formatPrice(subtotal)} ₺</p>
+                ${discountAmount > 0 ? `
+                    <p style="margin: 5px 0;">İskonto: ${formatPrice(discountAmount)} ₺</p>
+                ` : ''}
+                <p style="margin: 5px 0;"><strong>Genel Toplam: ${formatPrice(finalTotal)} ₺</strong></p>
+            </div>
+        </div>
+    `;
+
+    const printWindow = window.open('', '', 'width=300,height=600');
+    printWindow.document.write('<html><head><title>Fiş</title></head><body>');
+    printWindow.document.write(receiptContent);
+    printWindow.document.write('<script>');
+    printWindow.document.write('window.onload = function() {');
+    printWindow.document.write('    window.print();');
+    printWindow.document.write('    window.onafterprint = function() {');
+    printWindow.document.write('        window.close();');
+    printWindow.document.write('    }');
+    printWindow.document.write('}');
+    printWindow.document.write('<\/script>');
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+}
 </script>
 
 <!-- QR Code kütüphanesi -->
@@ -2310,13 +2451,11 @@ function formatPrice(price) {
 
 <!-- JavaScript Dosyaları -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-
-<!-- Bootstrap ve diğer gerekli scriptler -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/js/tables.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+<script src="assets/js/tables.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
 
 </body>
 </html>
