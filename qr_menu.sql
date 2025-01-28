@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 26 Oca 2025, 12:24:37
+-- Üretim Zamanı: 28 Oca 2025, 19:41:30
 -- Sunucu sürümü: 10.4.32-MariaDB
 -- PHP Sürümü: 8.2.12
 
@@ -67,10 +67,10 @@ CREATE TABLE `categories` (
 --
 
 INSERT INTO `categories` (`id`, `name`, `status`, `sort_order`, `created_at`, `image`) VALUES
-(6, 'ANA YEMEK', 1, 0, '2025-01-01 12:16:22', '676a6e1cc23fc.jpg'),
-(7, 'TATLI', 1, 0, '2025-01-01 12:19:12', '676a664757925.jpg'),
-(8, 'ÇORBA', 1, 0, '2025-01-01 12:19:28', '6774e8b62a116.jpg'),
-(9, 'İÇEÇEK', 1, 0, '2025-01-01 12:20:01', '676a6e27408af.jpg');
+(6, 'ANA YEMEKk', 1, 0, '2025-01-01 12:16:22', '6769785d70e7b.jpeg'),
+(8, 'ÇORBA', 1, 3, '2025-01-01 12:19:28', '676a97b066ef6.jpg'),
+(9, 'İÇEÇEK', 1, 1, '2025-01-01 12:20:01', '676a97b066ef6.jpg'),
+(18, 'TATLI', 1, 2, '2025-01-28 12:51:16', '676a97b066ef6.jpg');
 
 -- --------------------------------------------------------
 
@@ -185,7 +185,22 @@ INSERT INTO `notifications` (`id`, `order_id`, `type`, `message`, `is_read`, `cr
 (116, NULL, 'payment_cancelled', 'Masa Masa 2\'ın ödemesi iptal edildi. Neden: deneme', 0, '2025-01-26 10:59:41'),
 (117, 46, 'new_order', 'Masa Masa 2\'a iptal edilmiş siparişler yeniden eklendi!', 0, '2025-01-26 11:06:11'),
 (118, NULL, 'payment_cancelled', 'Masa Masa 3\'ın ödemesi iptal edildi. Neden: asdadasd', 0, '2025-01-26 11:12:31'),
-(119, 47, 'new_order', 'Masa Masa 3\'a iptal edilmiş siparişler yeniden eklendi!', 0, '2025-01-26 11:12:37');
+(119, 47, 'new_order', 'Masa Masa 3\'a iptal edilmiş siparişler yeniden eklendi!', 0, '2025-01-26 11:12:37'),
+(120, 46, 'order_updated', 'Masa Masa 2\'a yeni ürünler eklendi', 1, '2025-01-28 12:25:30'),
+(121, 46, 'order_updated', 'Masa Masa 2\'a yeni ürünler eklendi', 1, '2025-01-28 12:26:02'),
+(122, 30, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-28 13:27:07'),
+(123, 30, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 0, '2025-01-28 13:28:51'),
+(124, 50, 'new_order', 'Masa Masa 6\'dan yeni sipariş geldi!', 0, '2025-01-28 13:29:49'),
+(125, NULL, 'payment_cancelled', 'Masa Masa 6\'ın ödemesi iptal edildi. Neden: deneme', 0, '2025-01-28 14:36:56'),
+(126, 56, 'new_order', 'Masa Masa 6\'a iptal edilmiş siparişler yeniden eklendi!', 0, '2025-01-28 14:41:30'),
+(127, 51, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 1, '2025-01-28 14:52:42'),
+(128, 65, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 0, '2025-01-28 18:23:23'),
+(129, 65, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 0, '2025-01-28 18:23:28'),
+(130, 66, 'new_order', 'Masa Masa 6\'dan yeni sipariş geldi!', 1, '2025-01-28 18:25:12'),
+(131, 66, 'order_updated', 'Masa Masa 6\'a yeni ürünler eklendi', 0, '2025-01-28 18:25:55'),
+(132, 66, 'order_updated', 'Masa Masa 6\'a yeni ürünler eklendi', 0, '2025-01-28 18:26:14'),
+(133, 67, 'new_order', 'Masa 7\'dan yeni sipariş geldi!', 0, '2025-01-28 18:27:18'),
+(134, 68, 'order_updated', 'Masa Masa 1\'a yeni ürünler eklendi', 0, '2025-01-28 18:31:44');
 
 -- --------------------------------------------------------
 
@@ -226,14 +241,31 @@ INSERT INTO `orders` (`id`, `reservation_id`, `table_id`, `status`, `order_code`
 (27, NULL, 2, '', NULL, 400.00, NULL, '13:44: Test', '2025-01-05 10:44:25', '2025-01-26 10:59:41', 11, '2025-01-26 10:59:26'),
 (28, NULL, 1, 'completed', NULL, 500.00, '', NULL, '2025-01-05 11:53:45', '2025-01-25 12:57:08', 9, '2025-01-25 12:57:08'),
 (29, NULL, 3, '', NULL, 250.00, NULL, NULL, '2025-01-25 12:57:20', '2025-01-26 11:12:31', 12, '2025-01-26 11:12:23'),
-(30, NULL, 1, 'pending', NULL, 250.00, '', NULL, '2025-01-25 12:58:40', '2025-01-26 10:23:15', NULL, NULL),
+(30, NULL, 1, 'completed', NULL, 530.00, '', NULL, '2025-01-25 12:58:40', '2025-01-28 14:36:02', 19, '2025-01-28 14:36:02'),
 (41, 18, 3, '', '375D61', 250.00, NULL, NULL, '2025-01-25 16:10:27', '2025-01-26 11:12:31', 12, '2025-01-26 11:12:23'),
-(42, NULL, 1, 'ready', NULL, 500.00, NULL, NULL, '2025-01-26 10:07:04', '2025-01-26 10:14:53', NULL, NULL),
+(42, NULL, 1, 'completed', NULL, 500.00, NULL, NULL, '2025-01-26 10:07:04', '2025-01-28 14:36:02', 19, '2025-01-28 14:36:02'),
 (43, NULL, 2, '', NULL, 250.00, NULL, NULL, '2025-01-26 10:11:54', '2025-01-26 10:59:41', 11, '2025-01-26 10:59:26'),
-(44, NULL, 1, 'ready', NULL, 2250.00, NULL, NULL, '2025-01-26 10:11:57', '2025-01-26 10:14:49', NULL, NULL),
-(45, NULL, 1, 'ready', NULL, 2500.00, NULL, NULL, '2025-01-26 10:12:15', '2025-01-26 10:14:45', NULL, NULL),
-(46, NULL, 2, 'pending', NULL, NULL, NULL, NULL, '2025-01-26 11:06:11', '2025-01-26 11:06:11', NULL, NULL),
-(47, NULL, 3, 'completed', NULL, 750.00, NULL, NULL, '2025-01-26 11:12:37', '2025-01-26 11:14:25', 13, '2025-01-26 11:14:25');
+(44, NULL, 1, 'completed', NULL, 2250.00, NULL, NULL, '2025-01-26 10:11:57', '2025-01-28 14:36:02', 19, '2025-01-28 14:36:02'),
+(45, NULL, 1, 'completed', NULL, 2500.00, NULL, NULL, '2025-01-26 10:12:15', '2025-01-28 14:36:02', 19, '2025-01-28 14:36:02'),
+(46, NULL, 2, 'completed', NULL, 2760.00, NULL, NULL, '2025-01-26 11:06:11', '2025-01-28 14:36:34', 21, '2025-01-28 14:36:34'),
+(47, NULL, 3, 'completed', NULL, 750.00, NULL, NULL, '2025-01-26 11:12:37', '2025-01-26 11:14:25', 13, '2025-01-26 11:14:25'),
+(50, NULL, 6, 'delivered', NULL, 300.00, NULL, NULL, '2025-01-28 13:29:49', '2025-01-28 18:25:25', 20, '2025-01-28 14:36:29'),
+(51, NULL, 1, 'completed', NULL, 8.00, '', NULL, '2025-01-28 14:37:21', '2025-01-28 16:25:06', 24, '2025-01-28 16:25:06'),
+(52, NULL, 2, 'completed', NULL, 270.00, '', NULL, '2025-01-28 14:37:29', '2025-01-28 16:26:19', 25, '2025-01-28 16:26:19'),
+(53, NULL, 6, 'completed', NULL, 2.00, '', NULL, '2025-01-28 14:37:35', '2025-01-28 14:38:40', 22, '2025-01-28 14:38:40'),
+(56, NULL, 6, 'completed', NULL, 300.00, NULL, NULL, '2025-01-28 14:41:30', '2025-01-28 14:58:04', 23, '2025-01-28 14:58:04'),
+(57, NULL, 1, 'completed', NULL, 230.00, NULL, NULL, '2025-01-28 14:53:17', '2025-01-28 16:25:06', 24, '2025-01-28 16:25:06'),
+(58, NULL, 1, 'completed', NULL, 232.00, '', NULL, '2025-01-28 16:43:45', '2025-01-28 16:48:51', 29, '2025-01-28 16:48:51'),
+(59, NULL, 8, 'completed', NULL, 232.00, '', NULL, '2025-01-28 16:44:16', '2025-01-28 16:44:42', 26, '2025-01-28 16:44:42'),
+(60, NULL, 8, 'completed', NULL, 2.00, '', NULL, '2025-01-28 16:47:36', '2025-01-28 16:49:42', 30, '2025-01-28 16:49:42'),
+(61, NULL, 4, 'completed', NULL, 270.00, '', NULL, '2025-01-28 16:47:57', '2025-01-28 16:48:35', 28, '2025-01-28 16:48:35'),
+(62, NULL, 8, 'completed', NULL, 230.00, NULL, NULL, '2025-01-28 16:49:06', '2025-01-28 16:49:42', 30, '2025-01-28 16:49:42'),
+(63, NULL, 1, 'completed', NULL, 1490.00, '', NULL, '2025-01-28 18:02:44', '2025-01-28 18:04:21', 31, '2025-01-28 18:04:21'),
+(64, NULL, 1, 'completed', NULL, 532.00, '', NULL, '2025-01-28 18:05:06', '2025-01-28 18:12:28', 32, '2025-01-28 18:12:28'),
+(65, NULL, 1, 'completed', NULL, 1008.00, '', NULL, '2025-01-28 18:23:18', '2025-01-28 18:24:09', 33, '2025-01-28 18:24:09'),
+(66, NULL, 6, 'completed', NULL, 510.00, NULL, NULL, '2025-01-28 18:25:12', '2025-01-28 18:26:41', 34, '2025-01-28 18:26:41'),
+(67, NULL, 1, 'completed', NULL, 60.00, NULL, NULL, '2025-01-28 18:27:18', '2025-01-28 18:32:11', 35, '2025-01-28 18:32:11'),
+(68, NULL, 1, 'completed', NULL, 530.00, NULL, NULL, '2025-01-28 18:29:03', '2025-01-28 18:32:11', 35, '2025-01-28 18:32:11');
 
 -- --------------------------------------------------------
 
@@ -259,7 +291,8 @@ INSERT INTO `order_codes` (`id`, `code`, `active`, `created_at`, `expires_at`) V
 (3, '897267', 0, '2025-01-03 06:47:26', '2025-01-04 06:47:26'),
 (4, '516992', 0, '2025-01-03 07:04:59', '2025-01-04 07:04:59'),
 (5, '647739', 0, '2025-01-05 10:04:11', '2025-01-06 10:04:11'),
-(6, '620764', 1, '2025-01-25 12:56:06', '2025-01-26 12:56:06');
+(6, '620764', 0, '2025-01-25 12:56:06', '2025-01-26 12:56:06'),
+(7, '700011', 1, '2025-01-28 13:27:00', '2025-01-29 13:27:00');
 
 -- --------------------------------------------------------
 
@@ -311,7 +344,7 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (209, 28, 3, 1, 250.00, '2025-01-05 11:53:45'),
 (210, 28, 1, 1, 250.00, '2025-01-25 12:56:14'),
 (211, 29, 1, 1, 250.00, '2025-01-25 12:57:20'),
-(212, 30, 3, 1, 250.00, '2025-01-25 12:58:40'),
+(212, 30, 3, 2, 250.00, '2025-01-25 12:58:40'),
 (213, 36, 1, 1, 250.00, '2025-01-25 15:36:16'),
 (214, 36, 7, 1, 250.00, '2025-01-25 15:36:16'),
 (215, 37, 6, 1, 100.00, '2025-01-25 15:58:59'),
@@ -320,10 +353,45 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (218, 40, 1, 1, 250.00, '2025-01-25 16:06:59'),
 (219, 41, 1, 1, 250.00, '2025-01-25 16:10:27'),
 (220, 46, 6, 4, 100.00, '2025-01-26 11:06:11'),
-(221, 46, 1, 1, 250.00, '2025-01-26 11:06:11'),
+(221, 46, 1, 7, 250.00, '2025-01-26 11:06:11'),
 (222, 47, 7, 1, 250.00, '2025-01-26 11:12:37'),
 (223, 47, 1, 1, 250.00, '2025-01-26 11:12:37'),
-(224, 47, 1, 1, 250.00, '2025-01-26 11:12:37');
+(224, 47, 1, 1, 250.00, '2025-01-26 11:12:37'),
+(225, 46, 3, 1, 270.00, '2025-01-28 12:25:30'),
+(226, 46, 19, 9, 20.00, '2025-01-28 12:26:02'),
+(227, 46, 20, 8, 20.00, '2025-01-28 12:26:02'),
+(228, 30, 1, 1, 30.00, '2025-01-28 13:27:07'),
+(229, 50, 1, 1, 30.00, '2025-01-28 13:29:49'),
+(230, 50, 3, 1, 270.00, '2025-01-28 13:29:49'),
+(231, 57, 25, 1, 230.00, '2025-01-28 14:37:21'),
+(232, 52, 3, 1, 270.00, '2025-01-28 14:37:29'),
+(233, 53, 24, 1, 2.00, '2025-01-28 14:37:35'),
+(238, 56, 1, 1, 30.00, '2025-01-28 14:41:30'),
+(239, 56, 3, 1, 270.00, '2025-01-28 14:41:30'),
+(240, 51, 24, 4, 2.00, '2025-01-28 14:52:42'),
+(241, 58, 24, 1, 2.00, '2025-01-28 16:43:45'),
+(242, 58, 25, 1, 230.00, '2025-01-28 16:43:45'),
+(243, 59, 24, 1, 2.00, '2025-01-28 16:44:16'),
+(244, 59, 25, 1, 230.00, '2025-01-28 16:44:16'),
+(245, 60, 24, 1, 2.00, '2025-01-28 16:47:36'),
+(246, 62, 25, 1, 230.00, '2025-01-28 16:47:36'),
+(247, 61, 3, 1, 270.00, '2025-01-28 16:47:57'),
+(248, 63, 1, 1, 30.00, '2025-01-28 18:02:44'),
+(249, 63, 3, 2, 270.00, '2025-01-28 18:02:44'),
+(250, 63, 25, 4, 230.00, '2025-01-28 18:02:44'),
+(251, 64, 1, 1, 30.00, '2025-01-28 18:05:06'),
+(252, 64, 3, 1, 270.00, '2025-01-28 18:05:06'),
+(253, 64, 24, 1, 2.00, '2025-01-28 18:05:06'),
+(254, 64, 25, 1, 230.00, '2025-01-28 18:05:06'),
+(255, 65, 3, 2, 270.00, '2025-01-28 18:23:18'),
+(256, 65, 24, 4, 2.00, '2025-01-28 18:23:18'),
+(257, 65, 25, 2, 230.00, '2025-01-28 18:23:18'),
+(258, 66, 6, 2, 100.00, '2025-01-28 18:25:12'),
+(259, 66, 30, 2, 20.00, '2025-01-28 18:25:12'),
+(260, 66, 3, 1, 270.00, '2025-01-28 18:26:14'),
+(261, 68, 6, 3, 100.00, '2025-01-28 18:27:18'),
+(262, 67, 30, 3, 20.00, '2025-01-28 18:27:18'),
+(263, 68, 25, 1, 230.00, '2025-01-28 18:31:44');
 
 -- --------------------------------------------------------
 
@@ -344,7 +412,7 @@ CREATE TABLE `order_settings` (
 --
 
 INSERT INTO `order_settings` (`id`, `code_required`, `code_length`, `created_at`, `updated_at`) VALUES
-(1, 1, '6', '2025-01-03 07:04:53', '2025-01-03 07:04:53');
+(1, 0, '6', '2025-01-03 07:04:53', '2025-01-28 18:25:05');
 
 -- --------------------------------------------------------
 
@@ -357,28 +425,49 @@ CREATE TABLE `payments` (
   `table_id` int(11) DEFAULT NULL,
   `payment_method` enum('cash','pos') NOT NULL,
   `total_amount` decimal(10,2) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL,
   `paid_amount` decimal(10,2) NOT NULL,
   `payment_note` text DEFAULT NULL,
   `status` enum('completed','cancelled') NOT NULL DEFAULT 'completed',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `discount_type` enum('percent','amount') DEFAULT NULL,
+  `discount_value` decimal(10,2) DEFAULT NULL,
+  `discount_amount` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Tablo döküm verisi `payments`
 --
 
-INSERT INTO `payments` (`id`, `table_id`, `payment_method`, `total_amount`, `paid_amount`, `payment_note`, `status`, `created_at`) VALUES
-(3, 1, 'pos', 60.00, 60.00, NULL, 'completed', '2025-01-02 12:55:58'),
-(4, 1, 'pos', 310.00, 310.00, NULL, 'completed', '2025-01-02 13:00:38'),
-(5, 1, 'pos', 240.00, 240.00, NULL, 'completed', '2025-01-02 13:25:13'),
-(6, 1, 'cash', 6710.00, 6710.00, NULL, 'completed', '2025-01-03 13:37:37'),
-(7, 3, 'pos', 3960.00, 3960.00, NULL, 'completed', '2025-01-03 18:17:27'),
-(8, 1, 'pos', 3750.00, 3750.00, NULL, 'completed', '2025-01-04 15:51:28'),
-(9, 1, 'cash', 500.00, 500.00, NULL, 'completed', '2025-01-25 12:57:08'),
-(10, 2, 'pos', 650.00, 650.00, NULL, 'cancelled', '2025-01-26 10:55:16'),
-(11, 2, 'cash', 650.00, 650.00, '\nİptal Nedeni: deneme', 'cancelled', '2025-01-26 10:59:26'),
-(12, 3, 'cash', 750.00, 750.00, '\nİptal Nedeni: asdadasd', 'cancelled', '2025-01-26 11:12:23'),
-(13, 3, 'pos', 750.00, 750.00, NULL, 'completed', '2025-01-26 11:14:25');
+INSERT INTO `payments` (`id`, `table_id`, `payment_method`, `total_amount`, `subtotal`, `paid_amount`, `payment_note`, `status`, `created_at`, `discount_type`, `discount_value`, `discount_amount`) VALUES
+(3, 1, 'pos', 60.00, 0.00, 60.00, NULL, 'completed', '2025-01-02 12:55:58', NULL, NULL, NULL),
+(4, 1, 'pos', 310.00, 0.00, 310.00, NULL, 'completed', '2025-01-02 13:00:38', NULL, NULL, NULL),
+(5, 1, 'pos', 240.00, 0.00, 240.00, NULL, 'completed', '2025-01-02 13:25:13', NULL, NULL, NULL),
+(6, 1, 'cash', 6710.00, 0.00, 6710.00, NULL, 'completed', '2025-01-03 13:37:37', NULL, NULL, NULL),
+(7, 3, 'pos', 3960.00, 0.00, 3960.00, NULL, 'completed', '2025-01-03 18:17:27', NULL, NULL, NULL),
+(8, 1, 'pos', 3750.00, 0.00, 3750.00, NULL, 'completed', '2025-01-04 15:51:28', NULL, NULL, NULL),
+(9, 1, 'cash', 500.00, 0.00, 500.00, NULL, 'completed', '2025-01-25 12:57:08', NULL, NULL, NULL),
+(10, 2, 'pos', 650.00, 0.00, 650.00, NULL, 'cancelled', '2025-01-26 10:55:16', NULL, NULL, NULL),
+(11, 2, 'cash', 650.00, 0.00, 650.00, '\nİptal Nedeni: deneme', 'cancelled', '2025-01-26 10:59:26', NULL, NULL, NULL),
+(12, 3, 'cash', 750.00, 0.00, 750.00, '\nİptal Nedeni: asdadasd', 'cancelled', '2025-01-26 11:12:23', NULL, NULL, NULL),
+(13, 3, 'pos', 750.00, 0.00, 750.00, NULL, 'completed', '2025-01-26 11:14:25', NULL, NULL, NULL),
+(19, 1, 'pos', 4080.00, 0.00, 4080.00, NULL, 'completed', '2025-01-28 14:36:02', NULL, NULL, NULL),
+(20, 6, 'pos', 300.00, 0.00, 300.00, '\nİptal Nedeni: deneme', 'cancelled', '2025-01-28 14:36:29', NULL, NULL, NULL),
+(21, 2, 'cash', 1220.00, 0.00, 1220.00, NULL, 'completed', '2025-01-28 14:36:34', NULL, NULL, NULL),
+(22, 6, 'pos', 2.00, 0.00, 2.00, NULL, 'completed', '2025-01-28 14:38:40', NULL, NULL, NULL),
+(23, 6, 'cash', 300.00, 0.00, 300.00, NULL, 'completed', '2025-01-28 14:58:04', NULL, NULL, NULL),
+(24, 1, 'pos', 228.00, 238.00, 0.00, NULL, 'completed', '2025-01-28 16:25:06', 'amount', 10.00, 10.00),
+(25, 2, 'cash', 135.00, 270.00, 0.00, NULL, 'completed', '2025-01-28 16:26:19', 'percent', 50.00, 135.00),
+(26, 8, 'pos', 116.00, 232.00, 0.00, NULL, 'completed', '2025-01-28 16:44:42', 'percent', 50.00, 116.00),
+(27, 2, 'cash', 232.00, 0.00, 0.00, NULL, 'completed', '2025-01-28 16:44:59', 'percent', 0.00, 0.00),
+(28, 4, 'pos', 54.00, 270.00, 0.00, NULL, 'completed', '2025-01-28 16:48:35', 'percent', 80.00, 216.00),
+(29, 1, 'pos', 23.20, 232.00, 0.00, NULL, 'completed', '2025-01-28 16:48:51', 'percent', 90.00, 208.80),
+(30, 8, 'cash', 232.00, 0.00, 0.00, NULL, 'completed', '2025-01-28 16:49:42', 'percent', 0.00, 0.00),
+(31, 1, 'cash', 745.00, 1490.00, 0.00, NULL, 'completed', '2025-01-28 18:04:21', 'percent', 50.00, 745.00),
+(32, 1, 'cash', 425.60, 532.00, 0.00, NULL, 'completed', '2025-01-28 18:12:28', 'percent', 20.00, 106.40),
+(33, 1, 'cash', 806.40, 1008.00, 0.00, NULL, 'completed', '2025-01-28 18:24:09', 'percent', 20.00, 201.60),
+(34, 6, 'cash', 408.00, 510.00, 0.00, NULL, 'completed', '2025-01-28 18:26:41', 'percent', 20.00, 102.00),
+(35, 1, 'cash', 590.00, 0.00, 0.00, NULL, 'completed', '2025-01-28 18:32:11', 'percent', 0.00, 0.00);
 
 -- --------------------------------------------------------
 
@@ -411,19 +500,25 @@ CREATE TABLE `products` (
   `status` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `special` tinyint(1) DEFAULT 0,
-  `view_count` int(11) DEFAULT 0
+  `view_count` int(11) DEFAULT 0,
+  `sort_order` int(11) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Tablo döküm verisi `products`
 --
 
-INSERT INTO `products` (`id`, `category_id`, `name`, `description`, `price`, `image`, `status`, `created_at`, `special`, `view_count`) VALUES
-(1, 6, 'Adana Kebap', 'asdasd as', 250.00, '676aa5cbe6cf5.jpg', 1, '2025-01-01 12:23:44', 0, 0),
-(3, 6, 'Kuş Başı Kebap', 'asdasd', 250.00, '6774e519e3e6f.jpg', 1, '2025-01-01 12:24:49', 0, 0),
-(5, 9, 'KOLA', 'ASDAS DASD ASD AS', 60.00, '676a97b066ef6.jpg', 1, '2025-01-01 12:28:02', 0, 0),
-(6, 8, 'Çorba', 'asdasdasdas', 100.00, '6774e8b62a116.jpg', 1, '2025-01-01 12:28:45', 0, 0),
-(7, 6, 'Karışık Kebap', 'asdas dasd asd asd as', 250.00, '676a6e1cc23fc.jpg', 1, '2025-01-01 12:30:20', 0, 0);
+INSERT INTO `products` (`id`, `category_id`, `name`, `description`, `price`, `image`, `status`, `created_at`, `special`, `view_count`, `sort_order`) VALUES
+(1, 6, 'Adana Kebapp', 'asdasd asasdasdasdasdasdsd', 30.00, '6769785d70e7b.jpeg', 1, '2025-01-01 12:23:44', 0, 0, 3),
+(3, 6, 'Kuş Başı Kebap', 'asdasd', 270.00, '677021225bf50.jpg', 1, '2025-01-01 12:24:49', 0, 0, 2),
+(5, 9, 'KOLA', 'ASDAS DASD ASD AS', 60.00, '676a97b066ef6.jpg', 1, '2025-01-01 12:28:02', 0, 0, 1),
+(6, 8, 'Çorba', 'asdasdasdas', 100.00, '6769785d70e7b.jpeg', 1, '2025-01-01 12:28:45', 0, 0, 1),
+(19, 6, 'Adana Şiş', 'test ürün', 20.00, '676a6742c6cac.png', 0, '2025-01-28 10:35:19', 0, 0, 4),
+(20, 6, 'Adana Şiş', 'asdasdasdasd', 20.00, '676a6742c6cac.png', 0, '2025-01-28 10:35:51', 0, 0, 5),
+(24, 6, 'test hızlı ürün 2', '', 2.00, '6769785d70e7b.jpeg', 1, '2025-01-28 11:43:36', 0, 0, 1),
+(25, 6, 'Tavuk Şiş', '', 230.00, '6769785d70e7b.jpeg', 1, '2025-01-28 12:23:03', 0, 0, 0),
+(30, 8, 'test', 'asdasdasd', 20.00, '6769785d70e7b.jpeg', 1, '2025-01-28 12:57:50', 0, 0, 0),
+(31, 18, 'test22', 'asdasdasdasd', 20.00, '676a97b066ef6.jpg', 1, '2025-01-28 12:58:17', 0, 0, 0);
 
 -- --------------------------------------------------------
 
@@ -464,7 +559,9 @@ CREATE TABLE `reservations` (
 --
 
 INSERT INTO `reservations` (`id`, `customer_name`, `customer_phone`, `customer_email`, `table_id`, `guest_count`, `reservation_date`, `reservation_time`, `special_requests`, `status`, `created_at`) VALUES
-(18, 'ömer', '05392833498', NULL, 5, 4, '2025-01-25', '19:10:00', '', 'confirmed', '2025-01-25 16:08:50');
+(18, 'ömer', '05392833498', NULL, 5, 4, '2025-01-25', '19:10:00', '', 'confirmed', '2025-01-25 16:08:50'),
+(19, 'ömer', '05392833498', NULL, 0, 4, '2025-01-26', '20:47:00', '', 'cancelled', '2025-01-26 17:45:39'),
+(20, 'ömer', '05392833498', NULL, NULL, 6, '2025-01-26', '21:23:00', '', 'pending', '2025-01-26 18:21:30');
 
 -- --------------------------------------------------------
 
@@ -486,7 +583,12 @@ CREATE TABLE `reservation_orders` (
 --
 
 INSERT INTO `reservation_orders` (`id`, `reservation_id`, `product_id`, `quantity`, `price`, `created_at`) VALUES
-(1, 18, 1, 1, 250.00, '2025-01-25 16:08:50');
+(1, 18, 1, 1, 250.00, '2025-01-25 16:08:50'),
+(2, 19, 1, 1, 250.00, '2025-01-26 17:45:39'),
+(3, 19, 3, 1, 250.00, '2025-01-26 17:45:39'),
+(4, 20, 6, 1, 100.00, '2025-01-26 18:21:30'),
+(5, 20, 5, 1, 60.00, '2025-01-26 18:21:30'),
+(6, 20, 1, 1, 250.00, '2025-01-26 18:21:30');
 
 -- --------------------------------------------------------
 
@@ -578,13 +680,13 @@ CREATE TABLE `tables` (
 --
 
 INSERT INTO `tables` (`id`, `table_no`, `capacity`, `qr_code`, `status`, `created_at`, `order_code`) VALUES
-(1, 'Masa 1', 4, NULL, 'active', '2025-01-01 12:14:45', NULL),
+(1, 'Masa 1', 4, NULL, '', '2025-01-01 12:14:45', NULL),
 (2, 'Masa 2', 4, NULL, '', '2025-01-01 12:14:50', NULL),
 (3, 'Masa 3', 4, NULL, '', '2025-01-01 12:14:55', NULL),
-(4, 'Masa 4', 4, NULL, 'active', '2025-01-01 12:15:00', NULL),
+(4, 'Masa 4', 4, NULL, '', '2025-01-01 12:15:00', NULL),
 (5, 'Masa 5', 4, NULL, 'active', '2025-01-01 12:15:06', NULL),
-(6, 'Masa 6', 4, NULL, 'active', '2025-01-02 12:45:45', NULL),
-(8, '7', 4, NULL, 'active', '2025-01-04 15:42:05', NULL);
+(6, 'Masa 6', 4, NULL, '', '2025-01-02 12:45:45', NULL),
+(8, '7', 4, NULL, '', '2025-01-04 15:42:05', NULL);
 
 --
 -- Dökümü yapılmış tablolar için indeksler
@@ -726,31 +828,31 @@ ALTER TABLE `admins`
 -- Tablo için AUTO_INCREMENT değeri `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=120;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_codes`
 --
 ALTER TABLE `order_codes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=225;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=264;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_settings`
@@ -762,7 +864,7 @@ ALTER TABLE `order_settings`
 -- Tablo için AUTO_INCREMENT değeri `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `pre_orders`
@@ -774,7 +876,7 @@ ALTER TABLE `pre_orders`
 -- Tablo için AUTO_INCREMENT değeri `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `product_reviews`
@@ -786,13 +888,13 @@ ALTER TABLE `product_reviews`
 -- Tablo için AUTO_INCREMENT değeri `reservations`
 --
 ALTER TABLE `reservations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `reservation_orders`
 --
 ALTER TABLE `reservation_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `reviews`
@@ -810,7 +912,7 @@ ALTER TABLE `roles`
 -- Tablo için AUTO_INCREMENT değeri `tables`
 --
 ALTER TABLE `tables`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Dökümü yapılmış tablolar için kısıtlamalar
