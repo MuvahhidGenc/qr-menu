@@ -52,6 +52,11 @@ include 'navbar.php';
 <!-- En son toastr'ı yükleyin -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
+<!-- SweetAlert2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+<!-- SweetAlert2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 // Toastr ayarları
 toastr.options = {
@@ -63,80 +68,171 @@ toastr.options = {
 </script>
 
 <style>
-/* Ana Container */
+/* Ana container stilleri */
 .products-container {
-    padding: 1.5rem;
+    padding: 20px;
     background: #f8f9fa;
 }
 
-/* Başlık Kartı */
+/* Kart stilleri */
 .card {
     border: none;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    border-radius: 15px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+    background: white;
 }
 
+.card-header {
+    background: white;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    border-radius: 15px 15px 0 0 !important;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Kategori stilleri */
 .category-item {
     background: white;
-    border-radius: 15px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    overflow: hidden;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     transition: all 0.3s ease;
+}
+
+.category-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .category-header {
-    cursor: pointer;
-    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
     transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    padding: 1rem;
     background: white;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    position: relative;
 }
 
 .category-header:hover {
-    background: linear-gradient(to right, #e9ecef, #f8f9fa);
+    background: rgba(67,97,238,0.03);
 }
 
-.product-row {
-    border-bottom: 1px solid #eee;
+.category-drag-handle {
+    color: #a0aec0;
+    cursor: grab;
+    padding: 0.5rem;
+    margin: -0.5rem;
     transition: all 0.3s ease;
 }
 
-.product-row:last-child {
-    border-bottom: none;
+.category-drag-handle:hover {
+    color: #4361ee;
+    background: rgba(67,97,238,0.1);
+    border-radius: 8px;
+}
+
+.category-drag-handle:active {
+    cursor: grabbing;
+}
+
+.category-image {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.category-info {
+    display: flex;
+    align-items: center;
+}
+
+.category-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.category-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.2rem !important;
+}
+
+.product-count {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.category-actions {
+    display: flex;
+    align-items: center;
+}
+
+.category-actions .btn {
+    padding: 0.4rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.category-actions .btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+    color: #4361ee;
+    border-color: #4361ee;
+}
+
+.btn-outline-primary:hover {
+    background: #4361ee;
+    color: white;
+}
+
+/* Kategori başlığı aktif olduğunda */
+.category-header.active {
+    background: rgba(67,97,238,0.05);
+    border-radius: 12px 12px 0 0;
+}
+
+/* Gap utility class */
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 1rem; }
+
+/* Ürün stilleri */
+.product-row {
+    background: white;
+    margin: 0.5rem;
+    padding: 1rem;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.product-row:hover {
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
 }
 
 .product-content {
     display: flex;
     align-items: center;
-    padding: 1rem;
     gap: 1.5rem;
 }
 
-.product-image-container {
-    width: 100px;
-    height: 100px;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
+/* Ürün görseli stilleri */
 .product-image {
-    width: 100%;
-    height: 100%;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
     object-fit: cover;
-    cursor: pointer;
-    transition: transform 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-.product-image:hover {
-    transform: scale(1.05);
-}
-
+/* Ürün bilgi stilleri */
 .product-info {
     flex: 1;
 }
@@ -146,40 +242,98 @@ toastr.options = {
     font-weight: 600;
     color: #2c3e50;
     margin-bottom: 0.5rem;
-    cursor: pointer;
 }
 
 .product-description {
     color: #6c757d;
     font-size: 0.9rem;
     margin-bottom: 0.5rem;
-    cursor: pointer;
 }
 
 .product-price {
-    font-weight: 700;
+    font-weight: 600;
     color: #2ecc71;
-    cursor: pointer;
+    font-size: 1.1rem;
 }
 
+/* Buton stilleri */
+.btn {
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: #4361ee;
+    border-color: #4361ee;
+}
+
+.btn-primary:hover {
+    background: #3730a3;
+    border-color: #3730a3;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: #2ecc71;
+    border-color: #2ecc71;
+}
+
+.btn-success:hover {
+    background: #27ae60;
+    border-color: #27ae60;
+    transform: translateY(-1px);
+}
+
+/* Toggle switch stilleri */
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    cursor: pointer;
+    background-color: #e9ecef;
+    border-color: #e9ecef;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #4361ee;
+    border-color: #4361ee;
+}
+
+.form-switch .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(67,97,238,0.25);
+}
+
+/* Animasyon stilleri */
+.category-products {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Boş açıklama stili */
+.editable-description em {
+    color: #a0aec0;
+    font-style: italic;
+}
+
+/* Aksiyon butonları */
 .product-actions {
     display: flex;
     align-items: center;
     gap: 1rem;
 }
 
-.form-switch .form-check-input {
-    width: 3em;
-    height: 1.5em;
-    cursor: pointer;
+.btn-outline-danger {
+    color: #e74c3c;
+    border-color: #e74c3c;
 }
 
-.editable:hover {
-    background: #f8f9fa;
-    padding: 0.2rem 0.5rem;
-    border-radius: 5px;
+.btn-outline-danger:hover {
+    background: #e74c3c;
+    color: white;
+    transform: translateY(-1px);
 }
 
+/* Responsive düzenlemeler */
 @media (max-width: 768px) {
     .product-content {
         flex-direction: column;
@@ -190,135 +344,108 @@ toastr.options = {
         margin-top: 1rem;
         justify-content: center;
     }
-}
-
-.category-drag-handle {
-    cursor: grab;
-    padding: 10px;
-    color: #6c757d;
-    margin-right: 10px;
-    display: flex;
-    align-items: center;
-}
-
-.category-drag-handle:active {
-    cursor: grabbing;
-}
-
-.category-image {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    margin: 0 15px;
-    object-fit: cover;
-}
-
-.category-name {
-    position: relative;
-    cursor: pointer;
-    flex: 1;
-}
-
-.editable-category-name {
-    cursor: pointer;
-}
-
-.editable-category-name:hover {
-    background-color: rgba(0,0,0,0.05);
-    border-radius: 3px;
-    padding: 2px 4px;
-    margin: -2px -4px;
-}
-
-.edit-icon {
-    font-size: 0.8em;
-    cursor: pointer;
-    position: absolute;
-    top: 50%;
-    right: -20px;
-    transform: translateY(-50%);
-}
-
-.category-list {
-    min-height: 10px; /* Sürükleme için minimum yükseklik */
-}
-
-.category-item.dragging {
-    opacity: 0.5;
-}
-
-.category-item.sortable-ghost {
-    opacity: 0.4;
-    background: #f8f9fa;
-}
-
-.category-item.sortable-drag {
-    opacity: 0.9;
-    background: white;
-}
-
-.category-actions {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    gap: 0.5rem;
-    margin-left: auto;
-}
-
-/* Kategori header stilleri */
-.category-header {
-    position: relative;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.category-header.active {
-    background-color: rgba(0,0,0,0.02);
-}
-
-/* Kategori ok ikonu */
-.category-arrow {
-    transition: transform 0.3s ease;
-}
-
-/* Kategori içerik animasyonları */
-.category-products {
-    transition: all 0.3s ease;
-}
-
-/* Hover efekti */
-.category-header:hover {
-    background-color: rgba(0,0,0,0.02);
-}
-
-/* Aktif kategori stilleri */
-.category-header.active {
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-/* Kategori içerik padding */
-.category-products {
-    padding: 0.5rem 0;
-}
-
-/* Toggle switch stilleri */
-.form-switch .form-check-input {
-    width: 3em;
-    height: 1.5em;
-    cursor: pointer;
+    
+    .product-image {
+        width: 120px;
+        height: 120px;
+    }
 }
 
 /* Pasif ürün stili */
 .product-row[data-status="0"] {
-    opacity: 0.5;
-    transition: opacity 0.3s ease;
+    opacity: 0.6;
+    background: #f8f9fa;
 }
 
-/* Toggle hover efekti */
-.form-switch .form-check-input:hover {
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+/* Hover efektleri */
+.editable-field:hover {
+    background: rgba(67,97,238,0.1);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+}
+
+/* Modal stilleri */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 0 0 15px 15px;
+}
+
+/* Form elemanları stilleri */
+.form-control {
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.1);
+    padding: 0.6rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #4361ee;
+    box-shadow: 0 0 0 0.2rem rgba(67,97,238,0.25);
+}
+
+/* Görsel önizleme stilleri */
+.image-preview-container {
+    width: 100%;
+    height: 200px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.product-preview-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Input group stilleri */
+.input-group {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.input-group-text {
+    background: #f8f9fa;
+    border: 1px solid rgba(0,0,0,0.1);
+    color: #6c757d;
+}
+
+/* Switch stilleri */
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    margin-top: 0.2em;
+}
+
+/* Responsive düzenlemeler */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0.5rem;
+    }
 }
 </style>
 <div class="container-fluid products-container">
@@ -339,16 +466,28 @@ toastr.options = {
                 <?php foreach ($categories as $category): ?>
                 <div class="category-item" data-category-id="<?= $category['id'] ?>">
                     <div class="category-header d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
+                        <div class="d-flex align-items-center gap-3">
                             <i class="fas fa-bars category-drag-handle"></i>
-                            <img src="<?= $category['image'] ? '../uploads/' . $category['image'] : '../assets/images/default-category.jpg' ?>" 
-                                 class="category-image" 
-                                 alt="<?= htmlspecialchars($category['name']) ?>">
-                            <h5 class="category-name"><?= htmlspecialchars($category['name']) ?></h5>
+                            <div class="category-info d-flex align-items-center gap-3">
+                                <img src="<?= $category['image'] ? '../uploads/' . $category['image'] : '../assets/images/default-category.jpg' ?>" 
+                                     class="category-image" 
+                                     alt="<?= htmlspecialchars($category['name']) ?>">
+                                <div class="category-details">
+                                    <h5 class="category-name mb-0"><?= htmlspecialchars($category['name']) ?></h5>
+                                    <span class="product-count">
+                                        <?php 
+                                        $count = count(array_filter($products, function($p) use ($category) {
+                                            return $p['category_id'] == $category['id'];
+                                        }));
+                                        echo "<small class='text-muted'>$count ürün</small>";
+                                        ?>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="category-actions">
+                        <div class="category-actions d-flex align-items-center gap-2">
                             <?php if ($canAddProduct): ?>
-                            <button class="btn btn-sm btn-outline-success quick-add-product" 
+                            <button class="btn btn-sm btn-outline-primary quick-add-product" 
                                     data-category-id="<?= $category['id'] ?>"
                                     data-bs-toggle="modal" 
                                     data-bs-target="#quickAddProductModal">
@@ -432,47 +571,65 @@ toastr.options = {
                 </div>
                 <div class="modal-body">
                     <form id="addProductForm">
-                        <div class="mb-3">
-                            <label class="form-label">Ürün Adı</label>
-                            <input type="text" class="form-control" id="productName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Kategori</label>
-                            <select class="form-control" id="productCategory" required>
-                                <option value="">Kategori Seçin</option>
-                                <?php foreach ($categories as $category): ?>
-                                    <option value="<?= $category['id'] ?>">
-                                        <?= htmlspecialchars($category['name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Fiyat</label>
-                            <input type="number" class="form-control" id="productPrice" step="0.01" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Ürün Görseli</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="productImage" readonly>
-                                <button type="button" class="btn btn-primary select-media" data-target="productImage">
-                                    <i class="fas fa-image"></i> Dosya Seç
-                                </button>
+                        <div class="row">
+                            <!-- Sol Grid -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Ürün Adı</label>
+                                    <input type="text" class="form-control" id="productName" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Kategori</label>
+                                    <select class="form-control" id="productCategory" required>
+                                        <option value="">Kategori Seçin</option>
+                                        <?php foreach ($categories as $category): ?>
+                                            <option value="<?= $category['id'] ?>">
+                                                <?= htmlspecialchars($category['name']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Açıklama</label>
+                                    <textarea class="form-control" id="productDescription" rows="4"></textarea>
+                                </div>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Açıklama</label>
-                            <textarea class="form-control" id="productDescription" rows="3"></textarea>
-                        </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" id="productStatus" checked>
-                            <label class="form-check-label">Aktif</label>
+                            
+                            <!-- Sağ Grid -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Fiyat</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="productPrice" step="0.01" required>
+                                        <span class="input-group-text">₺</span>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Ürün Görseli</label>
+                                    <div class="image-preview-container mb-2">
+                                        <img id="productImagePreview" src="../assets/images/default-product.jpg" 
+                                             class="img-thumbnail product-preview-image">
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="productImage" readonly>
+                                        <button type="button" class="btn btn-primary select-media" data-target="productImage">
+                                            <i class="fas fa-image"></i> Dosya Seç
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input type="checkbox" class="form-check-input" id="productStatus" checked>
+                                    <label class="form-check-label">Ürün Aktif</label>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" name="add_product" class="btn btn-primary">Ekle</button>
+                    <button type="submit" form="addProductForm" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Ekle
+                    </button>
                 </div>
             </div>
         </div>
@@ -1576,36 +1733,79 @@ toastr.options = {
                 e.preventDefault();
                 const categoryItem = this.closest('.category-item');
                 const categoryId = categoryItem.dataset.categoryId;
+                const categoryName = categoryItem.querySelector('.category-name').textContent;
                 const productCount = categoryItem.querySelectorAll('.product-row').length;
-                
-                let confirmMessage = 'Bu kategoriyi silmek istediğinize emin misiniz?';
-                if (productCount > 0) {
-                    confirmMessage = `Bu kategoride ${productCount} ürün bulunuyor. Kategoriyi sildiğinizde tüm ürünler de silinecektir.\n\nDevam etmek istiyor musunuz?`;
-                }
-                
-                if (confirm(confirmMessage)) {
-                    fetch('api/delete_category.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            category_id: categoryId
+
+                Swal.fire({
+                    title: 'Kategoriyi Sil',
+                    html: productCount > 0 
+                        ? `<div class="text-center">
+                             <div class="mb-3">
+                                 <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                             </div>
+                             <p class="mb-2"><strong>${categoryName}</strong> kategorisinde</p>
+                             <p class="mb-3"><strong>${productCount} ürün</strong> bulunuyor.</p>
+                           </div>`
+                        : `<div class="text-center">
+                             <div class="mb-3">
+                                 <i class="fas fa-question-circle text-info" style="font-size: 3rem;"></i>
+                             </div>
+                             <p><strong>${categoryName}</strong> kategorisini silmek istediğinize emin misiniz?</p>
+                           </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Evet, Sil',
+                    cancelButtonText: 'İptal',
+                    confirmButtonColor: '#e74c3c',
+                    cancelButtonColor: '#7f8c8d',
+                    reverseButtons: true,
+                    showClass: {
+                        popup: 'animate__animated animate__fadeInDown'
+                    },
+                    hideClass: {
+                        popup: 'animate__animated animate__fadeOutUp'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Silme işlemi
+                        fetch('api/delete_category.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                category_id: categoryId
+                            })
                         })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            categoryItem.remove();
-                            toastr.success('Kategori başarıyla silindi');
-                        } else {
-                            throw new Error(data.message);
-                        }
-                    })
-                    .catch(error => {
-                        toastr.error(error.message || 'Kategori silinirken bir hata oluştu');
-                    });
-                }
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire({
+                                    title: 'Başarılı!',
+                                    text: 'Kategori başarıyla silindi',
+                                    icon: 'success',
+                                    confirmButtonColor: '#2ecc71',
+                                    showClass: {
+                                        popup: 'animate__animated animate__fadeInDown'
+                                    },
+                                    hideClass: {
+                                        popup: 'animate__animated animate__fadeOutUp'
+                                    }
+                                });
+                                categoryItem.remove();
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Hata!',
+                                text: error.message || 'Kategori silinirken bir hata oluştu',
+                                icon: 'error',
+                                confirmButtonColor: '#e74c3c'
+                            });
+                        });
+                    }
+                });
             });
         });
     });
