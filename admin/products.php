@@ -270,11 +270,14 @@ toastr.options = {
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">Ürünler</h5>
-            <?php if ($canAddProduct): ?>
-            <button type="button" class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                <i class="fas fa-plus"></i> Yeni Ürün
-            </button>
-            <?php endif; ?>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary add-product-button" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                    <i class="fas fa-plus"></i> Yeni Ürün
+                </button>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="fas fa-plus"></i> Yeni Kategori
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="category-list">
@@ -375,60 +378,50 @@ toastr.options = {
                     <h5 class="modal-title">Yeni Ürün</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label>Ürün Adı</label>
-                                    <input type="text" name="name" class="form-control" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label>Açıklama</label>
-                                    <textarea name="description" class="form-control" rows="3"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label>Kategori</label>
-                                    <select name="category_id" class="form-control" required>
-                                        <?php foreach($categories as $category): ?>
-                                            <option value="<?= $category['id'] ?>">
-                                                <?= htmlspecialchars($category['name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label>Fiyat</label>
-                                    <input type="number" step="0.01" name="price" class="form-control" required>
-                                </div>
-                                <div class="mb-3">
-                                     <div class="mb-2">
-                                         <img id="addProductImagePreview" src="" style="max-height:100px;display:none" class="img-thumbnail">
-                                     </div>
-                                     <div class="input-group">
-                                         <input type="hidden" id="addProductImage" name="image">
-                                         <input type="text" class="form-control" id="addProductImageDisplay" readonly>
-                                         <button type="button" class="btn btn-primary" onclick="openMediaModal('addProductImage', 'addProductImagePreview')">
-                                             <i class="fas fa-image"></i> Dosya Seç
-                                         </button>
-                                     </div>
-                                 </div>
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        <input type="checkbox" name="status" class="form-check-input" checked>
-                                        <label class="form-check-label">Aktif</label>
-                                    </div>
-                                </div>
+                <div class="modal-body">
+                    <form id="addProductForm">
+                        <div class="mb-3">
+                            <label class="form-label">Ürün Adı</label>
+                            <input type="text" class="form-control" id="productName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kategori</label>
+                            <select class="form-control" id="productCategory" required>
+                                <option value="">Kategori Seçin</option>
+                                <?php foreach ($categories as $category): ?>
+                                    <option value="<?= $category['id'] ?>">
+                                        <?= htmlspecialchars($category['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fiyat</label>
+                            <input type="number" class="form-control" id="productPrice" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ürün Görseli</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="productImage" readonly>
+                                <button type="button" class="btn btn-primary select-media" data-target="productImage">
+                                    <i class="fas fa-image"></i> Dosya Seç
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                        <button type="submit" name="add_product" class="btn btn-primary">Ekle</button>
-                    </div>
-                </form>
+                        <div class="mb-3">
+                            <label class="form-label">Açıklama</label>
+                            <textarea class="form-control" id="productDescription" rows="3"></textarea>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="productStatus" checked>
+                            <label class="form-check-label">Aktif</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" name="add_product" class="btn btn-primary">Ekle</button>
+                </div>
             </div>
         </div>
     </div>
@@ -551,6 +544,39 @@ toastr.options = {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
                     <button type="submit" form="quickAddProductForm" class="btn btn-primary">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kategori Ekleme Modal -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yeni Kategori Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCategoryForm">
+                        <div class="mb-3">
+                            <label class="form-label">Kategori Adı</label>
+                            <input type="text" class="form-control" id="categoryName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kategori Görseli</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="categoryImage" readonly>
+                                <button type="button" class="btn btn-primary select-media" data-target="categoryImage">
+                                    <i class="fas fa-image"></i> Seç
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCategory()">Kaydet</button>
                 </div>
             </div>
         </div>
@@ -1060,6 +1086,120 @@ toastr.options = {
             countBadge.className = 'badge bg-primary ms-2';
             countBadge.textContent = productCount;
             category.querySelector('.category-name').appendChild(countBadge);
+        });
+
+        // Kategori kaydetme fonksiyonu
+        window.saveCategory = function() {
+            const name = document.getElementById('categoryName').value.trim();
+            const image = document.getElementById('categoryImage').value;
+
+            if (!name) {
+                toastr.error('Kategori adı gereklidir');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('image', image);
+
+            fetch('api/add_category.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    toastr.success('Kategori başarıyla eklendi');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
+                    modal.hide();
+                    // Modal arkaplanını temizle
+                    document.body.classList.remove('modal-open');
+                    const modalBackdrop = document.querySelector('.modal-backdrop');
+                    if (modalBackdrop) {
+                        modalBackdrop.remove();
+                    }
+                    // Sayfayı yenile
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                toastr.error(error.message || 'Bir hata oluştu');
+            });
+        };
+
+        // Medya seçici için event listener
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.select-media')) {
+                const button = e.target.closest('.select-media');
+                const targetInput = button.dataset.target;
+                
+                // Medya modalını aç
+                const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+                mediaModal.show();
+                
+                // Medya seçildiğinde
+                window.selectMedia = function(mediaUrl) {
+                    document.getElementById(targetInput).value = mediaUrl.split('/').pop();
+                    mediaModal.hide();
+                    // Modal arkaplanını temizle
+                    document.body.classList.remove('modal-open');
+                    const modalBackdrop = document.querySelector('.modal-backdrop');
+                    if (modalBackdrop) {
+                        modalBackdrop.remove();
+                    }
+                };
+            }
+        });
+
+        // Ürün kaydetme fonksiyonu
+        document.querySelector('#addProductModal .modal-footer .btn-primary').addEventListener('click', function() {
+            const name = document.getElementById('productName').value.trim();
+            const category = document.getElementById('productCategory').value;
+            const price = document.getElementById('productPrice').value;
+            const image = document.getElementById('productImage').value;
+            const description = document.getElementById('productDescription').value.trim();
+            const status = document.getElementById('productStatus').checked ? 1 : 0;
+
+            if (!name || !category || !price) {
+                toastr.error('Lütfen gerekli alanları doldurun');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('category_id', category);
+            formData.append('price', price);
+            formData.append('image', image);
+            formData.append('description', description);
+            formData.append('status', status);
+
+            fetch('add_product.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    toastr.success('Ürün başarıyla eklendi');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addProductModal'));
+                    modal.hide();
+                    // Modal arkaplanını temizle
+                    document.body.classList.remove('modal-open');
+                    const modalBackdrop = document.querySelector('.modal-backdrop');
+                    if (modalBackdrop) {
+                        modalBackdrop.remove();
+                    }
+                    // Sayfayı yenile
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                toastr.error(error.message || 'Bir hata oluştu');
+            });
         });
     });
     </script>
