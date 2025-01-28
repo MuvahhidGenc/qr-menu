@@ -19,98 +19,79 @@ try {
         throw new Exception('Gerekli alanlar eksik');
     }
 
-    // Masanın durumunu ve mevcut siparişleri detaylı kontrol et
+    // Masanın durumunu kontrol et
     $tableCheck = $db->query(
-        "SELECT 
-            t.status,
-            (SELECT COUNT(*) FROM orders o 
-             WHERE o.table_id = t.id 
-             AND o.status IN ('pending', 'preparing', 'ready', 'delivered')
-             AND o.payment_id IS NULL) as unpaid_orders,
-            (SELECT COUNT(*) FROM orders o2 
-             WHERE o2.table_id = t.id 
-             AND o2.status = 'completed'
-             AND o2.payment_id IS NOT NULL) as paid_orders
-         FROM tables t 
-         WHERE t.id = ?",
+        "SELECT status FROM tables WHERE id = ?",
         [$table_id]
     )->fetch();
 
-    // Masada ödenmemiş sipariş kontrolü
-    if ($tableCheck['unpaid_orders'] > 0) {
-        throw new Exception('Bu masada ödenmemiş siparişler bulunuyor. Lütfen önce mevcut siparişlerin ödemesini yapın.');
-    }
-
-    // Masada ödenmiş sipariş kontrolü
-    if ($tableCheck['paid_orders'] > 0) {
-        throw new Exception('Bu masada henüz tamamlanmamış ödemeli sipariş bulunuyor. Lütfen önce mevcut siparişi kapatın.');
-    }
-
     $db->beginTransaction();
 
-    // Masadaki aktif siparişleri bul
-    $orders = $db->query(
-        "SELECT id, total_amount FROM orders 
-         WHERE table_id = ? 
-         AND status IN ('pending', 'preparing', 'ready', 'delivered')
-         AND payment_id IS NULL",
-        [$table_id]
-    )->fetchAll();
-
-    // Ödeme kaydı oluştur
-    $db->query(
-        "INSERT INTO payments (
-            table_id, 
-            payment_method, 
-            total_amount,
-            paid_amount,
-            status,
-            created_at
-        ) VALUES (?, ?, ?, ?, 'completed', NOW())",
-        [
-            $table_id,
-            $payment_method,
-            $total_amount,
-            $total_amount
-        ]
-    );
-    
-    $payment_id = $db->lastInsertId();
-
-    // Siparişleri güncelle
-    foreach($orders as $order) {
-        $db->query(
-            "UPDATE orders SET 
-                status = 'completed',
-                payment_id = ?,
-                completed_at = NOW()
-            WHERE id = ? 
-            AND status IN ('pending', 'preparing', 'ready', 'delivered')
-            AND payment_id IS NULL",
-            [$payment_id, $order['id']]
-        );
-    }
-
-    // Masayı boşalt
-    $db->query(
-        "UPDATE tables 
-         SET status = 'empty',
-             updated_at = NOW()
-         WHERE id = ? 
-         AND NOT EXISTS (
-             SELECT 1 FROM orders 
+    try {
+        // Masadaki aktif siparişleri bul
+        $orders = $db->query(
+            "SELECT id, total_amount FROM orders 
              WHERE table_id = ? 
              AND status IN ('pending', 'preparing', 'ready', 'delivered')
-         )",
-        [$table_id, $table_id]
-    );
+             AND payment_id IS NULL",
+            [$table_id]
+        )->fetchAll();
 
-    $db->commit();
-    echo json_encode(['success' => true]);
+        // Ödeme kaydı oluştur
+        $db->query(
+            "INSERT INTO payments (
+                table_id, 
+                payment_method, 
+                total_amount,
+                paid_amount,
+                status,
+                created_at
+            ) VALUES (?, ?, ?, ?, 'completed', NOW())",
+            [
+                $table_id,
+                $payment_method,
+                $total_amount,
+                $total_amount
+            ]
+        );
+        
+        $payment_id = $db->lastInsertId();
+
+        // Siparişleri güncelle
+        foreach($orders as $order) {
+            $db->query(
+                "UPDATE orders SET 
+                    status = 'completed',
+                    payment_id = ?,
+                    completed_at = NOW()
+                WHERE id = ?",
+                [$payment_id, $order['id']]
+            );
+        }
+
+        // Masayı boşalt - updated_at sütunu olmadığı için kaldırıldı
+        $db->query(
+            "UPDATE tables 
+             SET status = 'empty'
+             WHERE id = ?",
+            [$table_id]
+        );
+
+        $db->commit();
+        echo json_encode(['success' => true, 'message' => 'Ödeme başarıyla tamamlandı']);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
 
 } catch (Exception $e) {
     if (isset($db)) {
-        $db->rollBack();
+        try {
+            $db->rollBack();
+        } catch (Exception $rollbackError) {
+            // Rollback hatası görmezden gelinebilir
+        }
     }
     echo json_encode([
         'success' => false,

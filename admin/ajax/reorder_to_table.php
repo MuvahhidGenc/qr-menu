@@ -79,19 +79,18 @@ try {
         }
 
         // Masa durumunu güncelle
-        $db->query("
-            UPDATE tables 
-            SET status = 'occupied', 
-                updated_at = NOW() 
-            WHERE id = ?", 
+        $db->query(
+            "UPDATE tables 
+             SET status = 'occupied'
+             WHERE id = ?", 
             [$tableId]
         );
 
         // Bildirim ekle
         $tableNo = $db->query("SELECT table_no FROM tables WHERE id = ?", [$tableId])->fetch()['table_no'];
-        $db->query("
-            INSERT INTO notifications (order_id, type, message, is_read) 
-            VALUES (?, 'new_order', ?, 0)",
+        $db->query(
+            "INSERT INTO notifications (order_id, type, message, is_read) 
+             VALUES (?, 'new_order', ?, 0)",
             [$newOrderId, "Masa {$tableNo}'a iptal edilmiş siparişler yeniden eklendi!"]
         );
 
@@ -99,7 +98,7 @@ try {
         echo json_encode(['success' => true]);
 
     } catch (Exception $e) {
-        $db->rollBack(); // PDO'nun rollBack metodunu kullan
+        $db->rollBack();
         throw $e;
     }
 

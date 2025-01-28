@@ -1006,14 +1006,10 @@
                             <i class="fas fa-chair me-2"></i>Masalar
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="categories.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : '' ?>">
-                            <i class="fas fa-tags me-2"></i>Kategoriler
-                        </a>
-                    </li>
+                  
                     <li class="nav-item">
                         <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
-                            <i class="fas fa-utensils me-2"></i>Ürünler
+                            <i class="fas fa-utensils me-2"></i>Ürünler & Kategoriler
                         </a>
                     </li>
                     <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
