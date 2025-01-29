@@ -22,7 +22,7 @@ $canManage = hasPermission('kitchen.manage');
 
 // Aktif siparişleri çek
 $orders = $db->query("
-    SELECT o.*, t.table_no, 
+    SELECT o.*, t.table_no, o.notes, o.note,
     GROUP_CONCAT(CONCAT(oi.quantity, 'x ', p.name) SEPARATOR '<br>') as items
     FROM orders o
     LEFT JOIN tables t ON o.table_id = t.id
@@ -60,9 +60,16 @@ $orders = $db->query("
                             <div class="order-items">
                                 <?= $order['items'] ?>
                             </div>
-                            <?php if($order['notes']): ?>
+                            <?php if(!empty($order['notes']) || !empty($order['note'])): ?>
                                 <div class="alert alert-info mt-2 mb-0 p-2 small">
-                                    <i class="fas fa-info-circle"></i> <?= htmlspecialchars($order['notes']) ?>
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Notlar:</strong><br>
+                                    <?php if(!empty($order['notes'])): ?>
+                                        <?= htmlspecialchars($order['notes']) ?><br>
+                                    <?php endif; ?>
+                                    <?php if(!empty($order['note'])): ?>
+                                        <?= nl2br(htmlspecialchars($order['note'])) ?>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -100,94 +107,90 @@ function refreshOrders() {
             if(data.success) {
                 const container = document.getElementById('ordersContainer');
                 if(data.html !== container.innerHTML) {
-                    // Yeni sipariş varsa ses çal
                     if(data.html.includes('new') && container.innerHTML !== '') {
                         newOrderSound.play().catch(e => console.log('Ses çalma hatası:', e));
                     }
                     container.innerHTML = data.html;
+                    initializeOrderButtons();
                 }
             }
         });
 }
 
-function updateStatus(orderId, status) {
-    fetch('ajax/update_order_status.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `order_id=${orderId}&status=${status}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            refreshOrders();
-        } else {
-            alert('Durum güncellenirken bir hata oluştu!');
+// Sipariş durumunu güncelle
+function updateOrderStatus(orderId, status) {
+    let title = status === 'ready' ? 'Siparişi Hazırla' : 'Siparişi İptal Et';
+    let text = status === 'ready' ? 
+        'Bu siparişi hazır olarak işaretlemek istediğinize emin misiniz?' : 
+        'Bu siparişi iptal etmek istediğinize emin misiniz?';
+    let confirmButtonText = status === 'ready' ? 'Evet, Hazır' : 'Evet, İptal Et';
+    let successMessage = status === 'ready' ? 'Sipariş hazır olarak işaretlendi' : 'Sipariş iptal edildi';
+
+    Swal.fire({
+        title: title,
+        text: text,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: status === 'ready' ? '#28a745' : '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: confirmButtonText,
+        cancelButtonText: 'Vazgeç'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('ajax/update_order_status.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${orderId}&status=${status}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    Swal.fire({
+                        title: 'Başarılı!',
+                        text: successMessage,
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    refreshOrders();
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: 'Hata!',
+                    text: error.message || 'Bir hata oluştu',
+                    icon: 'error'
+                });
+            });
         }
     });
 }
 
-// Hazırla butonu için event listener
-document.querySelectorAll('.prepare-order').forEach(button => {
-    button.addEventListener('click', function() {
-        const orderId = this.dataset.id;
-        updateOrderStatus(orderId, 'preparing');
-    });
-});
-
-// İptal butonu için event listener
-document.querySelectorAll('.cancel-order').forEach(button => {
-    button.addEventListener('click', function() {
-        const orderId = this.dataset.id;
-        
-        // İptal onayı iste
-        Swal.fire({
-            title: 'Emin misiniz?',
-            text: "Bu sipariş iptal edilecek!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Evet, İptal Et',
-            cancelButtonText: 'Vazgeç'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                updateOrderStatus(orderId, 'cancelled');
-            }
+// Butonlar için event listener'ları ekle
+function initializeOrderButtons() {
+    // Hazırla butonları
+    document.querySelectorAll('.prepare-order').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.dataset.id;
+            updateOrderStatus(orderId, 'ready');
         });
     });
-});
 
-// Sipariş durumu güncelleme fonksiyonu
-function updateOrderStatus(orderId, status) {
-    fetch('ajax/update_order_status.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `order_id=${orderId}&status=${status}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            // Başarılı mesajı göster
-            let message = status === 'preparing' ? 'Sipariş hazırlanıyor' : 'Sipariş iptal edildi';
-            Swal.fire({
-                title: 'Başarılı!',
-                text: message,
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                refreshOrders(); // Siparişleri yenile
-            });
-        } else {
-            throw new Error(data.message || 'Bir hata oluştu');
-        }
-    })
-    .catch(error => {
-        Swal.fire('Hata!', error.message, 'error');
+    // İptal butonları
+    document.querySelectorAll('.cancel-order').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.dataset.id;
+            updateOrderStatus(orderId, 'cancelled');
+        });
     });
 }
+
+// Sayfa yüklendiğinde butonları initialize et
+document.addEventListener('DOMContentLoaded', initializeOrderButtons);
 </script>
 
 <style>

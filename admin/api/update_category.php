@@ -11,11 +11,29 @@ try {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
+    $db = new Database();
     
+    // Kategori durumu güncelleme için
+    if (isset($input['field']) && $input['field'] === 'status') {
+        $value = (int)$input['value'];
+        if (!in_array($value, [0, 1])) {
+            throw new Exception('Geçersiz durum değeri');
+        }
+        
+        $db->query(
+            "UPDATE categories SET status = ? WHERE id = ?",
+            [$value, $input['category_id']]
+        );
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Kategori durumu güncellendi'
+        ]);
+        exit; // Status güncellemesi için burada çıkış yapıyoruz
+    }
+
     // Sıralama güncelleme işlemi
     if (isset($input['action']) && $input['action'] === 'update_order' && isset($input['categories'])) {
-        $db = new Database();
-        
         foreach ($input['categories'] as $category) {
             $id = (int)$category['id'];
             $sort_order = (int)$category['sort_order'];
@@ -33,7 +51,7 @@ try {
         exit;
     }
 
-    // Mevcut kategori güncelleme işlemi
+    // Normal kategori güncelleme işlemi
     $category_id = isset($input['category_id']) ? (int)$input['category_id'] : 0;
     $name = cleanInput($input['name'] ?? '');
     $image = $input['image'] ?? '';
@@ -46,9 +64,6 @@ try {
         throw new Exception('Kategori adı gerekli');
     }
     
-    $db = new Database();
-    
-    // Kategoriyi güncelle
     $db->query(
         "UPDATE categories SET name = ?, image = ? WHERE id = ?",
         [$name, $image, $category_id]
@@ -58,25 +73,6 @@ try {
         'success' => true,
         'message' => 'Kategori başarıyla güncellendi'
     ]);
-
-    // Kategori durumu güncelleme için
-    if (isset($input['field']) && $input['field'] === 'status') {
-        $value = (int)$input['value'];
-        if (!in_array($value, [0, 1])) {
-            throw new Exception('Geçersiz durum değeri');
-        }
-        
-        $db->query(
-            "UPDATE categories SET status = ? WHERE id = ?",
-            [$value, $input['category_id']]
-        );
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Kategori durumu güncellendi'
-        ]);
-        exit;
-    }
 
 } catch (Exception $e) {
     http_response_code(403);

@@ -10,14 +10,18 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Yetki kontrolü
-if (!isAdmin() && !isSuperAdmin()) {
+if (!hasPermission('kitchen.view')) {
     die(json_encode(['error' => 'Yetkisiz erişim']));
 }
+
 $db = new Database();
+
+// İşlem yetki kontrolü
+$canManage = hasPermission('kitchen.manage');
 
 // Aktif siparişleri çek
 $orders = $db->query("
-    SELECT o.*, t.table_no, 
+    SELECT o.*, t.table_no, o.notes, o.note,
     GROUP_CONCAT(CONCAT(oi.quantity, 'x ', p.name) SEPARATOR '<br>') as items
     FROM orders o
     LEFT JOIN tables t ON o.table_id = t.id
@@ -47,23 +51,30 @@ foreach($orders as $order): ?>
                 <div class="order-items">
                     <?= $order['items'] ?>
                 </div>
-                <?php if($order['notes']): ?>
+                <?php if(!empty($order['notes']) || !empty($order['note'])): ?>
                     <div class="alert alert-info mt-2 mb-0 p-2 small">
-                        <i class="fas fa-info-circle"></i> <?= htmlspecialchars($order['notes']) ?>
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Notlar:</strong><br>
+                        <?php if(!empty($order['notes'])): ?>
+                            <?= htmlspecialchars($order['notes']) ?><br>
+                        <?php endif; ?>
+                        <?php if(!empty($order['note'])): ?>
+                            <?= nl2br(htmlspecialchars($order['note'])) ?>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
             <div class="card-footer">
-                <?php if($order['status'] == 'new'): ?>
-                    <button class="btn btn-warning btn-sm w-100" 
-                            onclick="updateStatus(<?= $order['id'] ?>, 'preparing')">
-                        <i class="fas fa-clock"></i> Hazırlanıyor
+                <?php if ($canManage): ?>
+                <div class="order-actions">
+                    <button type="button" class="btn btn-success prepare-order" data-id="<?= $order['id'] ?>">
+                        <i class="fas fa-check"></i> Hazırla
                     </button>
-                <?php else: ?>
-                    <button class="btn btn-success btn-sm w-100" 
-                            onclick="updateStatus(<?= $order['id'] ?>, 'ready')">
-                        <i class="fas fa-check"></i> Hazır
+                    
+                    <button type="button" class="btn btn-warning cancel-order" data-id="<?= $order['id'] ?>">
+                        <i class="fas fa-times"></i> İptal
                     </button>
+                </div>
                 <?php endif; ?>
             </div>
         </div>

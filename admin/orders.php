@@ -25,13 +25,15 @@ $orderStatuses = [
     'pending' => 'Beklemede',
     'preparing' => 'Hazırlanıyor',
     'ready' => 'Hazır',
-    'delivered' => 'Teslim Edildi'
+    'delivered' => 'Teslim Edildi',
+    'cancelled' => 'İptal Edildi'
 ];
 
 // Sipariş tipleri
 $orderTypes = [
     'active' => 'Aktif Siparişler',
-    'completed' => 'Tamamlanan Siparişler'
+    'completed' => 'Tamamlanan Siparişler',
+    'cancelled' => 'İptal Edilen Siparişler'
 ];
 
 // Sorgu oluştur
@@ -42,14 +44,17 @@ $query = "SELECT o.*, t.table_no
 
 $params = [];
 
-// Aktif/Tamamlanan filtresi
+// Aktif/Tamamlanan/İptal Edilen filtresi
 if ($filter_type === 'active') {
     $query .= " AND o.status NOT IN ('completed', 'cancelled')";
-} else {
+} elseif ($filter_type === 'completed') {
     $query .= " AND o.status = 'completed'";
+} elseif ($filter_type === 'cancelled') {
+    $query .= " AND o.status = 'cancelled'";
 }
 
-if($status != 'all') {
+// Diğer filtreler
+if($status != 'all' && $filter_type === 'active') {
     $query .= " AND o.status = ?";
     $params[] = $status;
 }
@@ -299,7 +304,7 @@ select:disabled {
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">
-                <?= $filter_type === 'active' ? 'Aktif Siparişler' : 'Tamamlanan Siparişler' ?>
+                <?= $filter_type === 'active' ? 'Aktif Siparişler' : ($filter_type === 'completed' ? 'Tamamlanan Siparişler' : 'İptal Edilen Siparişler') ?>
             </h5>
         </div>
         <div class="card-body">
@@ -375,7 +380,7 @@ select:disabled {
                         <?php if(empty($orders)): ?>
                             <tr>
                                 <td colspan="6" class="text-center">
-                                    <?= $filter_type === 'active' ? 'Aktif sipariş bulunmuyor.' : 'Tamamlanan sipariş bulunmuyor.' ?>
+                                    <?= $filter_type === 'active' ? 'Aktif sipariş bulunmuyor.' : ($filter_type === 'completed' ? 'Tamamlanan sipariş bulunmuyor.' : 'İptal edilen sipariş bulunmuyor.') ?>
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -414,9 +419,32 @@ select:disabled {
                                                 <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
                                                 <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
                                                 <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                                <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Et</option>
                                             </select>
+                                        <?php elseif($filter_type === 'cancelled'): ?>
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-danger me-2">İptal Edildi</span>
+                                                <button class="btn btn-sm btn-outline-success restore-order" 
+                                                        data-order-id="<?= $order['id'] ?>"
+                                                        title="Siparişi Geri Al">
+                                                    <i class="fas fa-undo"></i> Geri Al
+                                                </button>
+                                            </div>
                                         <?php else: ?>
-                                            <span class="badge bg-success">Tamamlandı</span>
+                                            <?php
+                                            $statusText = '';
+                                            switch($order['status']) {
+                                                case 'completed':
+                                                    $statusText = '<span class="badge bg-success">Tamamlandı</span>';
+                                                    break;
+                                                case 'cancelled':
+                                                    $statusText = '<span class="badge bg-danger">İptal Edildi</span>';
+                                                    break;
+                                                default:
+                                                    $statusText = '<span class="badge bg-secondary">'.ucfirst($order['status']).'</span>';
+                                            }
+                                            echo $statusText;
+                                            ?>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -554,9 +582,11 @@ function applyFilters() {
 
 // Filtre değişikliklerini dinle
 document.getElementById('filterType').addEventListener('change', function() {
-    // Eğer tamamlanan siparişler seçilirse, durum filtresini gizle
     const statusFilter = document.getElementById('statusFilter');
-    if (this.value === 'completed') {
+    const filterType = this.value;
+    
+    // Filtre tipine göre durum filtresini ayarla
+    if (filterType === 'completed' || filterType === 'cancelled') {
         statusFilter.value = 'all';
         statusFilter.disabled = true;
     } else {
@@ -568,30 +598,109 @@ document.getElementById('filterType').addEventListener('change', function() {
 document.addEventListener('DOMContentLoaded', function() {
     const filterType = document.getElementById('filterType').value;
     const statusFilter = document.getElementById('statusFilter');
-    if (filterType === 'completed') {
+    
+    if (filterType === 'completed' || filterType === 'cancelled') {
         statusFilter.value = 'all';
         statusFilter.disabled = true;
     }
 });
 
-// Durum değişikliği için AJAX
+// Sipariş geri alma işlemi
+$(document).on('click', '.restore-order', function() {
+    const orderId = $(this).data('order-id');
+    
+    Swal.fire({
+        title: 'Sipariş Geri Alma',
+        text: `#${orderId} numaralı siparişi geri almak istediğinize emin misiniz?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Evet, Geri Al',
+        cancelButtonText: 'Vazgeç'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('ajax/update_order_status.php', {
+                order_id: orderId,
+                status: 'pending'  // İptal edilen siparişi beklemede durumuna al
+            }, function(response) {
+                if(response.success) {
+                    Swal.fire({
+                        title: 'Başarılı!',
+                        text: `#${orderId} numaralı sipariş başarıyla geri alındı`,
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();  // Sayfayı yenile
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Hata!',
+                        text: response.message || 'Bir hata oluştu',
+                        icon: 'error'
+                    });
+                }
+            }).fail(function() {
+                Swal.fire({
+                    title: 'Hata!',
+                    text: 'Sunucu ile iletişim kurulamadı',
+                    icon: 'error'
+                });
+            });
+        }
+    });
+});
+
+// Durum değişikliği için AJAX - İptal onayı ekle
 $(document).on('change', '.status-select', function() {
     const orderId = $(this).data('order-id');
     const newStatus = $(this).val();
     
+    if(newStatus === 'cancelled') {
+        Swal.fire({
+            title: 'Sipariş İptali',
+            text: `#${orderId} numaralı siparişi iptal etmek istediğinize emin misiniz?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Evet, İptal Et',
+            cancelButtonText: 'Vazgeç'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                updateOrderStatus(orderId, newStatus);
+            } else {
+                location.reload(); // Seçimi geri al
+            }
+        });
+    } else {
+        updateOrderStatus(orderId, newStatus);
+    }
+});
+
+function updateOrderStatus(orderId, newStatus) {
     $.post('ajax/update_order_status.php', {
         order_id: orderId,
         status: newStatus
     }, function(response) {
         if(response.success) {
-            // Başarılı güncelleme bildirimi
-            toastr.success('Sipariş durumu güncellendi');
-            
-            // Sayfayı yenileme
-            setTimeout(() => location.reload(), 1000);
+            Swal.fire({
+                title: 'Başarılı!',
+                text: 'Sipariş durumu güncellendi',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
         } else {
-            toastr.error('Bir hata oluştu!');
+            Swal.fire({
+                title: 'Hata!',
+                text: response.message || 'Bir hata oluştu',
+                icon: 'error'
+            });
         }
     });
-});
+}
 </script>

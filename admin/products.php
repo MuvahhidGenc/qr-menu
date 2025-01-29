@@ -22,10 +22,9 @@ $canDeleteProduct = hasPermission('products.delete');
 // Sayfa içeriği
 $db = new Database();
 
-// Kategorileri sıralı şekilde getir
+// Kategorileri sıralı şekilde getir (status filtresi kaldırıldı)
 $categories = $db->query("
     SELECT * FROM categories 
-    WHERE status = 1 
     ORDER BY sort_order, name"
 )->fetchAll();
 
@@ -107,10 +106,7 @@ toastr.options = {
 }
 
 .category-header {
-    padding: 1rem 1.5rem;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    background: white;
+    padding: 1rem;
 }
 
 .category-header:hover {
@@ -136,16 +132,17 @@ toastr.options = {
 }
 
 .category-image {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
     object-fit: cover;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 .category-info {
     display: flex;
     align-items: center;
+    gap: 1rem;
+    flex: 1;
 }
 
 .category-details {
@@ -168,6 +165,7 @@ toastr.options = {
 .category-actions {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
 }
 
 .category-actions .btn {
@@ -333,21 +331,102 @@ toastr.options = {
     transform: translateY(-1px);
 }
 
-/* Responsive düzenlemeler */
+/* Mobil düzenlemeler */
 @media (max-width: 768px) {
+    .products-container {
+        padding: 10px;
+    }
+
+    /* Kategori başlığını mobilde düzenle */
+    .category-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    /* Kategori bilgilerini mobilde düzenle */
+    .category-info {
+        width: 100%;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    /* Kategori görselini mobilde büyüt */
+    .category-image {
+        width: 80px;
+        height: 80px;
+    }
+
+    /* Kategori aksiyonlarını mobilde düzenle */
+    .category-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* Switch'i mobilde düzenle */
+    .form-switch {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        margin: 0.5rem 0;
+    }
+
+    /* Butonları mobilde düzenle */
+    .btn {
+        width: 100%;
+        margin: 0.25rem 0;
+    }
+
+    /* Ürün satırını mobilde düzenle */
     .product-content {
         flex-direction: column;
         text-align: center;
     }
-    
-    .product-actions {
-        margin-top: 1rem;
-        justify-content: center;
-    }
-    
+
+    /* Ürün görselini mobilde düzenle */
     .product-image {
         width: 120px;
         height: 120px;
+        margin: 0 auto;
+    }
+
+    /* Ürün bilgilerini mobilde düzenle */
+    .product-info {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Ürün aksiyonlarını mobilde düzenle */
+    .product-actions {
+        width: 100%;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    /* Sürükleme ikonunu mobilde gizle */
+    .product-drag-handle,
+    .category-drag-handle {
+        display: none !important;
+    }
+
+    /* Modal içeriğini mobilde düzenle */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    /* Form elemanlarını mobilde düzenle */
+    .form-control {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Toastr bildirimlerini mobilde düzenle */
+    #toast-container {
+        padding: 0.5rem;
+        width: 100%;
     }
 }
 
@@ -464,7 +543,7 @@ toastr.options = {
         <div class="card-body">
             <div class="category-list">
                 <?php foreach ($categories as $category): ?>
-                <div class="category-item" data-category-id="<?= $category['id'] ?>">
+                <div class="category-item" data-category-id="<?= $category['id'] ?>" style="opacity: <?= $category['status'] ? '1' : '0.6' ?>">
                     <div class="category-header d-flex align-items-center justify-content-between">
                         <div class="d-flex align-items-center gap-3">
                             <i class="fas fa-bars category-drag-handle"></i>
@@ -486,6 +565,15 @@ toastr.options = {
                             </div>
                         </div>
                         <div class="category-actions d-flex align-items-center gap-2">
+                            <!-- Görünürlük toggle'ı -->
+                            <div class="form-check form-switch me-2">
+                                <input type="checkbox" 
+                                       class="form-check-input category-status-toggle" 
+                                       id="categoryStatus_<?= $category['id'] ?>"
+                                       data-category-id="<?= $category['id'] ?>"
+                                       <?= $category['status'] ? 'checked' : '' ?>>
+                            </div>
+
                             <?php if ($canAddProduct): ?>
                             <button class="btn btn-sm btn-outline-primary quick-add-product" 
                                     data-category-id="<?= $category['id'] ?>"
@@ -1804,6 +1892,61 @@ toastr.options = {
                                 confirmButtonColor: '#e74c3c'
                             });
                         });
+                    }
+                });
+            });
+        });
+
+        // Kategori durumu toggle
+        document.querySelectorAll('.category-status-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const categoryId = this.dataset.categoryId;
+                const newStatus = this.checked ? 1 : 0;
+                
+                Swal.fire({
+                    title: newStatus ? 'Kategoriyi Aktifleştir' : 'Kategoriyi Devre Dışı Bırak',
+                    text: newStatus ? 'Bu kategori görünür olacak. Onaylıyor musunuz?' : 'Bu kategori gizlenecek. Onaylıyor musunuz?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: newStatus ? '#28a745' : '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: newStatus ? 'Evet, Aktifleştir' : 'Evet, Devre Dışı Bırak',
+                    cancelButtonText: 'İptal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch('api/update_category.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                category_id: categoryId,
+                                field: 'status',
+                                value: newStatus,
+                                name: this.closest('.category-item').querySelector('.category-name').textContent.trim(),
+                                image: this.closest('.category-item').querySelector('.category-image').getAttribute('src').split('/').pop()
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const categoryItem = this.closest('.category-item');
+                                if (newStatus === 0) {
+                                    categoryItem.style.opacity = '0.6';
+                                } else {
+                                    categoryItem.style.opacity = '1';
+                                }
+                                toastr.success('Kategori durumu güncellendi');
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
+                            this.checked = !this.checked;
+                        });
+                    } else {
+                        this.checked = !this.checked;
                     }
                 });
             });
