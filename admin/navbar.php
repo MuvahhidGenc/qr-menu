@@ -991,27 +991,34 @@
             </div>
             <nav class="sidebar-nav">
                 <ul class="nav flex-column">
+                <?php if (hasPermission('dashboard.view')): ?>
                     <li class="nav-item">
                         <a href="dashboard.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">
                             <i class="fas fa-home me-2"></i>Ana Sayfa
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('orders.view')): ?>
                     <li class="nav-item">
                         <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
                             <i class="fas fa-shopping-cart me-2"></i>Siparişler
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('tables.view')): ?>
                     <li class="nav-item">
                         <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
                             <i class="fas fa-chair me-2"></i>Masalar
                         </a>
                     </li>
-                  
+                    <?php endif; ?>
+                    <?php if (hasPermission('products.view')): ?>   
                     <li class="nav-item">
                         <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
                             <i class="fas fa-utensils me-2"></i>Ürünler & Kategoriler
                         </a>
                     </li>
+                    <?php endif; ?>
                     <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
@@ -1020,8 +1027,10 @@
                             </a>
                         </li>
                     <?php endif; ?>
-                    <!-- Genel İstatistikler panel menüsü -->
+                    <!-- Genel İst atistikler panel menüsü -->
+                    <?php if (hasPermission('reports.view')): ?>
                     <li class="nav-item">
+
                         <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'active show' : '' ?>" 
                            data-bs-toggle="collapse" 
                            href="#statisticsPanel" 
@@ -1048,6 +1057,7 @@
                                         Raporlar
                                     </a>
                                 </li>
+
                                 <li class="nav-item">
                                     <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'financial.php' ? 'active' : '' ?>" 
                                        href="financial.php">
@@ -1061,34 +1071,38 @@
                             </ul>
                         </div>
                     </li>
-                   
+                    <?php endif; ?>
+                    <?php if (hasPermission('kitchen.view')): ?>
                     <li class="nav-item">
                         <a href="kitchen.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'kitchen.php' ? 'active' : '' ?>">
                             <i class="fas fa-fire me-2"></i>Mutfak
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('reservations.view')): ?>
                     <li class="nav-item">
                         <a href="reservations.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reservations.php' ? 'active' : '' ?>">
                             <i class="fas fa-calendar-alt me-2"></i>Rezervasyonlar
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('settings.view')): ?>
                     <li class="nav-item">
                         <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
                             <i class="fas fa-cog me-2"></i>Ayarlar
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="reviews.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reviews.php' ? 'active' : '' ?>">
-                            <i class="fas fa-star me-2"></i>Değerlendirmeler
-                        </a>
-                    </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('order_settings.view')): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $currentPage == 'order_settings.php' ? 'active' : ''; ?>" href="order_settings.php">
                             <i class="fas fa-cog me-2"></i>
                             Sipariş Ayarları
                         </a>
                     </li>
+                    <?php endif; ?>
                     <!-- Genel İstatistikler'den sonra eklenecek -->
+                    <?php if (hasPermission('admins.view') || hasPermission('roles.view')): ?>
                     <li class="nav-item">
                         <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'active show' : '' ?>" 
                         data-bs-toggle="collapse" 
@@ -1121,7 +1135,7 @@
                             </ul>
                         </div>
                     </li>
-                    
+                    <?php endif; ?>
                     
                    <!-- <li class="nav-item">
                         <a href="admins.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>">

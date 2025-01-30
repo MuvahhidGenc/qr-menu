@@ -6,18 +6,23 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Yetki kontrolü
+// Ana sayfa görüntüleme yetkisi kontrolü
 if (!hasPermission('products.view')) {
     header('Location: dashboard.php');
     exit();
 }
+
+// Yetki kontrollerini tanımla
+$canViewProducts = hasPermission('products.view');
+$canAddProduct = hasPermission('products.add');
+$canEditProduct = hasPermission('products.edit');
+$canDeleteProduct = hasPermission('products.delete');
 
 // Yetkileri tanımla
 $canViewProducts = hasPermission('products.view');
 $canAddProduct = hasPermission('products.add');
 $canEditProduct = hasPermission('products.edit');
 $canDeleteProduct = hasPermission('products.delete');
-
 
 // Sayfa içeriği
 $db = new Database();
@@ -532,9 +537,11 @@ toastr.options = {
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">Ürünler</h5>
             <div class="d-flex gap-2">
+                <?php if ($canAddProduct): ?>
                 <button class="btn btn-primary add-product-button" data-bs-toggle="modal" data-bs-target="#addProductModal">
                     <i class="fas fa-plus"></i> Yeni Ürün
                 </button>
+                <?php endif; ?>
                 <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
                     <i class="fas fa-plus"></i> Yeni Kategori
                 </button>
