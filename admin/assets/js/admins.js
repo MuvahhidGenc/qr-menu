@@ -1,4 +1,54 @@
 $(document).ready(function() {
+    // jQuery'nin yüklendiğini kontrol et
+    console.log('jQuery version:', $.fn.jquery);
+    
+    // Butonun varlığını kontrol et
+    console.log('Kaydet butonu var mı:', $('#saveEditButton').length);
+
+    // Event listener'ı document üzerinden dinleyelim
+    $(document).on('click', '#saveEditButton', function(e) {
+        e.preventDefault();
+        console.log('Kaydet butonuna tıklandı');
+        
+        var formData = $('#editAdminForm').serialize();
+        console.log('Gönderilecek veriler:', formData);
+
+        $.ajax({
+            url: 'ajax/edit_admin.php',
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if(response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı!',
+                        text: 'Yönetici başarıyla güncellendi.',
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        $('#editAdminModal').modal('hide');
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Hata!',
+                        text: response.error || 'Bir hata oluştu!'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', xhr.responseText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Sistem Hatası!',
+                    text: 'İstek gönderilirken bir hata oluştu: ' + error
+                });
+            }
+        });
+    });
+
     // DataTable başlat
     $('#adminsTable').DataTable({
         language: {
@@ -11,7 +61,6 @@ $(document).ready(function() {
     $('.edit-admin').click(function() {
         const adminId = $(this).data('id');
         console.log('Tıklanan admin ID:', adminId);
-
         $.get('ajax/get_admin.php', {id: adminId})
             .done(function(response) {
                 console.log('AJAX başarılı, gelen veri:', response);

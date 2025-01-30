@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Şifreyi hashle
-        $hashedPassword = hashPassword($_POST['password']);
+        $hashedPassword = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
         // SQL sorgusunu logla
         $sql = "INSERT INTO admins (username, name, email, phone, password, role_id) VALUES (?, ?, ?, ?, ?, ?)";
