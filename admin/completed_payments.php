@@ -52,6 +52,9 @@ $payments = $db->query("
     GROUP BY p.id
     ORDER BY p.created_at DESC
 ")->fetchAll();
+
+// Restoran adını settings tablosundan al
+$restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'restaurant_name'")->fetch()['setting_value'];
 ?>
 
 <!DOCTYPE html>
@@ -467,7 +470,7 @@ $payments = $db->query("
         const receiptContent = `
             <div style="font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; padding: 10px;">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0;">RESTORAN ADI</h3>
+                    <h3 style="margin: 0;"><?php echo htmlspecialchars($restaurantName); ?></h3>
                     <p style="margin: 5px 0;">Fiş No: #${payment.payment_id}</p>
                     <p style="margin: 5px 0;">Tarih: ${new Date(payment.created_at).toLocaleString('tr-TR')}</p>
                     <p style="margin: 5px 0;">Masa: ${payment.table_no}</p>

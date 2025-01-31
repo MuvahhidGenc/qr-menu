@@ -121,6 +121,9 @@ $dbCheck = $db->query("SELECT
 
 error_log('Active Categories: ' . $dbCheck['active_categories']);
 error_log('Active Products: ' . $dbCheck['active_products']);
+
+// Sadece restaurant_name'i çek
+$restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'restaurant_name'")->fetch()['setting_value'];
 ?>
 <head>
     <meta charset="UTF-8">
@@ -2464,7 +2467,7 @@ function printReceipt() {
     let receiptContent = `
         <div style="font-family: 'Courier New', monospace; width: 300px; padding: 10px;">
             <div style="text-align: center; margin-bottom: 10px;">
-                <h3 style="margin: 5px 0;">RESTORAN ADI</h3>
+                <h3 style="margin: 5px 0;"><?php echo htmlspecialchars($restaurantName); ?></h3>
                 <p style="margin: 5px 0;">Tarih: ${new Date().toLocaleString('tr-TR')}</p>
                 <p style="margin: 5px 0;">Masa No: ${tableNo}</p>
             </div>

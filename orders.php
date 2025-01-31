@@ -22,7 +22,7 @@ $orders = $db->query(
     "SELECT DISTINCT o.id, o.created_at, o.status, o.total_amount
      FROM orders o
      WHERE o.table_id = ? 
-     AND o.status NOT IN ('paid', 'completed')
+     AND o.status NOT IN ('paid', 'completed', 'cancelled') 
      GROUP BY o.id
      ORDER BY o.id DESC",
     [$table_id]
@@ -54,6 +54,8 @@ foreach ($orders as $order) {
             'delivered' => 'Servis Edildi',
             'paid' => 'Ödeme Alındı',
             'completed' => 'Tamamlandı',
+            'cancelled' => 'İptal Edildi',
+            'header_moved' => 'Hesap Aktarıldı',
             default => $order['status']
         };
 
@@ -64,6 +66,8 @@ foreach ($orders as $order) {
             'delivered' => 'bg-primary',
             'paid' => 'bg-secondary',
             'completed' => 'bg-dark',
+            'cancelled' => 'bg-danger',
+            'header_moved' => 'bg-purple',
             default => 'bg-light'
         };
 
@@ -100,6 +104,14 @@ $back_url = $_SERVER['HTTP_REFERER'] ?? 'menu.php'; // Eğer referrer yoksa menu
 
 include 'includes/customer-header.php';
 ?>
+
+<!-- CSS eklentisi -->
+<style>
+.bg-purple {
+    background-color: #8e44ad !important;
+    color: white !important;
+}
+</style>
 
 <!-- Siparişler Listesi -->
 <div class="container mt-4 mb-5">

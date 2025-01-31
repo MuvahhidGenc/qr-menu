@@ -9,8 +9,12 @@ $db = new Database();
 error_log('Session ID: ' . session_id());
 error_log('Cart Contents: ' . print_r($_SESSION['cart'], true));
 
-// Kategorileri çek
-$stmt = $db->query("SELECT * FROM categories WHERE status = 1");
+// Kategorileri çek - sort_order'a göre sıralama
+$stmt = $db->query(
+    "SELECT * FROM categories 
+     WHERE status = 1 
+     ORDER BY sort_order ASC, id ASC"
+);
 $categories = $stmt->fetchAll();
 // URL'den table parametresini al
 
@@ -32,9 +36,15 @@ $theme_rgb = hexToRgb($theme_color);
 
 // Eğer kategori seçilmişse ürünleri çek
 if(isset($_GET['category'])) {
-   $category_id = (int)$_GET['category'];
-   $stmt = $db->query("SELECT * FROM products WHERE category_id = ? AND status = 1", [$category_id]);
-   $products = $stmt->fetchAll();
+    $category_id = (int)$_GET['category'];
+    $stmt = $db->query(
+        "SELECT * FROM products 
+         WHERE category_id = ? 
+         AND status = 1 
+         ORDER BY sort_order ASC, id ASC", 
+        [$category_id]
+    );
+    $products = $stmt->fetchAll();
 }
 
 function checkExistingOrder($db, $table_id) {
@@ -135,7 +145,7 @@ include 'includes/customer-header.php';
     overflow: hidden;
     box-shadow: 0 2px 15px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .menu-item:hover {
@@ -147,7 +157,7 @@ include 'includes/customer-header.php';
     position: relative;
     width: 100%;
     min-width: 150px;
-    height: 250px;
+    height: 200px;
     overflow: hidden;
     border-radius: 8px 8px 0 0;
 }
@@ -160,7 +170,7 @@ include 'includes/customer-header.php';
 }
 
 .menu-item-content {
-    padding: 20px;
+    padding: 15px;
 }
 
 .menu-item-title {
@@ -451,6 +461,33 @@ include 'includes/customer-header.php';
 .custom-shadow:hover {
     box-shadow: 0 0 15px rgba(<?= $theme_rgb['r'] ?>, <?= $theme_rgb['g'] ?>, <?= $theme_rgb['b'] ?>, 0.3);
 }
+
+/* Kategori başlığı için yeni stiller */
+.category-header {
+    background: <?= $theme_color ?>;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.category-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.category-header i {
+    margin-right: 10px;
+}
+
+.category-description {
+    margin-top: 5px;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
     </style>
 </head>
 <body>
@@ -556,41 +593,65 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="menu-section">
                 <?php
                 $category_id = (int)$_GET['category'];
-                $stmt = $db->query("SELECT * FROM products WHERE category_id = ? AND status = 1", [$category_id]);
+                $stmt = $db->query(
+                    "SELECT * FROM products 
+                     WHERE category_id = ? 
+                     AND status = 1 
+                     ORDER BY sort_order ASC, id ASC", 
+                    [$category_id]
+                );
                 $products = $stmt->fetchAll();
                 
-                foreach($products as $product):
+                // Kategori bilgilerini getir
+                $current_category = $db->query(
+                    "SELECT * FROM categories WHERE id = ?", 
+                    [(int)$_GET['category']]
+                )->fetch();
                 ?>
-                 <div class="category-section">
-                 <div class="menu-item">
-                    <div class="menu-item-image">
-                        <img src="uploads/<?= $product['image'] ?>" alt="<?= $product['name'] ?>">
-                    </div>
-                    <div class="menu-item-content">
-                        <h5 class="menu-item-title"><?= htmlspecialchars($product['name']) ?></h5>
-                        <p class="menu-item-description"><?= htmlspecialchars($product['description']) ?></p>
-                        <div class="menu-item-footer">
-                            <div class="menu-item-price"><?= number_format($product['price'], 2) ?> ₺</div>
-                            <div class="order-controls">
-                                <div class="quantity-control">
-                                    <button type="button" class="quantity-btn minus" onclick="decreaseAmount(<?= $product['id'] ?>)">
-                                        <i class="fas fa-minus"></i>
-                                    </button>
-                                    <input type="number" id="qty_<?= $product['id'] ?>" class="quantity-input" value="1" min="1" max="99" readonly>
-                                    <button type="button" class="quantity-btn plus" onclick="increaseAmount(<?= $product['id'] ?>)">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                               
-                                <button class="add-to-cart" onclick="addToCart(<?= $product['id'] ?>)">
-                                    <i class="fas fa-cart-plus"></i>
-                                </button>
+                 <div class="category-header">
+                    <h2>
+                        <i class="fas fa-utensils"></i>
+                        <?= htmlspecialchars($current_category['name']) ?>
+                    </h2>
+                    <?php if(!empty($current_category['description'])): ?>
+                        <div class="category-description">
+                            <?= htmlspecialchars($current_category['description']) ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="row g-3">
+                    <?php foreach($products as $product): ?>
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <div class="menu-item">
+                                <div class="menu-item-image">
+                                    <img src="uploads/<?= $product['image'] ?>" alt="<?= $product['name'] ?>">
+                                </div>
+                                <div class="menu-item-content">
+                                    <h5 class="menu-item-title"><?= htmlspecialchars($product['name']) ?></h5>
+                                    <p class="menu-item-description"><?= htmlspecialchars($product['description']) ?></p>
+                                    <div class="menu-item-footer">
+                                        <div class="menu-item-price"><?= number_format($product['price'], 2) ?> ₺</div>
+                                        <div class="order-controls">
+                                            <div class="quantity-control">
+                                                <button type="button" class="quantity-btn minus" onclick="decreaseAmount(<?= $product['id'] ?>)">
+                                                    <i class="fas fa-minus"></i>
+                                                </button>
+                                                <input type="number" id="qty_<?= $product['id'] ?>" class="quantity-input" value="1" min="1" max="99" readonly>
+                                                <button type="button" class="quantity-btn plus" onclick="increaseAmount(<?= $product['id'] ?>)">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                           
+                                            <button class="add-to-cart" onclick="addToCart(<?= $product['id'] ?>)">
+                                                <i class="fas fa-cart-plus"></i>
+                                            </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
                 </div>
