@@ -717,12 +717,16 @@ error_log('Active Products: ' . $dbCheck['active_products']);
                     "SELECT 
                         CASE WHEN EXISTS (
                             SELECT 1 FROM orders 
-                            WHERE table_id = ? AND payment_id IS NULL
+                            WHERE table_id = ? 
+                            AND status NOT IN ('cancelled', 'completed')
+                            AND payment_id IS NULL
                         ) THEN 'occupied' ELSE 'empty' END as status,
                         COALESCE((
                             SELECT SUM(total_amount) 
                             FROM orders 
-                            WHERE table_id = ? AND payment_id IS NULL
+                            WHERE table_id = ? 
+                            AND status NOT IN ('cancelled', 'completed')
+                            AND payment_id IS NULL
                         ), 0) as total",
                     [$table['id'], $table['id']]
                 )->fetch();
@@ -1264,7 +1268,10 @@ function loadTableOrders(tableId, retryCount = 0) {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ table_id: tableId })
+        body: JSON.stringify({ 
+            table_id: tableId,
+            exclude_cancelled: true // İptal edilmiş siparişleri hariç tut
+        })
     })
     .then(response => response.json())
     .then(data => {
