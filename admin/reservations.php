@@ -7,13 +7,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Yetki kontrolleri
+// Temel yetki kontrolleri
 $canViewReservations = hasPermission('reservations.view');
 $canAddReservation = hasPermission('reservations.add');
 $canEditReservation = hasPermission('reservations.edit');
 $canDeleteReservation = hasPermission('reservations.delete');
 $canApproveReservation = hasPermission('reservations.approve');
 $canRejectReservation = hasPermission('reservations.reject');
+$canManageSettings = hasPermission('reservations.settings');
 
 // Sayfa erişim kontrolü
 if (!$canViewReservations) {
@@ -1218,13 +1219,68 @@ function getStatusText(status) {
     }
 }
 
-// Yetkileri PHP'den JavaScript'e aktaralım
-const permissions = {
-    canView: <?php echo $canViewReservations ? 'true' : 'false'; ?>,
-    canAdd: <?php echo $canAddReservation ? 'true' : 'false'; ?>,
-    canEdit: <?php echo $canEditReservation ? 'true' : 'false'; ?>,
-    canDelete: <?php echo $canDeleteReservation ? 'true' : 'false'; ?>,
-    canApprove: <?php echo $canApproveReservation ? 'true' : 'false'; ?>,
-    canReject: <?php echo $canRejectReservation ? 'true' : 'false'; ?>
+// JavaScript'te kullanılmak üzere yetki değişkenlerini tanımla
+const userPermissions = {
+    canView: <?php echo $canViewReservations ? 'true' : 'false' ?>,
+    canAdd: <?php echo $canAddReservation ? 'true' : 'false' ?>,
+    canEdit: <?php echo $canEditReservation ? 'true' : 'false' ?>,
+    canDelete: <?php echo $canDeleteReservation ? 'true' : 'false' ?>,
+    canApprove: <?php echo $canApproveReservation ? 'true' : 'false' ?>,
+    canReject: <?php echo $canRejectReservation ? 'true' : 'false' ?>,
+    canManageSettings: <?php echo $canManageSettings ? 'true' : 'false' ?>,
+    canManageTables: <?php echo hasPermission('tables.manage') ? 'true' : 'false' ?>
 };
+
+// Masa atama yetkisi kontrolü
+function canAssignTable() {
+    return userPermissions.canManageTables || userPermissions.canApprove;
+}
+
+// Masa seçimi kontrolü
+function checkTableAssignPermission() {
+    if (!canAssignTable()) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetkisiz İşlem',
+            text: 'Masa atama yetkiniz bulunmamaktadır.'
+        });
+        return false;
+    }
+    return true;
+}
+
+// Yetki kontrolü fonksiyonu
+function checkPermission(permission) {
+    if (!userPermissions[permission]) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetkisiz İşlem',
+            text: 'Bu işlem için yetkiniz bulunmamaktadır.'
+        });
+        return false;
+    }
+    return true;
+}
+
+// İşlem butonlarını yetkilere göre kontrol et
+$(document).ready(function() {
+    if (!userPermissions.canAdd) {
+        $('.add-reservation-btn').hide();
+    }
+    if (!userPermissions.canEdit) {
+        $('.edit-reservation-btn').hide();
+    }
+    if (!userPermissions.canDelete) {
+        $('.delete-reservation-btn').hide();
+    }
+    if (!userPermissions.canApprove) {
+        $('.approve-reservation-btn').hide();
+    }
+    if (!userPermissions.canReject) {
+        $('.reject-reservation-btn').hide();
+    }
+    if (!userPermissions.canManageSettings) {
+        $('.settings-btn').hide();
+    }
+});
 </script> 

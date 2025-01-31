@@ -1,8 +1,46 @@
 <?php
 require_once '../../includes/db.php';
 require_once '../../includes/config.php';
+require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
+
+// Yetki kontrolü
+$status = $_POST['status'] ?? '';
+switch($status) {
+    case 'confirmed':
+        if (!hasPermission('reservations.approve')) {
+            echo json_encode(['success' => false, 'message' => 'Onaylama yetkiniz bulunmamaktadır.']);
+            exit;
+        }
+        break;
+    case 'cancelled':
+        if (!hasPermission('reservations.reject')) {
+            echo json_encode(['success' => false, 'message' => 'İptal etme yetkiniz bulunmamaktadır.']);
+            exit;
+        }
+        break;
+    case 'completed':
+        if (!hasPermission('reservations.edit')) {
+            echo json_encode(['success' => false, 'message' => 'Tamamlama yetkiniz bulunmamaktadır.']);
+            exit;
+        }
+        break;
+    default:
+        if (!hasPermission('reservations.edit')) {
+            echo json_encode(['success' => false, 'message' => 'Düzenleme yetkiniz bulunmamaktadır.']);
+            exit;
+        }
+}
+
+// Masa değişikliği yapılıyorsa ek kontrol
+if (isset($_POST['table_id']) && $_POST['table_id'] != null) {
+    // Eğer kullanıcının rezervasyon onaylama yetkisi varsa masa atamasına da izin ver
+    if (!hasPermission('tables.manage') && !hasPermission('reservations.approve')) {
+        echo json_encode(['success' => false, 'message' => 'Masa atama yetkiniz bulunmamaktadır.']);
+        exit;
+    }
+}
 
 // Debug için gelen verileri logla
 error_log("POST Verileri: " . print_r($_POST, true));

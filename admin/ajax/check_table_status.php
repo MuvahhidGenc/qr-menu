@@ -1,8 +1,21 @@
 <?php
 require_once '../../includes/db.php';
 require_once '../../includes/config.php';
+require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
+
+// Temel rezervasyon görüntüleme yetkisi kontrolü
+if (!hasPermission('reservations.view')) {
+    echo json_encode(['success' => false, 'message' => 'Rezervasyon görüntüleme yetkiniz bulunmamaktadır.']);
+    exit;
+}
+
+// Masa durumu kontrolü için ek yetki kontrolü
+if (!hasPermission('tables.view')) {
+    echo json_encode(['success' => false, 'message' => 'Masa durumu görüntüleme yetkiniz bulunmamaktadır.']);
+    exit;
+}
 
 if (!isset($_GET['reservation_id'])) {
     echo json_encode(['success' => false, 'message' => 'Rezervasyon ID gerekli']);
