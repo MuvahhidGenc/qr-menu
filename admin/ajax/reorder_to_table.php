@@ -5,8 +5,9 @@ require_once '../../includes/auth.php';
 header('Content-Type: application/json');
 
 try {
-    if (!hasPermission('payments.manage')) {
-        throw new Exception('Bu işlem için yetkiniz yok!');
+    if (!hasPermission('payments.reorder')) {
+        echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
+        exit;
     }
 
     $data = json_decode(file_get_contents('php://input'), true);

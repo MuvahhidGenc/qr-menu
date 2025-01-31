@@ -15,6 +15,8 @@ if (!hasPermission('tables.view')) {
 // Yetki kontrollerini en başta tanımla
 $canViewTables = hasPermission('tables.view');
 $canManageTables = hasPermission('tables.manage');
+$canManagePayments = hasPermission('tables.payment');
+$canManageOrders = hasPermission('tables.add_order') || hasPermission('tables.edit_order');
 $canTakePayment = hasPermission('tables.payment');
 $canViewSales = hasPermission('tables.sales');
 $canAddOrder = hasPermission('tables.add_order');
@@ -29,12 +31,68 @@ $canSaveOrder = hasPermission('tables.save_order');
 const userPermissions = {
     canViewTables: <?php echo $canViewTables ? 'true' : 'false' ?>,
     canManageTables: <?php echo $canManageTables ? 'true' : 'false' ?>,
+    canManagePayments: <?php echo $canManagePayments ? 'true' : 'false' ?>,
+    canManageOrders: <?php echo $canManageOrders ? 'true' : 'false' ?>,
     canTakePayment: <?php echo $canTakePayment ? 'true' : 'false' ?>,
     canViewSales: <?php echo $canViewSales ? 'true' : 'false' ?>,
     canAddOrder: <?php echo $canAddOrder ? 'true' : 'false' ?>,
     canEditOrder: <?php echo $canEditOrder ? 'true' : 'false' ?>,
     canDeleteOrder: <?php echo $canDeleteOrder ? 'true' : 'false' ?>,
     canSaveOrder: <?php echo $canSaveOrder ? 'true' : 'false' ?>
+};
+
+// Sayfa yüklendiğinde ve modal açıldığında kontrol et
+document.addEventListener('DOMContentLoaded', function() {
+    hidePaymentElements();
+    
+    // Modal açıldığında tekrar kontrol et
+    const salesModal = document.getElementById('salesModal');
+    if (salesModal) {
+        salesModal.addEventListener('shown.bs.modal', function() {
+            setTimeout(hidePaymentElements, 100);
+        });
+    }
+});
+
+function hidePaymentElements() {
+    if (!userPermissions.canManagePayments) {
+        // İskonto bölümünü kaldır
+        const discountSection = document.querySelector('.discount-section');
+        if (discountSection) discountSection.remove();
+        
+        // Ödeme yöntemleri bölümünü kaldır
+        const paymentMethods = document.querySelector('.payment-methods');
+        if (paymentMethods) paymentMethods.remove();
+        
+        // İskonto satırını kaldır
+        const discountRow = document.querySelector('#discountRow');
+        if (discountRow) discountRow.remove();
+        
+        // Diğer ilgili elementleri kaldır
+        document.querySelectorAll('[id^="discountType"]').forEach(el => el.remove());
+        document.querySelectorAll('[id^="discountValue"]').forEach(el => el.remove());
+        document.querySelectorAll('[id^="cash"]').forEach(el => el.remove());
+        document.querySelectorAll('[id^="pos"]').forEach(el => el.remove());
+        document.querySelectorAll('[for^="cash"]').forEach(el => el.remove());
+        document.querySelectorAll('[for^="pos"]').forEach(el => el.remove());
+    }
+}
+
+// Ödeme fonksiyonlarını engelle
+window.calculateDiscount = function() {
+    if (!userPermissions.canManagePayments) {
+        Swal.fire('Yetkisiz İşlem', 'İskonto uygulama yetkiniz bulunmuyor!', 'error');
+        return false;
+    }
+    // Orijinal fonksiyon çağrılabilir
+};
+
+window.handlePayment = function() {
+    if (!userPermissions.canManagePayments) {
+        Swal.fire('Yetkisiz İşlem', 'Ödeme alma yetkiniz bulunmuyor!', 'error');
+        return false;
+    }
+    // Orijinal fonksiyon çağrılabilir
 };
 </script>
 <?php include 'navbar.php'; ?>  

@@ -1,63 +1,61 @@
 <?php
+header('Content-Type: application/json');
 require_once '../../includes/config.php';
+require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 
 if (!isLoggedIn()) {
     die(json_encode(['success' => false, 'message' => 'Yetkisiz erişim']));
 }
 
-if (!isset($_GET['id'])) {
-    die(json_encode(['success' => false, 'message' => 'Rezervasyon ID gerekli']));
-}
-
-$db = new Database();
-
-// Rezervasyon detaylarını ve masa bilgisini çekelim
-$query = "SELECT 
-            r.*,
-            t.table_no,
-            t.id as table_id
-          FROM reservations r
-          LEFT JOIN tables t ON r.table_id = t.id
-          WHERE r.id = ?";
-
 try {
-    $stmt = $db->prepare($query);
-    $stmt->execute([$_GET['id']]);
-    $reservation = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($reservation) {
-        // Ön siparişleri ayrı bir sorgu ile çekelim
-        $orderQuery = "SELECT 
-                        ro.id,
-                        p.name,
-                        ro.quantity,
-                        p.price,
-                        (ro.quantity * p.price) as total
-                      FROM reservation_orders ro
-                      JOIN products p ON ro.product_id = p.id
-                      WHERE ro.reservation_id = ?";
-        
-        $orderStmt = $db->prepare($orderQuery);
-        $orderStmt->execute([$_GET['id']]);
-        $preOrders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Ön sipariş verilerini ekleyelim
-        $reservation['pre_order_items'] = json_encode($preOrders ?: []);
-
-        echo json_encode([
-            'success' => true,
-            'reservation' => $reservation
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Rezervasyon bulunamadı'
-        ]);
+    $db = new Database();
+    
+    // ID kontrolü
+    if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+        throw new Exception('Geçersiz rezervasyon ID');
     }
+    
+    $id = (int)$_GET['id'];
+
+    // Rezervasyon bilgilerini çek
+    $reservation = $db->query(
+        "SELECT r.*, t.table_no,
+        (SELECT GROUP_CONCAT(
+            JSON_OBJECT(
+                'name', p.name,
+                'quantity', po.quantity,
+                'price', po.price,
+                'total', (po.quantity * po.price)
+            )
+        )
+        FROM pre_orders po
+        JOIN products p ON po.item_id = p.id
+        WHERE po.reservation_id = r.id) as pre_order_items
+        FROM reservations r
+        LEFT JOIN tables t ON r.table_id = t.id
+        WHERE r.id = ?",
+        [$id]
+    )->fetch();
+
+    if (!$reservation) {
+        throw new Exception('Rezervasyon bulunamadı');
+    }
+
+    // Pre-order items'ı JSON array'e çevir
+    if ($reservation['pre_order_items']) {
+        $reservation['pre_order_items'] = '[' . $reservation['pre_order_items'] . ']';
+    }
+
+    echo json_encode([
+        'success' => true,
+        'reservation' => $reservation
+    ]);
+
 } catch (Exception $e) {
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => 'Veritabanı hatası: ' . $e->getMessage()
+        'message' => $e->getMessage()
     ]);
 } 

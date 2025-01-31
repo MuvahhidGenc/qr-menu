@@ -10,8 +10,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Yetki kontrolü
-if (!hasPermission('orders.manage')) {
+// Yetki kontrolü - orders.manage yerine orders.status kontrolü yapılıyor
+if (!hasPermission('orders.status')) {
     echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
     exit;
 }

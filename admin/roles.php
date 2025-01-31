@@ -53,6 +53,8 @@ $allPermissions = [
         'title' => 'Siparişler',
         'permissions' => [
             'view' => 'Görüntüleme',
+            'status' => 'Durum Değiştirme',
+            'view_payments' => 'Ödemeleri Görüntüleme'
         ]
     ],
     'tables' => [
@@ -65,7 +67,8 @@ $allPermissions = [
             'add_order' => 'Sipariş Ekleme',
             'edit_order' => 'Sipariş Güncelleme',
             'delete_order' => 'Sipariş Silme',
-            'save_order' => 'Sipariş Kaydetme'
+            'save_order' => 'Sipariş Kaydetme',
+            'view_payments' => 'Ödemeleri Görüntüleme'
         ]
     ],
     'kitchen' => [
@@ -110,8 +113,10 @@ $allPermissions = [
         'title' => 'Ödemeler',
         'permissions' => [
             'view' => 'Görüntüleme',
-            'create' => 'Ödeme Alma',
-            'cancel' => 'Ödeme İptal'
+            'manage' => 'Yönetim',
+            'cancel' => 'Ödeme İptali',
+            'reorder' => 'Masaya Aktarma',
+            'view_completed' => 'Tamamlanan Ödemeleri Görüntüleme'
         ]
     ],
     'reservations' => [

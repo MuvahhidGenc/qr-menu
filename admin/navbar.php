@@ -1019,7 +1019,7 @@
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('payments.view') && hasPermission('payments.manage')): ?>
+                    <?php if (hasPermission('payments.view') /*&& hasPermission('payments.manage')*/): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
                                 <i class="fas fa-money-bill-wave me-2"></i>

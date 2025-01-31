@@ -4,11 +4,13 @@ require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
-try {
-    if (!hasPermission('payments.manage')) {
-        throw new Exception('Bu işlem için yetkiniz yok!');
-    }
+// Sadece payments.cancel yetkisi kontrolü yeterli
+if (!hasPermission('payments.cancel')) {
+    echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
+    exit;
+}
 
+try {
     $data = json_decode(file_get_contents('php://input'), true);
     $paymentId = $data['payment_id'] ?? null;
     $cancelNote = $data['cancel_note'] ?? null;
