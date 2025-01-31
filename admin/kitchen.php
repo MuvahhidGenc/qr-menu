@@ -117,8 +117,23 @@ function refreshOrders() {
         });
 }
 
+// Yetki değişkenini JavaScript'te tanımla
+const userPermissions = {
+    canManageKitchen: <?php echo $canManage ? 'true' : 'false' ?>
+};
+
 // Sipariş durumunu güncelle
 function updateOrderStatus(orderId, status) {
+    // Yetki kontrolü
+    if (!userPermissions.canManageKitchen) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Yetkisiz İşlem',
+            text: 'Bu işlem için mutfak yönetim yetkiniz bulunmamaktadır.'
+        });
+        return;
+    }
+
     let title = status === 'ready' ? 'Siparişi Hazırla' : 'Siparişi İptal Et';
     let text = status === 'ready' ? 
         'Bu siparişi hazır olarak işaretlemek istediğinize emin misiniz?' : 
@@ -172,6 +187,14 @@ function updateOrderStatus(orderId, status) {
 
 // Butonlar için event listener'ları ekle
 function initializeOrderButtons() {
+    // Yetki kontrolü
+    if (!userPermissions.canManageKitchen) {
+        document.querySelectorAll('.order-actions').forEach(actionDiv => {
+            actionDiv.style.display = 'none';
+        });
+        return;
+    }
+
     // Hazırla butonları
     document.querySelectorAll('.prepare-order').forEach(button => {
         button.addEventListener('click', function() {

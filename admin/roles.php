@@ -18,7 +18,7 @@ $db = new Database();
 // Süper admin değilse sistem rollerini gösterme
 $roleQuery = isSuperAdmin() 
     ? "SELECT * FROM roles ORDER BY id DESC" 
-    : "SELECT * FROM roles WHERE slug != 'super-admin' AND is_system = 0 ORDER BY id DESC";
+    : "SELECT * FROM roles ORDER BY id DESC";
 
 $roles = $db->query($roleQuery)->fetchAll();
 
@@ -248,8 +248,13 @@ require_once 'navbar.php';
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (!$role['is_system'] || isSuperAdmin()): ?>
-                                    <?php if ($canEditRole): ?>
+                                <?php 
+                                // Düzenleme ve silme butonları için yetki kontrolü
+                                // Süper admin her şeyi görebilir ve düzenleyebilir
+                                // Normal kullanıcılar sadece yetkisi varsa ve sistem rolü değilse görebilir
+                                if (isSuperAdmin() || 
+                                    ($canEditRole && (!$role['is_system'] || $role['slug'] !== 'super-admin'))): 
+                                ?>
                                     <button class="btn btn-sm btn-primary edit-role" 
                                             data-id="<?= $role['id'] ?>"
                                             data-name="<?= htmlspecialchars($role['name']) ?>"
@@ -257,14 +262,16 @@ require_once 'navbar.php';
                                             data-permissions='<?= htmlspecialchars($role['permissions']) ?>'>
                                         <i class="fas fa-edit"></i> Düzenle
                                     </button>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($canDeleteRole && !$role['is_system']): ?>
+                                <?php endif; ?>
+
+                                <?php 
+                                // Silme butonu için yetki kontrolü
+                                if ((isSuperAdmin() || $canDeleteRole) && !$role['is_system']): 
+                                ?>
                                     <button class="btn btn-sm btn-danger delete-role" 
                                             data-id="<?= $role['id'] ?>">
                                         <i class="fas fa-trash"></i> Sil
                                     </button>
-                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -407,6 +414,9 @@ require_once 'navbar.php';
 
 <!-- Custom CSS -->
 <style>
+    .nav-link {
+    display: flex!important;
+    };
 .card {
     border: none;
     border-radius: 15px;

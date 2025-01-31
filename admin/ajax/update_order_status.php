@@ -1,4 +1,5 @@
 <?php
+require_once '../../includes/db.php';
 require_once '../../includes/config.php';
 require_once '../../includes/auth.php';
 
@@ -10,9 +11,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Yetki kontrolü - orders.manage yerine orders.status kontrolü yapılıyor
-if (!hasPermission('orders.status')) {
-    echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
+// Mutfak yönetim yetkisi VEYA sipariş durumu değiştirme yetkisi kontrolü
+if (!hasPermission('kitchen.manage') && !hasPermission('orders.status')) {
+    echo json_encode(['success' => false, 'message' => 'Sipariş durumunu değiştirme yetkiniz bulunmamaktadır.']);
     exit;
 }
 
