@@ -896,73 +896,189 @@ function saveReservation() {
 }
 
 function updateStatus(id, status) {
-    // Eğer onaylama işlemiyse, masa seçimi için modal göster
-    if (status === 'confirmed') {
-        Swal.fire({
-            title: 'Masa Seçimi',
-            html: `
-                <select id="table_id" class="form-select">
-                    <option value="">Masa Seçin</option>
-                    ${tables.map(table => `
-                        <option value="${table.id}">Masa ${table.table_no}</option>
-                    `).join('')}
-                </select>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'Onayla',
-            cancelButtonText: 'İptal',
-            preConfirm: () => {
-                const tableId = document.getElementById('table_id').value;
-                if (!tableId) {
-                    Swal.showValidationMessage('Lütfen bir masa seçin');
+    if (status === 'cancelled') {
+        // Önce rezervasyon ve sipariş durumunu kontrol et
+        fetch(`ajax/check_reservation_status.php?id=${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let confirmMessage = 'Rezervasyonu iptal etmek istediğinize emin misiniz?';
+                    let orderDetailsHtml = '';
+
+                    // Eğer aktif siparişler varsa
+                    if (data.active_orders && data.active_orders.length > 0) {
+                        orderDetailsHtml = `
+                            <div class="mt-3">
+                                <h6 class="text-warning mb-2">Aşağıdaki siparişler iptal edilecek:</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Ürün</th>
+                                                <th>Adet</th>
+                                                <th>Fiyat</th>
+                                                <th>Toplam</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${data.active_orders.map(item => `
+                                                <tr>
+                                                    <td>${item.product_name}</td>
+                                                    <td>${item.quantity}</td>
+                                                    <td>${item.price} ₺</td>
+                                                    <td>${(item.price * item.quantity).toFixed(2)} ₺</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>Toplam:</strong></td>
+                                                <td><strong>${data.active_orders.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2)} ₺</strong></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                        confirmMessage = 'Bu işlem masaya aktarılan siparişleri de iptal edecektir.';
+                    }
+
+                    Swal.fire({
+                        title: 'Dikkat!',
+                        html: `
+                            <p>${confirmMessage}</p>
+                            ${orderDetailsHtml}
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Evet, İptal Et',
+                        cancelButtonText: 'Vazgeç',
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const formData = new FormData();
+                            formData.append('id', id);
+                            formData.append('status', status);
+
+                            fetch('ajax/update_reservation.php', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Başarılı!',
+                                        text: data.message,
+                                        showConfirmButton: false,
+                                        timer: 1500
+                                    }).then(() => location.reload());
+                                } else {
+                                    throw new Error(data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Hata:', error);
+                                Swal.fire('Hata!', error.message, 'error');
+                            });
+                        }
+                    });
+                } else {
+                    throw new Error(data.message);
                 }
-                return tableId;
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                updateReservationStatus(id, status, result.value);
-            }
-        });
-    } else {
-        updateReservationStatus(id, status);
-    }
-}
-
-function updateReservationStatus(id, status, tableId = null) {
-    const formData = new FormData();
-    formData.append('id', id);
-    formData.append('status', status);
-    if (tableId) {
-        formData.append('table_id', tableId);
-    }
-
-    fetch('ajax/update_reservation.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Başarılı!',
-                text: data.message,
-                showConfirmButton: false,
-                timer: 1500
-            }).then(() => {
-                location.reload();
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                Swal.fire('Hata!', error.message, 'error');
             });
-        } else {
-            throw new Error(data.message);
-        }
-    })
-    .catch(error => {
-        Swal.fire({
-            icon: 'error',
-            title: 'Hata!',
-            text: error.message
-        });
-    });
+    } else if (status === 'confirmed') {
+        // Önce rezervasyon detaylarını al
+        fetch(`ajax/get_reservation.php?id=${id}`)
+            .then(response => response.json())
+            .then(reservationData => {
+                if (!reservationData.success) {
+                    throw new Error(reservationData.message);
+                }
+
+                const reservation = reservationData.reservation;
+                
+                // Masa seçim modalını göster
+                Swal.fire({
+                    title: 'Masa Seçimi',
+                    html: `
+                        <select id="table_id" class="form-select">
+                            <option value="">Masa Seçin</option>
+                            ${tables.map(table => `
+                                <option value="${table.id}" 
+                                    ${reservation.table_id == table.id ? 'selected' : ''}>
+                                    Masa ${table.table_no}
+                                </option>
+                            `).join('')}
+                        </select>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Onayla',
+                    cancelButtonText: 'İptal',
+                    preConfirm: () => {
+                        const tableId = document.getElementById('table_id').value;
+                        if (!tableId) {
+                            Swal.showValidationMessage('Lütfen bir masa seçin');
+                            return false;
+                        }
+                        return tableId;
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Form verilerini oluştur
+                        const formData = new FormData();
+                        formData.append('id', id);
+                        formData.append('status', status);
+                        formData.append('table_id', result.value);
+                        formData.append('transfer_orders', '1'); // Siparişleri aktarmak için flag
+
+                        // Debug için konsola yazdır
+                        console.log('Gönderilen veriler:', {
+                            id: id,
+                            status: status,
+                            table_id: result.value,
+                            transfer_orders: '1'
+                        });
+
+                        // Siparişleri aktar
+                        fetch('ajax/update_reservation.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Sunucu yanıtı:', data); // Debug için yanıtı yazdır
+                            
+                            if (data.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Başarılı!',
+                                    text: data.message,
+                                    showConfirmButton: false,
+                                    timer: 1500
+                                }).then(() => location.reload());
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Hata:', error); // Debug için hataları yazdır
+                            Swal.fire('Hata!', error.message, 'error');
+                        });
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                Swal.fire('Hata!', error.message, 'error');
+            });
+    }
 }
 
 function viewReservation(id) {

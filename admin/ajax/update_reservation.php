@@ -1,105 +1,157 @@
 <?php
-header('Content-Type: application/json');
-require_once '../../includes/config.php';
 require_once '../../includes/db.php';
+require_once '../../includes/config.php';
+
+header('Content-Type: application/json');
+
+// Debug için gelen verileri logla
+error_log("POST Verileri: " . print_r($_POST, true));
+
+if (!isset($_POST['id']) || !isset($_POST['status'])) {
+    echo json_encode(['success' => false, 'message' => 'Gerekli parametreler eksik']);
+    exit;
+}
+
+$id = $_POST['id'];
+$status = $_POST['status'];
+$tableId = $_POST['table_id'] ?? null;
 
 try {
     $db = new Database();
-    $db->beginTransaction();
+    
+    // Önce pre_orders tablosundan siparişleri al
+    $preOrders = $db->query(
+        "SELECT po.*, p.name as product_name 
+        FROM pre_orders po 
+        JOIN products p ON p.id = po.item_id 
+        WHERE po.reservation_id = ?", 
+        [$id]
+    )->fetchAll();
 
-    $id = intval($_POST['id'] ?? 0);
-    $status = $_POST['status'] ?? '';
-    $table_id = intval($_POST['table_id'] ?? 0);
+    error_log("Bulunan Ön Siparişler: " . print_r($preOrders, true));
 
-    if (!$id || !$status) {
-        throw new Exception('Geçersiz parametreler');
+    // Eğer onaylama işlemi ve masa seçimi yapıldıysa
+    if ($status === 'confirmed' && $tableId && !empty($preOrders)) {
+        // Toplam tutarı hesapla
+        $totalAmount = array_reduce($preOrders, function($carry, $item) {
+            return $carry + ($item['price'] * $item['quantity']);
+        }, 0);
+
+        // Yeni sipariş oluştur
+        $db->query(
+            "INSERT INTO orders (
+                reservation_id, 
+                table_id, 
+                status, 
+                total_amount, 
+                created_at
+            ) VALUES (?, ?, 'pending', ?, NOW())",
+            [$id, $tableId, $totalAmount]
+        );
+        
+        $orderId = $db->lastInsertId();
+        error_log("Oluşturulan Sipariş ID: " . $orderId);
+
+        // Sipariş ürünlerini ekle
+        foreach ($preOrders as $item) {
+            $db->query(
+                "INSERT INTO order_items (
+                    order_id, 
+                    product_id, 
+                    quantity, 
+                    price, 
+                    created_at
+                ) VALUES (?, ?, ?, ?, NOW())",
+                [
+                    $orderId, 
+                    $item['item_id'], 
+                    $item['quantity'], 
+                    $item['price']
+                ]
+            );
+        }
+
+        // Bildirim oluştur
+        $tableNo = $db->query(
+            "SELECT table_no FROM tables WHERE id = ?", 
+            [$tableId]
+        )->fetch()['table_no'];
+
+        $db->query(
+            "INSERT INTO notifications (
+                order_id, 
+                type, 
+                message, 
+                created_at
+            ) VALUES (?, 'new_order', ?, NOW())",
+            [
+                $orderId,
+                "Masa {$tableNo}'dan yeni sipariş geldi!"
+            ]
+        );
     }
 
-    // Rezervasyon durumunu güncelle
-    $updateQuery = "UPDATE reservations 
-                   SET status = ?, 
-                       table_id = ? 
-                   WHERE id = ?";
-    $db->query($updateQuery, [$status, $table_id, $id]);
-
-    // Eğer rezervasyon onaylandıysa, siparişleri orders tablosuna ekle
-    if ($status === 'confirmed') {
-        // Rezervasyon siparişlerini kontrol et
-        $reservationOrders = $db->query(
-            "SELECT * FROM reservation_orders WHERE reservation_id = ?", 
+    // Eğer iptal işlemi ise ve masaya aktarılmış siparişler varsa
+    if ($status === 'cancelled') {
+        // Aktif siparişleri bul
+        $activeOrders = $db->query(
+            "SELECT id FROM orders 
+            WHERE reservation_id = ? 
+            AND status NOT IN ('cancelled', 'completed')",
             [$id]
         )->fetchAll();
 
-        if (!empty($reservationOrders)) {
-            // Toplam tutarı hesapla
-            $totalAmount = array_reduce($reservationOrders, function($carry, $item) {
-                return $carry + ($item['price'] * $item['quantity']);
-            }, 0);
-
-            // Ana sipariş kaydını oluştur
-            $orderQuery = "INSERT INTO orders (
-                reservation_id,
-                table_id,
-                status,
-                total_amount,
-                order_code
-            ) VALUES (?, ?, 'pending', ?, ?)";
-
-            $orderCode = strtoupper(substr(uniqid(), -6));
-            $db->query($orderQuery, [$id, $table_id, $totalAmount, $orderCode]);
-            $orderId = $db->lastInsertId();
-
-            // Sipariş detaylarını ekle
-            foreach ($reservationOrders as $item) {
-                $itemQuery = "INSERT INTO order_items (
-                    order_id,
-                    product_id,
-                    quantity,
-                    price
-                ) VALUES (?, ?, ?, ?)";
-
-                $db->query($itemQuery, [
-                    $orderId,
-                    $item['product_id'],
-                    $item['quantity'],
-                    $item['price']
-                ]);
-            }
+        // Varsa siparişleri iptal et
+        foreach ($activeOrders as $order) {
+            // Siparişi iptal et
+            $db->query(
+                "UPDATE orders SET status = 'cancelled' WHERE id = ?",
+                [$order['id']]
+            );
 
             // Bildirim oluştur
-            $notificationQuery = "INSERT INTO notifications (
-                type,
-                message,
-                order_id
-            ) SELECT 
-                'new_order',
-                CONCAT('Masa ', t.table_no, ' için onaylanan rezervasyondan yeni sipariş'),
-                o.id
-            FROM orders o
-            JOIN tables t ON t.id = o.table_id
-            WHERE o.id = ?
-            LIMIT 1";
-
-            $db->query($notificationQuery, [$orderId]);
+            $db->query(
+                "INSERT INTO notifications (
+                    order_id, type, message, created_at
+                ) VALUES (?, 'order_status', ?, NOW())",
+                [
+                    $order['id'],
+                    "Sipariş #" . $order['id'] . " rezervasyon iptali nedeniyle iptal edildi"
+                ]
+            );
         }
     }
 
-    $db->commit();
+    // Rezervasyonu güncelle
+    $db->query(
+        "UPDATE reservations SET status = ?, table_id = ? WHERE id = ?",
+        [$status, $tableId, $id]
+    );
 
     echo json_encode([
         'success' => true,
-        'message' => 'Rezervasyon durumu güncellendi'
+        'message' => 'Rezervasyon başarıyla güncellendi' . 
+            (!empty($preOrders) ? ' ve siparişler masaya aktarıldı' : ''),
+        'debug' => [
+            'reservation_id' => $id,
+            'table_id' => $tableId,
+            'order_count' => count($preOrders),
+            'total_amount' => $totalAmount ?? 0
+        ]
     ]);
 
-} catch (Exception $e) {
-    if (isset($db) && $db->inTransaction()) {
-        $db->rollBack();
-    }
-
-    error_log('Reservation Update Error: ' . $e->getMessage());
-    
+} catch (PDOException $e) {
+    error_log("PDO Hatası: " . $e->getMessage());
     echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
+        'success' => false, 
+        'message' => 'Veritabanı hatası: ' . $e->getMessage(),
+        'sql_error' => $e->getMessage()
+    ]);
+} catch (Exception $e) {
+    error_log("Genel Hata: " . $e->getMessage());
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Bir hata oluştu: ' . $e->getMessage(),
+        'error' => $e->getMessage()
     ]);
 } 
