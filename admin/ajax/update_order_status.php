@@ -30,10 +30,31 @@ try {
     $db = new Database();
 
     // Siparişi güncelle
-    $result = $db->query(
-        "UPDATE orders SET status = ? WHERE id = ?",
-        [$status, $order_id]
-    );
+    if ($status === 'cancelled') {
+        // İptal edildiğinde cancelled_at'i güncelle
+        $result = $db->query(
+            "UPDATE orders 
+             SET status = ?, cancelled_at = CURRENT_TIMESTAMP 
+             WHERE id = ?",
+            ['cancelled', $order_id]
+        );
+    } else if ($status === 'completed') {
+        // Tamamlandığında completed_at'i güncelle
+        $result = $db->query(
+            "UPDATE orders 
+             SET status = ?, completed_at = CURRENT_TIMESTAMP 
+             WHERE id = ?",
+            ['completed', $order_id]
+        );
+    } else {
+        // Diğer durumlarda sadece status'ü güncelle
+        $result = $db->query(
+            "UPDATE orders 
+             SET status = ? 
+             WHERE id = ?",
+            [$status, $order_id]
+        );
+    }
 
     if ($result) {
         // Bildirim ekle

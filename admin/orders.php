@@ -37,7 +37,12 @@ $orderTypes = [
 ];
 
 // Sorgu oluştur
-$query = "SELECT o.*, t.table_no 
+$query = "SELECT o.*, t.table_no, 
+          CASE 
+              WHEN o.status = 'cancelled' THEN o.cancelled_at 
+              WHEN o.status = 'completed' THEN o.completed_at 
+              ELSE o.created_at 
+          END as display_date
           FROM orders o 
           LEFT JOIN tables t ON o.table_id = t.id 
           WHERE 1=1";
@@ -368,11 +373,13 @@ select:disabled {
                             <th>Masa</th>
                             <th>Tutar</th>
                             <th>Durum</th>
-                            <?php if($filter_type === 'active'): ?>
-                                <th>Bekleme Süresi</th>
-                            <?php else: ?>
-                                <th>Tamamlanma Tarihi</th>
-                            <?php endif; ?>
+                            <th>
+                                <?php if($filter_type === 'active'): ?>
+                                    Bekleme Süresi
+                                <?php else: ?>
+                                    <?= $filter_type === 'cancelled' ? 'İptal Edilme Tarihi' : 'Tamamlanma Tarihi' ?>
+                                <?php endif; ?>
+                            </th>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
@@ -462,7 +469,10 @@ select:disabled {
                                             }
                                             ?>
                                         <?php else: ?>
-                                            <?= date('d.m.Y H:i', strtotime($order['completed_at'])) ?>
+                                            <?php 
+                                            $displayDate = $filter_type === 'cancelled' ? $order['cancelled_at'] : $order['completed_at'];
+                                            echo !empty($displayDate) ? date('d.m.Y H:i', strtotime($displayDate)) : date('d.m.Y H:i', strtotime($order['created_at']));
+                                            ?>
                                         <?php endif; ?>
                                     </td>
                                     <td>
