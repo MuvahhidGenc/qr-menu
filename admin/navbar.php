@@ -998,6 +998,13 @@
                         </a>
                     </li>
                     <?php endif; ?>
+                    <?php if (hasPermission('products.view')): ?>   
+                    <li class="nav-item">
+                        <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
+                            <i class="fas fa-utensils me-2"></i>Ürünler & Kategoriler
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <?php if (hasPermission('orders.view')): ?>
                     <li class="nav-item">
                         <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
@@ -1012,13 +1019,7 @@
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('products.view')): ?>   
-                    <li class="nav-item">
-                        <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
-                            <i class="fas fa-utensils me-2"></i>Ürünler & Kategoriler
-                        </a>
-                    </li>
-                    <?php endif; ?>
+               
                     <?php if (hasPermission('payments.view') /*&& hasPermission('payments.manage')*/): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
@@ -1026,9 +1027,15 @@
                                 Alınmış Ödemeler
                             </a>
                         </li>
+                      
                     <?php endif; ?>
                     <!-- Genel İst atistikler panel menüsü -->
                     <?php if (hasPermission('reports.view')): ?>
+                        <li class="nav-item">
+                        <a href="expenses.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : '' ?>">
+                            <i class="fas fa-money-bill-wave me-2"></i>Gider Yönetimi
+                        </a>
+                    </li>
                     <li class="nav-item">
 
                         <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'active show' : '' ?>" 
@@ -1086,23 +1093,8 @@
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('settings.view')): ?>
-                    <li class="nav-item">
-                        <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
-                            <i class="fas fa-cog me-2"></i>Ayarlar
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (hasPermission('order_settings.view')): ?>
-                    <li class="nav-item">
-                        <a class="nav-link <?php echo $currentPage == 'order_settings.php' ? 'active' : ''; ?>" href="order_settings.php">
-                            <i class="fas fa-cog me-2"></i>
-                            Sipariş Ayarları
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <!-- Genel İstatistikler'den sonra eklenecek -->
-                    <?php if (hasPermission('admins.view') || hasPermission('roles.view')): ?>
+                       <!-- Genel İstatistikler'den sonra eklenecek -->
+                       <?php if (hasPermission('admins.view') || hasPermission('roles.view')): ?>
                     <li class="nav-item">
                         <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'active show' : '' ?>" 
                         data-bs-toggle="collapse" 
@@ -1136,16 +1128,25 @@
                         </div>
                     </li>
                     <?php endif; ?>
+
+                    <?php if (hasPermission('order_settings.view')): ?>
                     <li class="nav-item">
-                        <a href="employees.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'employees.php' ? 'active' : '' ?>">
-                            <i class="fas fa-users me-2"></i>Personel Yönetimi
+                        <a class="nav-link <?php echo $currentPage == 'order_settings.php' ? 'active' : ''; ?>" href="order_settings.php">
+                            <i class="fas fa-cog me-2"></i>
+                            Sipariş Ayarları
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('settings.view')): ?>
                     <li class="nav-item">
-                        <a href="expenses.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : '' ?>">
-                            <i class="fas fa-money-bill-wave me-2"></i>Gider Yönetimi
+                        <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
+                            <i class="fas fa-cog me-2"></i>Ayarlar
                         </a>
                     </li>
+                    <?php endif; ?>
+                   
+                 
+                   
                 </ul>
             </nav>
         </div>
