@@ -1136,13 +1136,16 @@
                         </div>
                     </li>
                     <?php endif; ?>
-                    
-                   <!-- <li class="nav-item">
-                        <a href="admins.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>">
-                            <i class="fas fa-users-cog me-2"></i>Personel Yönetimi
+                    <li class="nav-item">
+                        <a href="employees.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'employees.php' ? 'active' : '' ?>">
+                            <i class="fas fa-users me-2"></i>Personel Yönetimi
                         </a>
-                    </li>-->
-                   
+                    </li>
+                    <li class="nav-item">
+                        <a href="expenses.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : '' ?>">
+                            <i class="fas fa-money-bill-wave me-2"></i>Gider Yönetimi
+                        </a>
+                    </li>
                 </ul>
             </nav>
         </div>

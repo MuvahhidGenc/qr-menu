@@ -20,6 +20,10 @@ $canAdd = hasPermission('users.add');
 $canEdit = hasPermission('users.edit');
 $canDelete = hasPermission('users.delete');
 
+// Ayarları getir
+$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key = 'currency'")->fetch();
+$currency = $settingsQuery['setting_value'] ?? '₺';
+
 // Süper admin değilse, süper adminleri gösterme
 $adminQuery = isSuperAdmin() 
     ? "SELECT a.*, r.name as role_name 
@@ -56,25 +60,73 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                $db->query("INSERT INTO admins (username, password, name, email, role) 
-                           VALUES (?, ?, ?, ?, ?)", 
-                           [$_POST['username'], $password, $_POST['name'], 
-                            $_POST['email'], $_POST['role']]);
+                $salary = !empty($_POST['salary']) ? floatval($_POST['salary']) : null;
+                $bonus = !empty($_POST['bonus_percentage']) ? floatval($_POST['bonus_percentage']) : null;
+                
+                try {
+                    $sql = "INSERT INTO admins (username, password, name, email, role_id, salary, bonus_percentage) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    $params = [
+                        $_POST['username'],
+                        $password,
+                        $_POST['name'],
+                        $_POST['email'],
+                        $_POST['role_id'],
+                        $salary,
+                        $bonus
+                    ];
+                    
+                    $db->query($sql, $params);
+                    echo json_encode(['success' => true]);
+                    exit;
+                } catch (Exception $e) {
+                    error_log('Hata: ' . $e->getMessage());
+                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                    exit;
+                }
                 break;
 
             case 'edit':
-                $updates = [
-                    'name' => $_POST['name'],
-                    'email' => $_POST['email'],
-                    'role' => $_POST['role'],
-                    'status' => $_POST['status']
-                ];
-                
-                if (!empty($_POST['password'])) {
-                    $updates['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                try {
+                    $id = intval($_POST['id']);
+                    $salary = isset($_POST['salary']) && $_POST['salary'] !== '' ? floatval($_POST['salary']) : null;
+                    $bonus = isset($_POST['bonus_percentage']) && $_POST['bonus_percentage'] !== '' ? floatval($_POST['bonus_percentage']) : null;
+                    
+                    $updates = [
+                        "username = ?",
+                        "name = ?",
+                        "email = ?",
+                        "role_id = ?",
+                        "salary = ?",
+                        "bonus_percentage = ?"
+                    ];
+                    
+                    $params = [
+                        $_POST['username'],
+                        $_POST['name'],
+                        $_POST['email'],
+                        $_POST['role_id'],
+                        $salary,
+                        $bonus
+                    ];
+
+                    if (!empty($_POST['password'])) {
+                        $updates[] = "password = ?";
+                        $params[] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                    }
+
+                    $params[] = $id;
+
+                    $sql = "UPDATE admins SET " . implode(", ", $updates) . " WHERE id = ?";
+                    $db->query($sql, $params);
+                    
+                    echo json_encode(['success' => true]);
+                    exit;
+                } catch (Exception $e) {
+                    error_log('Hata: ' . $e->getMessage());
+                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                    exit;
                 }
-                
-                $db->update('admins', $updates, 'id = ?', [$_POST['id']]);
                 break;
 
             case 'delete':
@@ -82,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 break;
         }
         
-        header('Location: admins.php?success=1');
+        header('Location: admins.php');
         exit;
     }
 }
@@ -262,6 +314,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <th width="15%">Ad Soyad</th>
                             <th width="15%">E-posta</th>
                             <th width="15%">Rol</th>
+                            <th width="15%">Maaş</th>
+                            <th width="15%">Prim Yüzdesi</th>
                             <th width="35%">İşlemler</th>
                         </tr>
                     </thead>
@@ -273,6 +327,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <td><?= htmlspecialchars($admin['name']) ?></td>
                             <td><?= htmlspecialchars($admin['email']) ?></td>
                             <td><?= htmlspecialchars($admin['role_name']) ?></td>
+                            <td><?= $admin['salary'] !== null ? number_format($admin['salary'], 2) . ' ' . $currency : 'N/A' ?></td>
+                            <td><?= $admin['bonus_percentage'] !== null ? '%' . number_format($admin['bonus_percentage'], 2) : 'N/A' ?></td>
                             <td class="align-middle">
                                 <?php if ($canEdit): ?>
                                 <button type="button" 
@@ -281,7 +337,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         data-username="<?= htmlspecialchars($admin['username']) ?>"
                                         data-name="<?= htmlspecialchars($admin['name']) ?>"
                                         data-email="<?= htmlspecialchars($admin['email']) ?>"
-                                        data-role="<?= $admin['role_id'] ?>">
+                                        data-role="<?= $admin['role_id'] ?>"
+                                        data-salary="<?= $admin['salary'] ?>"
+                                        data-bonus="<?= $admin['bonus_percentage'] ?>">
                                     <i class="fas fa-edit"></i> Düzenle
                                 </button>
                                 <?php endif; ?>
@@ -333,6 +391,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label for="edit_salary" class="form-label">Maaş</label>
+                        <input type="text" class="form-control" id="edit_salary" name="salary">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_bonus_percentage" class="form-label">Prim Yüzdesi</label>
+                        <input type="text" class="form-control" id="edit_bonus_percentage" name="bonus_percentage">
+                    </div>
+                    <div class="mb-3">
                         <label for="edit_password" class="form-label">Yeni Şifre</label>
                         <input type="password" class="form-control" id="edit_password" name="password">
                         <small class="text-muted">Değiştirmek istemiyorsanız boş bırakın</small>
@@ -348,11 +414,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </div>
 
 <!-- Ekleme Modal -->
-<div class="modal fade" id="addAdminModal">
+<div class="modal fade" id="addAdminModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Yeni Personel Ekle</h5>
+                <h5 class="modal-title">Yeni Yönetici Ekle</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="addAdminForm">
@@ -370,10 +436,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <input type="email" class="form-control" id="email" name="email">
                     </div>
                     <div class="mb-3">
-                        <label for="phone" class="form-label">Telefon</label>
-                        <input type="tel" class="form-control" id="phone" name="phone">
-                    </div>
-                    <div class="mb-3">
                         <label for="role_id" class="form-label">Rol <span class="text-danger">*</span></label>
                         <select class="form-select" id="role_id" name="role_id" required>
                             <option value="">Rol Seçin</option>
@@ -381,6 +443,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <option value="<?= $role['id'] ?>"><?= htmlspecialchars($role['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="salary" class="form-label">Maaş</label>
+                        <input type="text" class="form-control" id="salary" name="salary">
+                    </div>
+                    <div class="mb-3">
+                        <label for="bonus_percentage" class="form-label">Prim Yüzdesi</label>
+                        <input type="text" class="form-control" id="bonus_percentage" name="bonus_percentage">
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Şifre <span class="text-danger">*</span></label>
@@ -412,6 +482,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <!-- Custom JS -->
 <script src="assets/js/admins.js"></script>
+
+<!-- Input Mask -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
 
 </body>

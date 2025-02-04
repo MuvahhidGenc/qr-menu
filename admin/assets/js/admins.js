@@ -146,26 +146,158 @@ $(document).ready(function() {
         });
     });
 
+    // Düzenleme modalını açma
+    $('.edit-admin').on('click', function() {
+        var id = $(this).data('id');
+        var username = $(this).data('username');
+        var name = $(this).data('name');
+        var email = $(this).data('email');
+        var role = $(this).data('role');
+        var salary = $(this).data('salary');
+        var bonus = $(this).data('bonus');
+        
+        $('#edit_id').val(id);
+        $('#edit_username').val(username);
+        $('#edit_name').val(name);
+        $('#edit_email').val(email);
+        $('#edit_role_id').val(role);
+        
+        // Maaş için formatlanmış değer
+        if (salary) {
+            salary = parseFloat(salary).toLocaleString('tr-TR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).replace(/\s/g, '.');
+        }
+        $('#edit_salary').val(salary);
+        
+        // Prim için düz değer
+        $('#edit_bonus_percentage').val(bonus ? parseInt(bonus) : '');
+        
+        $('#editAdminModal').modal('show');
+    });
+
+    // Para birimi formatı için mask tanımlama
+    function initializeMasks() {
+        // Maaş alanı için mask
+        $('#salary, #edit_salary').mask('###.###.###.##0,00', {
+            reverse: true,
+            placeholder: "0,00"
+        });
+        
+        // Prim yüzdesi için sadece sayı kontrolü (0-100 arası)
+        $('#bonus_percentage, #edit_bonus_percentage').on('input', function() {
+            let value = $(this).val().replace(/[^\d]/g, '');
+            if (value > 100) value = 100;
+            $(this).val(value);
+        });
+    }
+
+    // Form gönderiminde değerleri temizle
+    function cleanNumber(value) {
+        if (!value) return null;
+        
+        // Maaş için
+        if (value.includes('.') || value.includes(',')) {
+            return parseFloat(value.replace(/\./g, '').replace(',', '.'));
+        }
+        
+        // Prim için (direkt sayı)
+        return parseFloat(value);
+    }
+
+    // Sayfa yüklendiğinde ve modal açıldığında maskları başlat
+    initializeMasks();
+    
+    $('#addAdminModal, #editAdminModal').on('shown.bs.modal', function () {
+        initializeMasks();
+        
+        // Input alanlarına tıklandığında içeriği seç
+        $('#salary, #edit_salary, #bonus_percentage, #edit_bonus_percentage').on('click', function() {
+            $(this).select();
+        });
+    });
+
+    // Düzenleme formunu gönderme
+    $('#saveEditButton').on('click', function() {
+        var formData = {
+            action: 'edit',
+            id: $('#edit_id').val(),
+            username: $('#edit_username').val(),
+            name: $('#edit_name').val(),
+            email: $('#edit_email').val(),
+            role_id: $('#edit_role_id').val(),
+            salary: cleanNumber($('#edit_salary').val()),
+            bonus_percentage: cleanNumber($('#edit_bonus_percentage').val()),
+            password: $('#edit_password').val()
+        };
+        
+        console.log('Gönderilen veriler:', formData);
+        
+        $.ajax({
+            type: 'POST',
+            url: 'admins.php',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                console.log('Sunucu yanıtı:', response);
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı!',
+                        text: 'Bilgiler güncellendi.',
+                        timer: 1500
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Hata!',
+                        text: response.error || 'Bir hata oluştu!'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Hatası:', error);
+                console.error('Detay:', xhr.responseText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Sistem Hatası!',
+                    text: 'İşlem sırasında bir hata oluştu.'
+                });
+            }
+        });
+    });
+
     // Yeni admin ekleme
     $('#addAdminForm').on('submit', function(e) {
         e.preventDefault();
         
-        // Form verilerini logla
-        console.log('Form Data:', $(this).serialize());
+        var formData = {
+            action: 'add',
+            username: $('#username').val(),
+            name: $('#name').val(),
+            email: $('#email').val(),
+            role_id: $('#role_id').val(),
+            salary: cleanNumber($('#salary').val()),
+            bonus_percentage: cleanNumber($('#bonus_percentage').val()),
+            password: $('#password').val()
+        };
+        
+        console.log('Gönderilen veriler:', formData);
         
         $.ajax({
-            url: 'ajax/add_admin.php',
             type: 'POST',
-            data: $(this).serialize(),
+            url: 'admins.php',
+            data: formData,
             dataType: 'json',
             success: function(response) {
-                console.log('Success Response:', response);
-                if(response.success) {
+                if (response.success) {
                     Swal.fire({
                         icon: 'success',
                         title: 'Başarılı!',
-                        text: 'Yeni kullanıcı başarıyla eklendi.',
-                        showConfirmButton: false,
+                        text: 'Yeni kullanıcı eklendi.',
                         timer: 1500
                     }).then(() => {
                         $('#addAdminModal').modal('hide');
@@ -180,11 +312,12 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('AJAX Error:', {xhr, status, error});
+                console.error('AJAX Hatası:', error);
+                console.error('Detay:', xhr.responseText);
                 Swal.fire({
                     icon: 'error',
                     title: 'Sistem Hatası!',
-                    text: 'Detaylı hata: ' + error
+                    text: 'İşlem sırasında bir hata oluştu.'
                 });
             }
         });

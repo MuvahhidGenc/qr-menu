@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 31 Oca 2025, 14:24:03
+-- Üretim Zamanı: 04 Şub 2025, 14:51:39
 -- Sunucu sürümü: 10.4.32-MariaDB
 -- PHP Sürümü: 8.0.30
 
@@ -36,6 +36,8 @@ CREATE TABLE `admins` (
   `email` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `role_id` int(11) DEFAULT NULL,
+  `salary` decimal(10,2) DEFAULT NULL,
+  `bonus_percentage` decimal(5,2) DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -43,12 +45,12 @@ CREATE TABLE `admins` (
 -- Tablo döküm verisi `admins`
 --
 
-INSERT INTO `admins` (`id`, `username`, `name`, `phone`, `password`, `email`, `created_at`, `role_id`, `status`) VALUES
-(1, 'admin', 'Sistem Yöneticisi', '', '$2y$10$spSmwLUlzZuvmDBv1lUr6OhBwIFl6uK8haA919W2N9Uj3ZqT0sUfu', 'admin@example.com', '2024-12-24 06:40:16', 1, 1),
-(4, 'tmutfak', 'mutfak', '', '$2y$10$8Fl0Ru482zYVTeoD72OMkeE6QNFbp8N1rSN9zlhl6HDoV5RFhhBby', '', '2025-01-30 07:36:44', 3, 1),
-(5, 'tgarson', 'garson', '', '$2y$10$pdV/iMQuZ4AqitDpErrtkeFBw1GkM6a3ySqO68IXJtnTtQK3PoHVC', '', '2025-01-30 07:37:08', 4, 1),
-(6, 'tyonetici', 'yönetici', '', '$2y$10$UvR8pL1D2Cnwle6QQ7BOxuwAjoVe.q9ATN0AosJhe9MNopTcGoeku', '', '2025-01-30 07:37:39', 2, 1),
-(8, 'test', 'test', '', '$2y$10$X8HVN5CRQ7ltUlGf7C5zd.rg.6P7tqhEA3o/QKF7kqpoQEEdKEmea', '', '2025-01-30 08:01:18', 4, 1);
+INSERT INTO `admins` (`id`, `username`, `name`, `phone`, `password`, `email`, `created_at`, `role_id`, `salary`, `bonus_percentage`, `status`) VALUES
+(1, 'admin', 'Sistem Yöneticisi', '', '$2y$10$spSmwLUlzZuvmDBv1lUr6OhBwIFl6uK8haA919W2N9Uj3ZqT0sUfu', 'admin@example.com', '2024-12-24 06:40:16', 1, NULL, NULL, 1),
+(4, 'tmutfak', 'mutfak', '', '$2y$10$8Fl0Ru482zYVTeoD72OMkeE6QNFbp8N1rSN9zlhl6HDoV5RFhhBby', '', '2025-01-30 07:36:44', 3, NULL, NULL, 1),
+(5, 'tgarson', 'garson', '', '$2y$10$pdV/iMQuZ4AqitDpErrtkeFBw1GkM6a3ySqO68IXJtnTtQK3PoHVC', '', '2025-01-30 07:37:08', 4, 12000.00, 2.00, 1),
+(6, 'tyonetici', 'yönetici', '', '$2y$10$UvR8pL1D2Cnwle6QQ7BOxuwAjoVe.q9ATN0AosJhe9MNopTcGoeku', '', '2025-01-30 07:37:39', 2, NULL, NULL, 1),
+(8, 'testr', 'test', '', '$2y$10$X8HVN5CRQ7ltUlGf7C5zd.rg.6P7tqhEA3o/QKF7kqpoQEEdKEmea', '', '2025-01-30 08:01:18', 4, 25000.00, 3.00, 1);
 
 -- --------------------------------------------------------
 
@@ -74,6 +76,64 @@ INSERT INTO `categories` (`id`, `name`, `status`, `sort_order`, `created_at`, `i
 (8, 'ÇORBA', 1, 0, '2025-01-01 12:19:28', '676a6742c6cac.png'),
 (9, 'İÇEÇEK', 1, 1, '2025-01-01 12:20:01', '6769785d70e7b.jpeg'),
 (18, 'TATLI', 1, 2, '2025-01-28 12:51:16', '676a97b066ef6.jpg');
+
+-- --------------------------------------------------------
+
+--
+-- Tablo için tablo yapısı `expenses`
+--
+
+CREATE TABLE `expenses` (
+  `id` int(11) NOT NULL,
+  `category_id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `description` text DEFAULT NULL,
+  `expense_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `staff_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_turkish_ci;
+
+--
+-- Tablo döküm verisi `expenses`
+--
+
+INSERT INTO `expenses` (`id`, `category_id`, `admin_id`, `amount`, `description`, `expense_date`, `created_at`, `updated_at`, `staff_id`) VALUES
+(2, 6, 1, 12000.00, 'garson - Maaş Ödemesi', '2025-02-05', '2025-02-04 13:21:22', '2025-02-04 13:46:42', 5),
+(6, 8, 1, 250.00, 'test', '2025-02-04', '2025-02-04 13:43:41', '2025-02-04 13:43:41', NULL),
+(7, 6, 1, 12000.00, 'garson - Maaş Ödemesi', '2025-02-04', '2025-02-04 13:43:50', '2025-02-04 13:43:50', 5),
+(8, 1, 1, 20000.00, '', '2025-02-04', '2025-02-04 13:44:28', '2025-02-04 13:44:28', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Tablo için tablo yapısı `expense_categories`
+--
+
+CREATE TABLE `expense_categories` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `color` varchar(20) DEFAULT '#3498db',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_turkish_ci;
+
+--
+-- Tablo döküm verisi `expense_categories`
+--
+
+INSERT INTO `expense_categories` (`id`, `name`, `color`, `created_at`, `updated_at`) VALUES
+(1, 'Kira', '#3498db', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(2, 'Elektrik', '#e74c3c', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(3, 'Su', '#2ecc71', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(4, 'Doğalgaz', '#f1c40f', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(5, 'İnternet', '#9b59b6', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(6, 'Personel Maaşları', '#1abc9c', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(7, 'Malzeme Alımı', '#e67e22', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(8, 'Bakım Onarım', '#34495e', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(9, 'Vergi', '#c0392b', '2025-02-04 12:58:31', '2025-02-04 12:58:31'),
+(10, 'Diğer', '#7f8c8d', '2025-02-04 12:58:31', '2025-02-04 12:58:31');
 
 -- --------------------------------------------------------
 
@@ -137,7 +197,17 @@ INSERT INTO `notifications` (`id`, `order_id`, `type`, `message`, `is_read`, `cr
 (231, 99, 'order_status', 'Sipariş #99 hazırlanıyor', 1, '2025-01-31 12:21:14'),
 (232, 101, 'new_order', 'Masa Masa 1\'dan yeni sipariş geldi!', 0, '2025-01-31 13:01:13'),
 (233, 101, 'order_status', 'Sipariş #101 hazırlanıyor', 0, '2025-01-31 13:01:56'),
-(234, 101, 'order_status', 'Sipariş #101 hazırlanıyor', 0, '2025-01-31 13:01:56');
+(234, 101, 'order_status', 'Sipariş #101 hazırlanıyor', 0, '2025-01-31 13:01:56'),
+(235, 101, 'order_status', 'Sipariş #101 iptal edildi', 0, '2025-02-03 06:42:58'),
+(236, 101, 'order_status', 'Sipariş #101 geri alındı', 0, '2025-02-03 06:56:09'),
+(237, 101, 'order_status', 'Sipariş #101 iptal edildi', 0, '2025-02-03 06:56:17'),
+(238, 102, 'order_status', 'Sipariş #102 iptal edildi', 0, '2025-02-03 06:59:24'),
+(239, 102, 'order_status', 'Sipariş #102 geri alındı', 0, '2025-02-03 07:08:32'),
+(240, 102, 'order_status', 'Sipariş #102 iptal edildi', 0, '2025-02-03 07:08:38'),
+(241, 102, 'order_status', 'Sipariş #102 geri alındı', 0, '2025-02-03 07:14:33'),
+(242, 102, 'order_status', 'Sipariş #102 iptal edildi', 0, '2025-02-03 07:14:57'),
+(243, 102, 'order_status', 'Sipariş #102 geri alındı', 0, '2025-02-03 07:15:08'),
+(244, 103, 'order_status', 'Sipariş #103 iptal edildi', 0, '2025-02-03 07:16:39');
 
 -- --------------------------------------------------------
 
@@ -157,28 +227,31 @@ CREATE TABLE `orders` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `payment_id` int(11) DEFAULT NULL,
-  `completed_at` timestamp NULL DEFAULT NULL
+  `completed_at` timestamp NULL DEFAULT NULL,
+  `cancelled_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Tablo döküm verisi `orders`
 --
 
-INSERT INTO `orders` (`id`, `reservation_id`, `table_id`, `status`, `order_code`, `total_amount`, `notes`, `note`, `created_at`, `updated_at`, `payment_id`, `completed_at`) VALUES
-(88, 27, 1, 'completed', NULL, 180.00, NULL, NULL, '2025-01-31 11:17:21', '2025-01-31 11:17:32', 57, '2025-01-31 11:17:32'),
-(89, 27, 5, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:27:16', '2025-01-31 11:27:34', NULL, NULL),
-(90, NULL, 3, 'cancelled', NULL, 300.00, NULL, NULL, '2025-01-31 11:31:17', '2025-01-31 11:31:28', NULL, NULL),
-(91, 27, 4, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:32:19', '2025-01-31 11:32:32', NULL, NULL),
-(92, 27, 3, 'completed', NULL, 180.00, NULL, NULL, '2025-01-31 11:37:29', '2025-01-31 11:37:50', 58, '2025-01-31 11:37:50'),
-(93, 27, 5, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:38:41', '2025-01-31 11:49:30', NULL, NULL),
-(94, 27, 3, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:48:40', '2025-01-31 11:49:30', NULL, NULL),
-(95, 27, 1, 'cancelled', NULL, 240.00, NULL, NULL, '2025-01-31 11:48:50', '2025-01-31 11:49:30', NULL, NULL),
-(96, NULL, 1, 'cancelled', NULL, 662.00, '', NULL, '2025-01-31 11:50:06', '2025-01-31 12:16:12', NULL, NULL),
-(97, 27, 1, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:50:26', '2025-01-31 11:50:44', NULL, NULL),
-(98, 27, 1, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:52:06', '2025-01-31 11:56:51', NULL, NULL),
-(99, 27, 2, 'preparing', NULL, 240.00, NULL, NULL, '2025-01-31 11:55:58', '2025-01-31 12:21:43', NULL, NULL),
-(100, NULL, 8, 'ready', NULL, 726.00, '', NULL, '2025-01-31 12:17:48', '2025-01-31 12:22:00', NULL, NULL),
-(101, NULL, 1, 'preparing', NULL, 300.00, NULL, NULL, '2025-01-31 13:01:13', '2025-01-31 13:01:56', NULL, NULL);
+INSERT INTO `orders` (`id`, `reservation_id`, `table_id`, `status`, `order_code`, `total_amount`, `notes`, `note`, `created_at`, `updated_at`, `payment_id`, `completed_at`, `cancelled_at`) VALUES
+(88, 27, 1, 'completed', NULL, 180.00, NULL, NULL, '2025-01-31 11:17:21', '2025-01-31 11:17:32', 57, '2025-01-31 11:17:32', NULL),
+(89, 27, 5, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:27:16', '2025-01-31 11:27:34', NULL, NULL, NULL),
+(90, NULL, 3, 'cancelled', NULL, 300.00, NULL, NULL, '2025-01-31 11:31:17', '2025-01-31 11:31:28', NULL, NULL, NULL),
+(91, 27, 4, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:32:19', '2025-01-31 11:32:32', NULL, NULL, NULL),
+(92, 27, 3, 'completed', NULL, 180.00, NULL, NULL, '2025-01-31 11:37:29', '2025-01-31 11:37:50', 58, '2025-01-31 11:37:50', NULL),
+(93, 27, 5, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:38:41', '2025-01-31 11:49:30', NULL, NULL, NULL),
+(94, 27, 3, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:48:40', '2025-01-31 11:49:30', NULL, NULL, NULL),
+(95, 27, 1, 'cancelled', NULL, 240.00, NULL, NULL, '2025-01-31 11:48:50', '2025-01-31 11:49:30', NULL, NULL, NULL),
+(96, NULL, 1, 'cancelled', NULL, 662.00, '', NULL, '2025-01-31 11:50:06', '2025-01-31 12:16:12', NULL, NULL, NULL),
+(97, 27, 1, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:50:26', '2025-01-31 11:50:44', NULL, NULL, NULL),
+(98, 27, 1, 'cancelled', NULL, 180.00, NULL, NULL, '2025-01-31 11:52:06', '2025-01-31 11:56:51', NULL, NULL, NULL),
+(99, 27, 2, 'completed', NULL, 240.00, NULL, NULL, '2025-01-31 11:55:58', '2025-02-03 07:11:10', 59, '2025-02-03 07:11:10', NULL),
+(100, NULL, 8, 'completed', NULL, 726.00, '', NULL, '2025-01-31 12:17:48', '2025-02-03 07:15:36', 60, '2025-02-03 07:15:36', NULL),
+(101, NULL, 1, 'cancelled', NULL, 300.00, NULL, NULL, '2025-01-31 13:01:13', '2025-02-03 06:56:17', NULL, NULL, NULL),
+(102, NULL, 8, 'completed', NULL, 270.00, '', NULL, '2025-02-03 06:59:11', '2025-02-03 07:15:36', 60, '2025-02-03 07:15:36', '2025-02-03 07:14:57'),
+(103, NULL, 8, 'cancelled', NULL, 510.00, '', NULL, '2025-02-03 07:16:20', '2025-02-03 07:16:39', NULL, NULL, '2025-02-03 07:16:39');
 
 -- --------------------------------------------------------
 
@@ -253,7 +326,10 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (348, 100, 24, 3, 2.00, '2025-01-31 12:17:48'),
 (349, 100, 25, 3, 240.00, '2025-01-31 12:17:48'),
 (350, 101, 1, 1, 30.00, '2025-01-31 13:01:13'),
-(351, 101, 3, 1, 270.00, '2025-01-31 13:01:13');
+(351, 101, 3, 1, 270.00, '2025-01-31 13:01:13'),
+(352, 102, 3, 1, 270.00, '2025-02-03 06:59:11'),
+(353, 103, 3, 1, 270.00, '2025-02-03 07:16:20'),
+(354, 103, 25, 1, 240.00, '2025-02-03 07:16:20');
 
 -- --------------------------------------------------------
 
@@ -303,7 +379,9 @@ CREATE TABLE `payments` (
 
 INSERT INTO `payments` (`id`, `table_id`, `payment_method`, `total_amount`, `subtotal`, `paid_amount`, `payment_note`, `status`, `created_at`, `discount_type`, `discount_value`, `discount_amount`) VALUES
 (57, 1, 'cash', 144.00, 180.00, 0.00, NULL, 'completed', '2025-01-31 11:17:32', 'percent', 20.00, 36.00),
-(58, 3, 'pos', 150.00, 180.00, 0.00, NULL, 'completed', '2025-01-31 11:37:50', 'amount', 30.00, 30.00);
+(58, 3, 'pos', 150.00, 180.00, 0.00, NULL, 'completed', '2025-01-31 11:37:50', 'amount', 30.00, 30.00),
+(59, 2, 'cash', 240.00, 0.00, 0.00, NULL, 'completed', '2025-02-03 07:11:10', 'percent', 0.00, 0.00),
+(60, 8, 'cash', 796.80, 996.00, 0.00, NULL, 'completed', '2025-02-03 07:15:36', 'percent', 20.00, 199.20);
 
 -- --------------------------------------------------------
 
@@ -484,7 +562,7 @@ CREATE TABLE `settings` (
 --
 
 INSERT INTO `settings` (`setting_key`, `setting_value`, `updated_at`, `header_bg`, `order_code_required`, `order_code_length`) VALUES
-('currency', 'TL', '2025-01-05 10:18:47', NULL, 0, '4'),
+('currency', 'TL', '2025-02-04 08:05:53', NULL, 0, '4'),
 ('header_bg', '677021225bf50.jpg', '2025-01-31 13:10:02', NULL, 0, '4'),
 ('logo', '676a6b29d3f6a.png', '2025-01-05 10:38:55', NULL, 0, '4'),
 ('restaurant_name', 'Deneme', '2025-01-31 13:08:30', NULL, 0, '4'),
@@ -536,6 +614,21 @@ ALTER TABLE `admins`
 ALTER TABLE `categories`
   ADD PRIMARY KEY (`id`),
   ADD KEY `status` (`status`);
+
+--
+-- Tablo için indeksler `expenses`
+--
+ALTER TABLE `expenses`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `category_id` (`category_id`),
+  ADD KEY `admin_id` (`admin_id`),
+  ADD KEY `staff_id` (`staff_id`);
+
+--
+-- Tablo için indeksler `expense_categories`
+--
+ALTER TABLE `expense_categories`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Tablo için indeksler `notifications`
@@ -653,7 +746,7 @@ ALTER TABLE `tables`
 -- Tablo için AUTO_INCREMENT değeri `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `categories`
@@ -662,16 +755,28 @@ ALTER TABLE `categories`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
+-- Tablo için AUTO_INCREMENT değeri `expenses`
+--
+ALTER TABLE `expenses`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- Tablo için AUTO_INCREMENT değeri `expense_categories`
+--
+ALTER TABLE `expense_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
 -- Tablo için AUTO_INCREMENT değeri `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=235;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=245;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=102;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=104;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_codes`
@@ -683,7 +788,7 @@ ALTER TABLE `order_codes`
 -- Tablo için AUTO_INCREMENT değeri `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=352;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=355;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_settings`
@@ -695,7 +800,7 @@ ALTER TABLE `order_settings`
 -- Tablo için AUTO_INCREMENT değeri `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `pre_orders`
@@ -756,6 +861,14 @@ ALTER TABLE `admins`
   ADD CONSTRAINT `admins_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
   ADD CONSTRAINT `admins_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
   ADD CONSTRAINT `admins_ibfk_3` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
+
+--
+-- Tablo kısıtlamaları `expenses`
+--
+ALTER TABLE `expenses`
+  ADD CONSTRAINT `expenses_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `expense_categories` (`id`),
+  ADD CONSTRAINT `expenses_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`),
+  ADD CONSTRAINT `expenses_ibfk_3` FOREIGN KEY (`staff_id`) REFERENCES `admins` (`id`);
 
 --
 -- Tablo kısıtlamaları `orders`
