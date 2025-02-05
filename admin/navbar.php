@@ -1094,6 +1094,12 @@
                                 Alınmış Ödemeler
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="expenses.php">
+                                <i class="fas fa-money-bill-wave me-2"></i>
+                                Gider Yönetimi
+                            </a>
+                        </li>
                       
                     <?php endif; ?>
                     <!-- İstatistikler Menüsü -->
@@ -1497,12 +1503,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebar = document.querySelector('.sidebar');
     const sidebarToggle = document.querySelector('.btn-toggle');
     const mobileToggle = document.querySelector('.mobile-nav .btn-toggle');
+    const mainContent = document.querySelector('.main-content');
 
     // Sidebar toggle fonksiyonu
     function toggleSidebar() {
         sidebar.classList.toggle('active');
-        
-        // Mobil görünümde durumu sakla
         if (window.innerWidth <= 768) {
             localStorage.setItem('sidebarMobile', sidebar.classList.contains('active'));
         }
@@ -1526,66 +1531,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Açılır menüler için
-    const menuToggles = document.querySelectorAll('[data-bs-toggle="collapse"]');
-    
-    menuToggles.forEach(toggle => {
-        toggle.addEventListener('click', function(e) {
+    const collapseButtons = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    collapseButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-
+            
             const targetId = this.getAttribute('href');
-            const targetPanel = document.querySelector(targetId);
-            const isExpanded = targetPanel.classList.contains('show');
-
-            // Diğer açık menüleri kapat
-            menuToggles.forEach(otherToggle => {
-                if (otherToggle !== this) {
-                    const otherId = otherToggle.getAttribute('href');
-                    const otherPanel = document.querySelector(otherId);
-                    if (otherPanel && otherPanel.classList.contains('show')) {
-                        otherPanel.classList.remove('show');
-                        otherToggle.setAttribute('aria-expanded', 'false');
-                        const otherIcon = otherToggle.querySelector('.bi-chevron-down');
-                        if (otherIcon) otherIcon.style.transform = 'rotate(0deg)';
+            const targetCollapse = document.querySelector(targetId);
+            
+            // Diğer menüleri kapat
+            collapseButtons.forEach(otherButton => {
+                if (otherButton !== this) {
+                    const otherId = otherButton.getAttribute('href');
+                    const otherCollapse = document.querySelector(otherId);
+                    if (otherCollapse && otherCollapse.classList.contains('show')) {
+                        new bootstrap.Collapse(otherCollapse).hide();
                     }
                 }
             });
-
+            
             // Tıklanan menüyü aç/kapat
-            targetPanel.classList.toggle('show');
-            this.setAttribute('aria-expanded', !isExpanded);
-            const icon = this.querySelector('.bi-chevron-down');
-            if (icon) {
-                icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
-            }
+            new bootstrap.Collapse(targetCollapse).toggle();
         });
     });
 
-    // Sadece sayfa içeriğine tıklandığında sidebar'ı kapat
-    const mainContent = document.querySelector('.main-content');
+    // Sadece main content'e tıklandığında sidebar'ı kapat
     if (mainContent) {
         mainContent.addEventListener('click', function(e) {
-            // Eğer tıklanan element veya üst elementlerinden biri sidebar ise işlemi durdur
-            if (e.target.closest('.sidebar')) {
-                return;
-            }
-            
-            // Sadece main content'e tıklandığında sidebar'ı kapat
-            if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+            const clickedElement = e.target;
+            // Eğer tıklanan element sidebar veya içindeki bir element değilse
+            if (!sidebar.contains(clickedElement) && window.innerWidth <= 768) {
                 sidebar.classList.remove('active');
                 localStorage.removeItem('sidebarMobile');
             }
         });
     }
-
-    // Sayfa yüklendiğinde mobil durumu kontrol et
-    if (window.innerWidth <= 768) {
-        const sidebarMobile = localStorage.getItem('sidebarMobile') === 'true';
-        if (sidebarMobile) {
-            sidebar.classList.add('active');
-        }
-    }
 });
 </script>
+
 </body>
 </html>

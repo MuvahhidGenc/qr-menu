@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 04 Şub 2025, 14:51:39
+-- Üretim Zamanı: 05 Şub 2025, 12:58:12
 -- Sunucu sürümü: 10.4.32-MariaDB
 -- PHP Sürümü: 8.0.30
 
@@ -350,7 +350,7 @@ CREATE TABLE `order_settings` (
 --
 
 INSERT INTO `order_settings` (`id`, `code_required`, `code_length`, `created_at`, `updated_at`) VALUES
-(1, 0, '6', '2025-01-03 07:04:53', '2025-01-28 18:25:05');
+(1, 0, '6', '2025-01-03 07:04:53', '2025-02-05 11:09:36');
 
 -- --------------------------------------------------------
 
@@ -565,6 +565,13 @@ INSERT INTO `settings` (`setting_key`, `setting_value`, `updated_at`, `header_bg
 ('currency', 'TL', '2025-02-04 08:05:53', NULL, 0, '4'),
 ('header_bg', '677021225bf50.jpg', '2025-01-31 13:10:02', NULL, 0, '4'),
 ('logo', '676a6b29d3f6a.png', '2025-01-05 10:38:55', NULL, 0, '4'),
+('printer_auto_cut', '1', '2025-02-05 07:16:14', NULL, 0, '4'),
+('printer_default', 'Kyocera FS-1040', '2025-02-05 07:13:15', NULL, 0, '4'),
+('printer_footer', '', '2025-02-05 07:13:15', NULL, 0, '4'),
+('printer_header', '', '2025-02-05 07:13:15', NULL, 0, '4'),
+('printer_logo_enabled', '1', '2025-02-05 07:13:15', NULL, 0, '4'),
+('printer_open_drawer', '1', '2025-02-05 07:16:50', NULL, 0, '4'),
+('printer_paper_width', '80', '2025-02-05 07:13:15', NULL, 0, '4'),
 ('restaurant_name', 'Deneme', '2025-01-31 13:08:30', NULL, 0, '4'),
 ('theme_color', '#ff1e00', '2025-01-31 13:08:46', NULL, 0, '4');
 
