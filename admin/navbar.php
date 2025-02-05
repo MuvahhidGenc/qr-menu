@@ -914,6 +914,73 @@
     border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
+/* Dropdown menü stilleri */
+.navbar .dropdown-menu {
+    border: none;
+    border-radius: 8px;
+    margin-top: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.1);
+}
+
+.navbar .dropdown-item {
+    padding: 8px 20px;
+    color: rgba(255,255,255,.8);
+    transition: all 0.2s;
+}
+
+.navbar .dropdown-item:hover {
+    background: rgba(255,255,255,.1);
+    color: #fff;
+}
+
+.navbar .dropdown-item i {
+    width: 20px;
+    margin-right: 10px;
+    text-align: center;
+}
+
+/* Dropdown ok işareti */
+.navbar .dropdown-menu:before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 20px;
+    width: 10px;
+    height: 10px;
+    background: #343a40;
+    transform: rotate(45deg);
+}
+
+/* Aktif menü öğesi */
+.navbar .dropdown-item.active {
+    background-color: rgba(255,255,255,.1);
+}
+
+/* Mobil görünüm için ek stiller */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -250px;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    .btn-toggle {
+        cursor: pointer;
+    }
+    
+    .mobile-nav {
+        z-index: 1040;
+    }
+    
+    .sidebar {
+        z-index: 1030;
+    }
+}
+
     </style>
 
     <!-- Diğer head içerikleri -->
@@ -1029,49 +1096,27 @@
                         </li>
                       
                     <?php endif; ?>
-                    <!-- Genel İst atistikler panel menüsü -->
+                    <!-- İstatistikler Menüsü -->
                     <?php if (hasPermission('reports.view')): ?>
-                        <li class="nav-item">
-                        <a href="expenses.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : '' ?>">
-                            <i class="fas fa-money-bill-wave me-2"></i>Gider Yönetimi
-                        </a>
-                    </li>
                     <li class="nav-item">
-
-                        <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'active show' : '' ?>" 
-                           data-bs-toggle="collapse" 
-                           href="#statisticsPanel" 
-                           role="button"
-                           aria-expanded="<?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'true' : 'false' ?>">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-graph-up me-2" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
-                            </svg>
-                            Genel İstatistikler 
+                        <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#statisticsPanel" role="button" aria-expanded="false" aria-controls="statisticsPanel">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Genel İstatistikler
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                             </svg>
                         </a>
-                        <div class="collapse navbar-collapse bg-dark <?= strpos($_SERVER['PHP_SELF'], 'reports.php') !== false ? 'show' : '' ?>" 
-                             id="statisticsPanel">
-                            <ul class="navbar-nav ps-3">
+                        <div class="collapse" id="statisticsPanel">
+                            <ul class="navbar-nav ps-4 ms-3 border-start">
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : '' ?>" 
-                                       href="reports.php">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-bar-graph me-2" viewBox="0 0 16 16">
-                                            <path d="M10 13.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-6a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v6zm-2.5.5a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-1zm-3 0a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1z"/>
-                                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
-                                        </svg>
+                                    <a class="nav-link text-white d-flex align-items-center" href="reports.php">
+                                        <i class="fas fa-chart-line me-2"></i>
                                         Raporlar
                                     </a>
                                 </li>
-
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'financial.php' ? 'active' : '' ?>" 
-                                       href="financial.php">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cash-stack me-2" viewBox="0 0 16 16">
-                                            <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
-                                            <path d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 0a2 2 0 0 1-2 2v4a2 2 0 0 1 2 2h10a2 2 0 0 1 2-2V7a2 2 0 0 1-2-2H3z"/>
-                                        </svg>
+                                    <a class="nav-link text-white d-flex align-items-center" href="financial.php">
+                                        <i class="fas fa-box me-2"></i>
                                         Finansal Raporlar
                                     </a>
                                 </li>
@@ -1093,33 +1138,26 @@
                         </a>
                     </li>
                     <?php endif; ?>
-                       <!-- Genel İstatistikler'den sonra eklenecek -->
-                       <?php if (hasPermission('admins.view') || hasPermission('roles.view')): ?>
+                       <!-- Kullanıcı Yönetimi Menüsü -->
+                       <?php if (hasPermission('users.view')): ?>
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'active show' : '' ?>" 
-                        data-bs-toggle="collapse" 
-                        href="#userManagementPanel" 
-                        role="button"
-                        aria-expanded="<?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'true' : 'false' ?>">
+                        <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#userManagementPanel" role="button" aria-expanded="false" aria-controls="userManagementPanel">
                             <i class="fas fa-users me-2"></i>
                             Kullanıcı Yönetimi
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                             </svg>
                         </a>
-                        <div class="collapse navbar-collapse bg-dark <?= strpos($_SERVER['PHP_SELF'], 'admins.php') !== false || strpos($_SERVER['PHP_SELF'], 'roles.php') !== false ? 'show' : '' ?>" 
-                            id="userManagementPanel">
-                            <ul class="navbar-nav ps-3">
+                        <div class="collapse" id="userManagementPanel">
+                            <ul class="navbar-nav ps-4 ms-3 border-start">
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'admins.php' ? 'active' : '' ?>" 
-                                    href="admins.php">
+                                    <a class="nav-link text-white d-flex align-items-center" href="admins.php">
                                         <i class="fas fa-users-cog me-2"></i>
                                         Personel Yönetimi
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center <?= basename($_SERVER['PHP_SELF']) == 'roles.php' ? 'active' : '' ?>" 
-                                    href="roles.php">
+                                    <a class="nav-link text-white d-flex align-items-center" href="roles.php">
                                         <i class="fas fa-user-shield me-2"></i>
                                         Kullanıcı Rolleri
                                     </a>
@@ -1128,25 +1166,40 @@
                         </div>
                     </li>
                     <?php endif; ?>
-
-                    <?php if (hasPermission('order_settings.view')): ?>
-                    <li class="nav-item">
-                        <a class="nav-link <?php echo $currentPage == 'order_settings.php' ? 'active' : ''; ?>" href="order_settings.php">
-                            <i class="fas fa-cog me-2"></i>
-                            Sipariş Ayarları
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <?php if (hasPermission('settings.view')): ?>
-                    <li class="nav-item">
-                        <a href="settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : '' ?>">
-                            <i class="fas fa-cog me-2"></i>Ayarlar
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                   
-                 
-                   
+                     <!-- Ayarlar Dropdown Menüsü -->
+                <?php if (hasPermission('settings.view')): ?>
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#settingsPanel" role="button" aria-expanded="false" aria-controls="settingsPanel">
+                        <i class="fas fa-cog me-2"></i>
+                        Ayarlar
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                    </a>
+                    <div class="collapse" id="settingsPanel">
+                        <ul class="navbar-nav ps-4 ms-3 border-start">
+                            <li class="nav-item">
+                                <a class="nav-link text-white d-flex align-items-center" href="settings.php">
+                                    <i class="fas fa-sliders-h me-2"></i>
+                                    Site Ayarları
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white d-flex align-items-center" href="printer_settings.php">
+                                    <i class="fas fa-print me-2"></i>
+                                    Yazıcı Ayarları
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white d-flex align-items-center" href="order_settings.php">
+                                    <i class="fas fa-clipboard-list me-2"></i>
+                                    Sipariş Ayarları
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+              <?php endif; ?>
                 </ul>
             </nav>
         </div>
@@ -1422,3 +1475,117 @@ $(document).ready(function() {
 </script>
 <!-- Bootstrap JS - Sayfanın en altına ekleyin -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Bootstrap JS ve Popper.js -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+
+<script>
+// Dropdown'ı etkinleştir
+document.addEventListener('DOMContentLoaded', function() {
+    var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+    var dropdownList = dropdownElementList.map(function(dropdownToggleEl) {
+        return new bootstrap.Dropdown(dropdownToggleEl);
+    });
+});
+</script>
+
+<!-- Mevcut scriptlerden sonra ekleyin -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sidebar ve toggle elementlerini seç
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggle = document.querySelector('.btn-toggle');
+    const mobileToggle = document.querySelector('.mobile-nav .btn-toggle');
+
+    // Sidebar toggle fonksiyonu
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        
+        // Mobil görünümde durumu sakla
+        if (window.innerWidth <= 768) {
+            localStorage.setItem('sidebarMobile', sidebar.classList.contains('active'));
+        }
+    }
+
+    // Toggle butonlarına click event ekle
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+
+    if (mobileToggle) {
+        mobileToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+
+    // Açılır menüler için
+    const menuToggles = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    
+    menuToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const targetId = this.getAttribute('href');
+            const targetPanel = document.querySelector(targetId);
+            const isExpanded = targetPanel.classList.contains('show');
+
+            // Diğer açık menüleri kapat
+            menuToggles.forEach(otherToggle => {
+                if (otherToggle !== this) {
+                    const otherId = otherToggle.getAttribute('href');
+                    const otherPanel = document.querySelector(otherId);
+                    if (otherPanel && otherPanel.classList.contains('show')) {
+                        otherPanel.classList.remove('show');
+                        otherToggle.setAttribute('aria-expanded', 'false');
+                        const otherIcon = otherToggle.querySelector('.bi-chevron-down');
+                        if (otherIcon) otherIcon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            });
+
+            // Tıklanan menüyü aç/kapat
+            targetPanel.classList.toggle('show');
+            this.setAttribute('aria-expanded', !isExpanded);
+            const icon = this.querySelector('.bi-chevron-down');
+            if (icon) {
+                icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+        });
+    });
+
+    // Sadece sayfa içeriğine tıklandığında sidebar'ı kapat
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.addEventListener('click', function(e) {
+            // Eğer tıklanan element veya üst elementlerinden biri sidebar ise işlemi durdur
+            if (e.target.closest('.sidebar')) {
+                return;
+            }
+            
+            // Sadece main content'e tıklandığında sidebar'ı kapat
+            if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                localStorage.removeItem('sidebarMobile');
+            }
+        });
+    }
+
+    // Sayfa yüklendiğinde mobil durumu kontrol et
+    if (window.innerWidth <= 768) {
+        const sidebarMobile = localStorage.getItem('sidebarMobile') === 'true';
+        if (sidebarMobile) {
+            sidebar.classList.add('active');
+        }
+    }
+});
+</script>
+</body>
+</html>
