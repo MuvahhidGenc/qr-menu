@@ -20,10 +20,51 @@ try {
         throw new Exception('Varsayılan yazıcı seçilmemiş.');
     }
 
-    // Mevcut fiş içeriği oluşturma kodunuz...
+    // Ödeme bilgilerini al
+    $paymentId = $_POST['payment_id'] ?? null;
+    if (!$paymentId) {
+        throw new Exception('Ödeme ID bulunamadı.');
+    }
+
+    // Ödeme detaylarını getir
+    $payment = $db->query("SELECT p.*, t.table_name, t.table_number 
+                          FROM payments p 
+                          LEFT JOIN tables t ON p.table_id = t.id 
+                          WHERE p.id = ?", [$paymentId])->fetch();
+
+    // Fiş içeriğini oluştur
     $content = [
-        // ... mevcut fiş içeriği dizisi ...
+        str_repeat('=', 32),
+        str_pad('ÖDEME FİŞİ', 32, ' ', STR_PAD_BOTH),
+        str_repeat('=', 32),
+        '',
+        'Tarih: ' . date('d.m.Y H:i:s', strtotime($payment['created_at'])),
+        'Masa: ' . $payment['table_name'] . ' (#' . $payment['table_number'] . ')',
+        'Fiş No: ' . str_pad($payment['id'], 6, '0', STR_PAD_LEFT),
+        '',
+        str_repeat('-', 32),
+        str_pad('ÖDEME DETAYLARI', 32, ' ', STR_PAD_BOTH),
+        str_repeat('-', 32),
+        '',
+        str_pad('TOPLAM TUTAR:', 20) . 
+        str_pad(number_format($payment['amount'], 2) . ' TL', 12, ' ', STR_PAD_LEFT),
+        str_pad('ÖDEME TİPİ:', 20) . 
+        str_pad($payment['payment_type'], 12, ' ', STR_PAD_LEFT),
+        '',
+        str_repeat('=', 32)
     ];
+
+    // Varsa header ve footer ekle
+    if (!empty($settings['printer_header'])) {
+        array_unshift($content, '', $settings['printer_header'], '');
+    }
+    if (!empty($settings['printer_footer'])) {
+        $content[] = '';
+        $content[] = $settings['printer_footer'];
+    }
+
+    // Kağıt kesme için boşluk
+    $content[] = "\n\n\n\n";
 
     // Yazdırma işlemini gerçekleştir
     $result = printReceipt($printer, $content, $settings);
@@ -32,8 +73,9 @@ try {
         throw new Exception($result['error']);
     }
 
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'message' => 'Fiş başarıyla yazdırıldı.']);
 
 } catch (Exception $e) {
+    error_log('Fiş Yazdırma Hatası: ' . $e->getMessage());
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 } 

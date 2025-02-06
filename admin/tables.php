@@ -25,6 +25,19 @@ $canDeleteOrder = hasPermission('tables.delete_order');
 $canSaveOrder = hasPermission('tables.save_order');
 
 // Bu değişkenleri JavaScript'e aktaralım
+// Yazıcı ayarlarını al (Bu kodu her üç dosyanın başına ekleyin)
+$db = new Database();
+$printerSettings = [];
+$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%'");
+$results = $settingsQuery->fetchAll();
+
+foreach ($results as $row) {
+    $printerSettings[$row['setting_key']] = $row['setting_value'];
+}
+
+// Restoran adını al
+$restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'restaurant_name'")->fetch()['setting_value'];
+
 ?>
 <script>
 // Yetki değişkenlerini JavaScript'te tanımla
@@ -40,6 +53,9 @@ const userPermissions = {
     canDeleteOrder: <?php echo $canDeleteOrder ? 'true' : 'false' ?>,
     canSaveOrder: <?php echo $canSaveOrder ? 'true' : 'false' ?>
 };
+
+// Restoran adını JavaScript'e aktar
+const restaurantName = <?php echo json_encode($restaurantName); ?>;
 
 // Sayfa yüklendiğinde ve modal açıldığında kontrol et
 document.addEventListener('DOMContentLoaded', function() {
@@ -2455,6 +2471,9 @@ function formatPrice(price) {
 
 // Fiş yazdırma fonksiyonu
 function printReceipt() {
+    // PHP'den gelen yazıcı ayarlarını al
+    const printerSettings = <?php echo json_encode($printerSettings); ?>;
+    
     // Masa numarasını al
     const tableNo = document.getElementById('paymentTableInfo').textContent.replace('Masa ', '');
     
@@ -2464,10 +2483,11 @@ function printReceipt() {
     const discountAmount = parseFloat(document.getElementById('discountAmount')?.textContent.replace(/[^0-9.]/g, '')) || 0;
     const finalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
     
-    let receiptContent = `
-        <div style="font-family: 'Courier New', monospace; width: 300px; padding: 10px;">
+    const receiptContent = `
+        <div style="font-family: 'Courier New', monospace; width: ${printerSettings['printer_paper_width'] ?? '80'}mm; padding: 10px;">
             <div style="text-align: center; margin-bottom: 10px;">
-                <h3 style="margin: 5px 0;"><?php echo htmlspecialchars($restaurantName); ?></h3>
+                ${printerSettings['printer_header'] ? `<div style="margin-bottom: 10px;">${printerSettings['printer_header']}</div>` : ''}
+                <h3 style="margin: 5px 0;">${restaurantName}</h3>
                 <p style="margin: 5px 0;">Tarih: ${new Date().toLocaleString('tr-TR')}</p>
                 <p style="margin: 5px 0;">Masa No: ${tableNo}</p>
             </div>
@@ -2495,21 +2515,40 @@ function printReceipt() {
                 ` : ''}
                 <p style="margin: 5px 0;"><strong>Genel Toplam: ${formatPrice(finalTotal)} ₺</strong></p>
             </div>
+            ${printerSettings['printer_footer'] ? `
+                <div style="margin-top: 10px; text-align: center; font-size: 0.9em;">
+                    ${printerSettings['printer_footer']}
+                </div>
+            ` : ''}
         </div>
     `;
 
     const printWindow = window.open('', '', 'width=300,height=600');
-    printWindow.document.write('<html><head><title>Fiş</title></head><body>');
-    printWindow.document.write(receiptContent);
-    printWindow.document.write('<script>');
-    printWindow.document.write('window.onload = function() {');
-    printWindow.document.write('    window.print();');
-    printWindow.document.write('    window.onafterprint = function() {');
-    printWindow.document.write('        window.close();');
-    printWindow.document.write('    }');
-    printWindow.document.write('}');
-    printWindow.document.write('<\/script>');
-    printWindow.document.write('</body></html>');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Fiş</title>
+            <meta charset="UTF-8">
+            <style>
+                @media print {
+                    body { margin: 0; padding: 10px; }
+                    @page { margin: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            ${receiptContent}
+            <script>
+                window.onload = function() {
+                    window.print();
+                    window.onafterprint = function() {
+                        window.close();
+                    }
+                }
+            <\/script>
+        </body>
+        </html>
+    `);
     printWindow.document.close();
 }
 </script>

@@ -13,6 +13,15 @@ include 'navbar.php';
 
 $db = new Database();
 
+// Yazıcı ayarlarını al
+$printerSettings = [];
+$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%'");
+$results = $settingsQuery->fetchAll();
+
+foreach ($results as $row) {
+    $printerSettings[$row['setting_key']] = $row['setting_value'];
+}
+
 // Filtreleme parametreleri
 $filter_type = $_GET['filter_type'] ?? 'active';
 $status = $_GET['status'] ?? 'all';
@@ -543,6 +552,9 @@ $(document).ready(function() {
 
     // Sadece yazdırma özelliğini ekleyelim
     $('.btn-print').on('click', function() {
+        // PHP'den gelen yazıcı ayarlarını al
+        const printerSettings = <?php echo json_encode($printerSettings); ?>;
+        
         const printContent = $('#orderModal .modal-body').html();
         const printWindow = window.open('', '', 'height=600,width=800');
         
@@ -553,14 +565,20 @@ $(document).ready(function() {
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
                     <style>
                         body { padding: 20px; }
+                        .receipt-content {
+                            width: ${printerSettings['printer_paper_width'] ?? '80'}mm;
+                            margin: 0 auto;
+                        }
                         @media print {
                             .no-print { display: none; }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="container">
+                    <div class="receipt-content">
+                        ${printerSettings['printer_header'] ? `<div class="text-center mb-3">${printerSettings['printer_header']}</div>` : ''}
                         ${printContent}
+                        ${printerSettings['printer_footer'] ? `<div class="text-center mt-3">${printerSettings['printer_footer']}</div>` : ''}
                     </div>
                 </body>
             </html>

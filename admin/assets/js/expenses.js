@@ -320,10 +320,10 @@ $(document).ready(function() {
             url: 'ajax/get_expense_stats.php',
             type: 'GET',
             success: function(response) {
-                $('#monthlyTotal').text(response.monthlyTotal + ' ₺');
-                $('#yearlyTotal').text(response.yearlyTotal + ' ₺');
+                $('#monthlyTotal').text(response.monthlyTotal + ' ');
+                $('#yearlyTotal').text(response.yearlyTotal + ' ');
                 $('#topCategory').text(response.topCategory);
-                $('#dailyAverage').text(response.dailyAverage + ' ₺');
+                $('#dailyAverage').text(response.dailyAverage + ' ');
             }
         });
     }

@@ -20,6 +20,15 @@ if (!$canViewCompletedPayments) {
 
 $db = new Database();
 
+// Yazıcı ayarlarını al
+$printerSettings = [];
+$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%'");
+$results = $settingsQuery->fetchAll();
+
+foreach ($results as $row) {
+    $printerSettings[$row['setting_key']] = $row['setting_value'];
+}
+
 // Tamamlanmış ödemeleri çek - düzeltilmiş sorgu
 $payments = $db->query("
     SELECT 
@@ -455,21 +464,13 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
 
     // Fiş yazdırma fonksiyonu
     function printReceipt(payment) {
-        // Sipariş detaylarını düzenli formata çevir
-        const orderItems = payment.order_details.split('||').map(item => {
-            const [quantityAndName, price] = item.split('|');
-            const [quantity, name] = quantityAndName.split('x ');
-            return {
-                quantity: parseInt(quantity.trim()),
-                name: name.trim(),
-                price: parseFloat(price),
-                total: parseInt(quantity.trim()) * parseFloat(price)
-            };
-        });
-
+        // PHP'den gelen yazıcı ayarlarını al
+        const printerSettings = <?php echo json_encode($printerSettings); ?>;
+        
         const receiptContent = `
-            <div style="font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; padding: 10px;">
+            <div style="font-family: 'Courier New', monospace; width: ${printerSettings['printer_paper_width'] ?? '80'}mm; margin: 0 auto; padding: 10px;">
                 <div style="text-align: center; margin-bottom: 20px;">
+                    ${printerSettings['printer_header'] ? `<div style="margin-bottom: 10px;">${printerSettings['printer_header']}</div>` : ''}
                     <h3 style="margin: 0;"><?php echo htmlspecialchars($restaurantName); ?></h3>
                     <p style="margin: 5px 0;">Fiş No: #${payment.payment_id}</p>
                     <p style="margin: 5px 0;">Tarih: ${new Date(payment.created_at).toLocaleString('tr-TR')}</p>
@@ -484,7 +485,16 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                             <div style="font-weight: bold; text-align: right;">Tutar</div>
                         </div>
                     </div>
-                    ${orderItems.map(item => `
+                    ${payment.order_details.split('||').map(item => {
+                        const [quantityAndName, price] = item.split('|');
+                        const [quantity, name] = quantityAndName.split('x ');
+                        return {
+                            quantity: parseInt(quantity.trim()),
+                            name: name.trim(),
+                            price: parseFloat(price),
+                            total: parseInt(quantity.trim()) * parseFloat(price)
+                        };
+                    }).map(item => `
                         <div style="display: grid; grid-template-columns: 30px auto 70px; gap: 10px; margin: 5px 0;">
                             <div>${item.quantity}</div>
                             <div>${item.name}</div>
@@ -521,11 +531,13 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                         ` : ''}
                     </div>
 
-                    <div style="margin-top: 20px; text-align: center; font-size: 0.8em;">
-                        <p style="margin: 5px 0;">Bizi tercih ettiğiniz için teşekkür ederiz!</p>
-                        <p style="margin: 5px 0;">İyi günler dileriz.</p>
-                    </div>
+                   
                 </div>
+                ${printerSettings['printer_footer'] ? `
+                    <div style="margin-top: 10px; text-align: center; font-size: 0.9em;">
+                        ${printerSettings['printer_footer']}
+                    </div>
+                ` : ''}
             </div>
         `;
 
