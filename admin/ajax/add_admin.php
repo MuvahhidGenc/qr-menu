@@ -7,6 +7,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+header('Content-Type: application/json'); // JSON header'ı ekle
+
 // Hata raporlamayı aç
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -20,56 +22,46 @@ if (!isLoggedIn()) {
     die(json_encode(['error' => 'Yetkisiz erişim']));
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+try {
+    // Yetki kontrolü
+    if (!hasPermission('admins.add')) {
+        throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
+    }
+
     $db = new Database();
     
-    try {
-        // Zorunlu alanları kontrol et
-        if (empty($_POST['username']) || empty($_POST['name']) || empty($_POST['password']) || empty($_POST['role_id'])) {
-            error_log("Validation Error: Missing required fields");
-            die(json_encode(['error' => 'Lütfen zorunlu alanları doldurun']));
-        }
-
-        // Kullanıcı adı benzersiz mi kontrol et
-        $exists = $db->query("SELECT id FROM admins WHERE username = ?", [$_POST['username']])->fetch();
-        if ($exists) {
-            error_log("Validation Error: Username already exists");
-            die(json_encode(['error' => 'Bu kullanıcı adı zaten kullanılıyor']));
-        }
-
-        // Şifreyi hashle
-        $hashedPassword = password_hash($_POST['password'], PASSWORD_DEFAULT);
-
-        // SQL sorgusunu logla
-        $sql = "INSERT INTO admins (username, name, email, phone, password, role_id) VALUES (?, ?, ?, ?, ?, ?)";
-        error_log("SQL Query: " . $sql);
-        error_log("SQL Params: " . print_r([
-            $_POST['username'],
-            $_POST['name'],
-            $_POST['email'] ?? null,
-            $_POST['phone'] ?? null,
-            $hashedPassword,
-            $_POST['role_id']
-        ], true));
-
-        // Yeni kullanıcıyı ekle
-        $result = $db->query($sql, [
-            $_POST['username'],
-            $_POST['name'],
-            $_POST['email'] ?? null,
-            $_POST['phone'] ?? null,
-            $hashedPassword,
-            $_POST['role_id']
-        ]);
-
-        error_log("Query Result: " . print_r($result, true));
-        echo json_encode(['success' => true]);
-        
-    } catch (Exception $e) {
-        error_log("Add Admin Error: " . $e->getMessage());
-        error_log("Stack Trace: " . $e->getTraceAsString());
-        echo json_encode(['error' => 'Veritabanı hatası: ' . $e->getMessage()]);
+    // Form verilerini al
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $name = $_POST['name'] ?? '';
+    $role_id = $_POST['role_id'] ?? '';
+    $email = $_POST['email'] ?? null;
+    $phone = $_POST['phone'] ?? null;
+    
+    // Validasyonlar
+    if (empty($username) || empty($password) || empty($name) || empty($role_id)) {
+        throw new Exception('Lütfen tüm zorunlu alanları doldurun.');
     }
-} else {
-    echo json_encode(['error' => 'Geçersiz istek']);
+    
+    // Şifreyi hashle
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    
+    // Kullanıcı adı kontrolü
+    $existingUser = $db->query("SELECT id FROM admins WHERE username = ?", [$username])->fetch();
+    if ($existingUser) {
+        throw new Exception('Bu kullanıcı adı zaten kullanılıyor.');
+    }
+    
+    // Personeli ekle
+    $db->query(
+        "INSERT INTO admins (username, password, name, role_id, email, phone) VALUES (?, ?, ?, ?, ?, ?)",
+        [$username, $hashedPassword, $name, $role_id, $email, $phone]
+    );
+    
+    echo json_encode(['success' => true]);
+
+} catch (Exception $e) {
+    error_log("Add Admin Error: " . $e->getMessage());
+    error_log("Stack Trace: " . $e->getTraceAsString());
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 } 

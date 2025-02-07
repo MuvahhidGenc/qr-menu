@@ -1,4 +1,5 @@
 <?php
+ob_start(); // Çıktı tamponlamasını başlat
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
@@ -46,7 +47,8 @@ $roles = $db->query("
 ")->fetchAll();
 
 // Navbar'ı doğru yoldan include et
-require_once __DIR__ . '/navbar.php';
+include 'navbar.php';
+ob_end_flush(); // Çıktı tamponlamasını bitir
 
 // Yetki kontrolü
 if (!isAdmin()) {
@@ -486,6 +488,83 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <!-- Input Mask -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Personel ekleme formu submit işlemi -->
+<script>
+$(document).ready(function() {
+    // Form submit işlemlerini tek bir yerde tanımla
+    const handleFormSubmit = (formId, url) => {
+        $(`#${formId}`).on('submit', function(e) {
+            e.preventDefault();
+            
+            // Form verilerini al
+            const formData = $(this).serialize();
+            
+            // Submit butonunu devre dışı bırak
+            const submitBtn = $(this).find('button[type="submit"]');
+            submitBtn.prop('disabled', true);
+            
+            $.ajax({
+                type: 'POST',
+                url: url,
+                data: formData,
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Modalı kapat
+                        $(`#${formId}`).closest('.modal').modal('hide');
+                        
+                        // Başarı mesajı göster
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Başarılı!',
+                            text: formId === 'addAdminForm' ? 
+                                  'Personel başarıyla eklendi.' : 
+                                  'Personel bilgileri güncellendi.',
+                            confirmButtonText: 'Tamam'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.reload();
+                            }
+                        });
+                        
+                        // Ekleme formuysa temizle
+                        if (formId === 'addAdminForm') {
+                            $(`#${formId}`)[0].reset();
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Hata!',
+                            text: response.error || 'Bir hata oluştu!'
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX Hatası:', error);
+                    console.error('Detay:', xhr.responseText);
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Sistem Hatası!',
+                        text: 'İşlem sırasında bir hata oluştu.'
+                    });
+                },
+                complete: function() {
+                    // Submit butonunu tekrar aktif et
+                    submitBtn.prop('disabled', false);
+                }
+            });
+        });
+    };
+
+    // Form submit işlemlerini başlat
+    handleFormSubmit('addAdminForm', 'ajax/add_admin.php');
+    handleFormSubmit('editAdminForm', 'ajax/update_admin.php');
+});
+</script>
 
 </body>
 </html> 
