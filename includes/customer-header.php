@@ -611,7 +611,7 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
 
    <?php 
    // Sadece aktif sipariş varsa butonu göster
-   if ($activeOrder): ?>
+   if (isset($_SESSION['existing_order_id']) && $_SESSION['existing_order_id']): ?>
        <a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
            <i class="fas fa-receipt"></i>
            <span>Siparişlerim</span>

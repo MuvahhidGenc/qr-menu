@@ -51,7 +51,7 @@ function checkExistingOrder($db, $table_id) {
     return $db->query(
         "SELECT id FROM orders 
         WHERE table_id = ? 
-        AND status NOT IN ('paid', 'cancelled')
+        AND status IN ('pending', 'preparing', 'ready')
         ORDER BY created_at DESC 
         LIMIT 1",
         [$table_id]
