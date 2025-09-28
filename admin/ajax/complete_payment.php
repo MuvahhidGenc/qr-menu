@@ -13,11 +13,17 @@ try {
 
     $tableId = $input['table_id'] ?? null;
     $paymentMethod = $input['payment_method'] ?? null;
-    $totalAmount = $input['total_amount'] ?? 0;
+    $totalAmount = $input['total_amount'] ?? 0; // Frontend'den gelen gerçek ödenen tutar
     $subtotal = $input['subtotal'] ?? $totalAmount;
     $discountType = $input['discount_type'] ?? null;
     $discountValue = $input['discount_value'] ?? 0;
     $discountAmount = $input['discount_amount'] ?? 0;
+    
+    // PAID AMOUNT HESAPLAMA DÜZELTİLDİ!
+    // Frontend'den gelen total_amount zaten doğru ödenen tutarı içeriyor (subtotal - discount)
+    $paidAmount = $totalAmount;
+    
+    // Paid amount hesaplama tamamlandı
     
     if (!$tableId || !$paymentMethod) {
         throw new Exception('Gerekli alanlar eksik');
@@ -41,24 +47,26 @@ try {
             [$tableId]
         )->fetchAll();
 
-        // Ödeme kaydı oluştur
+        // Ödeme kaydı oluştur - paid_amount eklendi
         $db->query(
             "INSERT INTO payments (
                 table_id, 
                 payment_method, 
                 total_amount,
                 subtotal,
+                paid_amount,
                 discount_type,
                 discount_value, 
                 discount_amount,
                 status,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', NOW())",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW())",
             [
                 $tableId,
                 $paymentMethod,
                 $totalAmount,
                 $subtotal,
+                $paidAmount,
                 $discountType,
                 $discountValue,
                 $discountAmount

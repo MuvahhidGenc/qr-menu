@@ -964,8 +964,12 @@ toastr.options = {
         document.getElementById('quickProductImageSelect').addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Media modalını aç
-            const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+            // Media modalını aç - focustrap devre dışı
+            const mediaModalElement = document.getElementById('mediaModal');
+            mediaModalElement.setAttribute('data-bs-focus', 'false');
+            const mediaModal = new bootstrap.Modal(mediaModalElement, {
+                focus: false
+            });
             mediaModal.show();
             
             // Özel bir selectMedia fonksiyonu tanımla
@@ -1430,8 +1434,12 @@ toastr.options = {
                     parentElement.querySelector('.category-name .editable-category-name').textContent.trim() :
                     parentElement.querySelector('.product-name').textContent.trim();
                 
-                // Media modalı aç
-                const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+                // Media modalı aç - focustrap devre dışı
+                const mediaModalElement = document.getElementById('mediaModal');
+                mediaModalElement.setAttribute('data-bs-focus', 'false');
+                const mediaModal = new bootstrap.Modal(mediaModalElement, {
+                    focus: false
+                });
                 mediaModal.show();
                 
                 // Media seçildiğinde
@@ -1535,8 +1543,12 @@ toastr.options = {
                 const targetInput = button.dataset.target;
                 const parentModal = button.closest('.modal');
                 
-                // Media modalını aç
-                const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+                // Media modalını aç - focustrap devre dışı
+                const mediaModalElement = document.getElementById('mediaModal');
+                mediaModalElement.setAttribute('data-bs-focus', 'false');
+                const mediaModal = new bootstrap.Modal(mediaModalElement, {
+                    focus: false
+                });
                 mediaModal.show();
                 
                 // Normal selectMedia fonksiyonu

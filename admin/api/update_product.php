@@ -130,15 +130,29 @@ try {
         }
 
         try {
-            // Sorguyu backtick ile güvenli hale getirelim
-            $query = "UPDATE `products` SET `{$field}` = ? WHERE `id` = ?";
+            // Güvenli field mapping - SQL injection koruması
+            $fieldMapping = [
+                'name' => '`name`',
+                'description' => '`description`',
+                'price' => '`price`',
+                'image' => '`image`',
+                'status' => '`status`',
+                'sort_order' => '`sort_order`'
+            ];
+            
+            if (!isset($fieldMapping[$field])) {
+                throw new Exception('Geçersiz alan: ' . $field);
+            }
+            
+            $safeField = $fieldMapping[$field];
+            $query = "UPDATE `products` SET {$safeField} = ? WHERE `id` = ?";
             error_log("SQL Query: " . $query);
             
             $result = $db->query($query, [$value, $id]);
             error_log("Query executed. Affected rows: " . $result->rowCount());
             
             // Son sorguyu kontrol edelim
-            $checkQuery = "SELECT `{$field}` FROM `products` WHERE `id` = ?";
+            $checkQuery = "SELECT {$safeField} FROM `products` WHERE `id` = ?";
             $check = $db->query($checkQuery, [$id])->fetch();
             error_log("Value after update: " . print_r($check, true));
             

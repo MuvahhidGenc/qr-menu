@@ -18,6 +18,12 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'qr_menu');
 
+// Debug modu (production'da false yapın)
+define('DEBUG_MODE', false);
+
+// Güvenilir proxy'ler (load balancer kullanıyorsanız true yapın)
+define('TRUSTED_PROXIES', false);
+
 // Gerekli dosyaları dahil et
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/security.php';

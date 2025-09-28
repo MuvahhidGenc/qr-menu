@@ -5,9 +5,11 @@ require_once 'includes/cart.php';
 initCart();
 
 $db = new Database();
-// Debug için
-error_log('Session ID: ' . session_id());
-error_log('Cart Contents: ' . print_r($_SESSION['cart'], true));
+// Debug log'ları sadece development modunda
+if (defined('DEBUG_MODE') && DEBUG_MODE) {
+    error_log('Session ID: ' . session_id());
+    error_log('Cart Contents: ' . print_r($_SESSION['cart'], true));
+}
 
 // Kategorileri çek - sort_order'a göre sıralama
 $stmt = $db->query(
@@ -16,9 +18,11 @@ $stmt = $db->query(
      ORDER BY sort_order ASC, id ASC"
 );
 $categories = $stmt->fetchAll();
-// URL'den table parametresini al
-
-$table_id = isset($_GET['table']) ? (int)$_GET['table'] : 1;
+// URL'den table parametresini güvenli şekilde al
+$table_id = getSecureInt('table', 1);
+if ($table_id <= 0) {
+    $table_id = 1; // Negatif değerlere karşı korunma
+}
 $_SESSION['table_id'] = $table_id; // Session'a kaydet
 
 
@@ -35,14 +39,15 @@ $is_dark = isset($_SESSION['theme_color']) && $_SESSION['theme_color'] === '#343
 $theme_rgb = hexToRgb($theme_color);
 
 // Eğer kategori seçilmişse ürünleri çek
-if(isset($_GET['category'])) {
-    $category_id = (int)$_GET['category'];
+$products = [];
+$category_input = getSecureInt('category', 0);
+if ($category_input > 0) {
     $stmt = $db->query(
         "SELECT * FROM products 
          WHERE category_id = ? 
          AND status = 1 
          ORDER BY sort_order ASC, id ASC", 
-        [$category_id]
+        [$category_input]
     );
     $products = $stmt->fetchAll();
 }
@@ -101,43 +106,163 @@ include 'includes/customer-header.php';
         }
 
         .category-section {
-            padding: 30px 0;
-        }
-
-        .category-card {
+            padding: 0;
+            background: #f8f9fa;
+            margin-top: 30px;
             position: relative;
-            border-radius: 15px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+            border-top: 1px solid rgba(<?= $theme_rgb['r'] ?>, <?= $theme_rgb['g'] ?>, <?= $theme_rgb['b'] ?>, 0.1);
+        }
+        
+        .category-section::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, <?= $theme_color ?>, transparent);
+            border-radius: 2px;
+        }
+
+        .modern-category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modern-category-item {
+            position: relative;
+            height: 180px;
             overflow: hidden;
-            margin-bottom: 30px;
             cursor: pointer;
-            transition: transform 0.3s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, <?= $theme_color ?>, rgba(<?= $theme_rgb['r'] ?>, <?= $theme_rgb['g'] ?>, <?= $theme_rgb['b'] ?>, 0.8));
+            animation: slideInCategory 0.6s ease-out forwards;
+            opacity: 0;
+        }
+        
+        .modern-category-item:nth-child(1) { animation-delay: 0.1s; }
+        .modern-category-item:nth-child(2) { animation-delay: 0.2s; }
+        .modern-category-item:nth-child(3) { animation-delay: 0.3s; }
+        .modern-category-item:nth-child(4) { animation-delay: 0.4s; }
+        .modern-category-item:nth-child(5) { animation-delay: 0.5s; }
+        .modern-category-item:nth-child(6) { animation-delay: 0.6s; }
+        
+        @keyframes slideInCategory {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
-        .category-card:hover {
-            transform: translateY(-5px);
+        .modern-category-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.3) 100%);
+            z-index: 2;
+            transition: opacity 0.4s ease;
         }
 
-        .category-image {
+        .modern-category-item:hover::before {
+            opacity: 0.5;
+        }
+
+        .modern-category-item:hover {
+            transform: scale(1.05) translateZ(0);
+            z-index: 10;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .category-bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 200px;
+            height: 100%;
             object-fit: cover;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
         }
 
-        .category-overlay {
+        .modern-category-item:hover .category-bg-image {
+            transform: scale(1.1);
+        }
+
+        .modern-category-content {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            padding: 20px;
+            padding: 25px;
             color: white;
+            z-index: 3;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8) 60%);
+            transform: translateY(10px);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .category-overlay h3 {
-            margin: 0;
+        .modern-category-item:hover .modern-category-content {
+            transform: translateY(0);
+        }
+
+        .modern-category-title {
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 768px) {
+            .modern-category-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modern-category-item {
+                height: 150px;
+            }
+            
+            .modern-category-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .modern-category-item {
+                height: 130px;
+            }
+            
+            .modern-category-content {
+                padding: 20px;
+            }
+            
+            .modern-category-title {
+                font-size: 1.2rem;
+            }
         }
         .menu-item {
     background: white;
@@ -493,10 +618,10 @@ include 'includes/customer-header.php';
 <body>
 
 <!-- Sepet butonu -->
-<div class="cart-floating-button" id="cartButton">
+<!--<div class="cart-floating-button" id="cartButton">
     <span class="cart-count"><?= getCartCount() ?></span>
     <i class="fas fa-shopping-cart"></i>
-</div>
+</div>-->
 
 <!-- Sepet Modal -->
 <!-- index.php içinde modal kısmı -->
@@ -515,14 +640,14 @@ include 'includes/customer-header.php';
                     <!-- Sepet içeriği AJAX ile yüklenecek -->
                 </div>
             </div>
-            <div class="modal-footer">
+            <!--<div class="modal-footer">
                 <div class="d-flex justify-content-between w-100 align-items-center">
                     <h5 class="mb-0">Toplam: <span id="cartTotal">0.00</span> ₺</h5>
                     <button type="button" class="btn btn-primary" onclick="completeOrder()">
                         <i class="fas fa-check me-2"></i>
                         Siparişi Tamamla
                     </button>
-                </div>
+                </div>-->
             </div>
         </div>
     </div>
@@ -537,8 +662,7 @@ include 'includes/customer-header.php';
     </a>
 </div>
 
-<!-- Mobil için alt padding -->
-<div class="d-md-none" style="height: 80px;"></div>
+
 
 <!-- JavaScript ile geri dönüş kontrolü -->
 <script>
@@ -564,22 +688,18 @@ document.addEventListener('DOMContentLoaded', function() {
        
 
         <div class="category-section">
-        <div class="container">
-                <h2 class="section-title">Menü Kategorileri</h2>
-                <div class="row">
-                    <?php foreach($categories as $category): ?>
-                        <div class="col-md-4">
-                            <a href="?category=<?= $category['id'] ?>&table=<?= $table_id ?>" class="text-decoration-none">
-                                <div class="category-card">
-                                    <img src="uploads/<?= $category['image'] ?>" class="category-image" alt="<?= $category['name'] ?>">
-                                    <div class="category-overlay">
-                                        <h3><?= htmlspecialchars($category['name']) ?></h3>
-                                    </div>
-                                </div>
-                            </a>
+            <div class="modern-category-grid">
+                <?php foreach($categories as $index => $category): ?>
+                    <a href="?category=<?= $category['id'] ?>&table=<?= $table_id ?>" class="text-decoration-none">
+                        <div class="modern-category-item">
+                            <img src="uploads/<?= $category['image'] ?>" class="category-bg-image" alt="<?= $category['name'] ?>">
+                            
+                            <div class="modern-category-content">
+                                <h3 class="modern-category-title"><?= htmlspecialchars($category['name']) ?></h3>
+                            </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+                    </a>
+                <?php endforeach; ?>
             </div>
         </div>
         </div>
@@ -592,22 +712,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="menu-section">
                 <?php
-                $category_id = (int)$_GET['category'];
-                $stmt = $db->query(
-                    "SELECT * FROM products 
-                     WHERE category_id = ? 
-                     AND status = 1 
-                     ORDER BY sort_order ASC, id ASC", 
-                    [$category_id]
-                );
-                $products = $stmt->fetchAll();
+                $category_input = getSecureInt('category', 0);
+                $current_category = null;
+                $products = [];
                 
-                // Kategori bilgilerini getir
-                $current_category = $db->query(
-                    "SELECT * FROM categories WHERE id = ?", 
-                    [(int)$_GET['category']]
-                )->fetch();
+                if ($category_input > 0) {
+                    $stmt = $db->query(
+                        "SELECT * FROM products 
+                         WHERE category_id = ? 
+                         AND status = 1 
+                         ORDER BY sort_order ASC, id ASC", 
+                        [$category_input]
+                    );
+                    $products = $stmt->fetchAll();
+                    
+                    // Kategori bilgilerini getir
+                    $current_category = $db->query(
+                        "SELECT * FROM categories WHERE id = ?", 
+                        [$category_input]
+                    )->fetch();
+                }
+                
+                // Aktif tema layout ayarını al
+                $active_theme = null;
+                $product_layout = 'grid'; // default
+                
+                try {
+                    $active_theme = $db->query("SELECT product_layout FROM customer_themes WHERE is_active = 1 LIMIT 1")->fetch();
+                    if ($active_theme && isset($active_theme['product_layout'])) {
+                        $product_layout = $active_theme['product_layout'];
+                    }
+                } catch (Exception $e) {
+                    // Column doesn't exist yet, use default
+                    $product_layout = 'grid';
+                }
                 ?>
+                <?php if ($current_category): ?>
                  <div class="category-header">
                     <h2>
                         <i class="fas fa-utensils"></i>
@@ -619,44 +759,84 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     <?php endif; ?>
                 </div>
-                <div class="row g-3">
-                    <?php foreach($products as $product): ?>
-                        <div class="col-12 col-md-6 col-lg-4">
-                            <div class="menu-item">
-                                <div class="menu-item-image">
-                                    <img src="uploads/<?= $product['image'] ?>" alt="<?= $product['name'] ?>">
-                                </div>
-                                <div class="menu-item-content">
-                                    <h5 class="menu-item-title"><?= htmlspecialchars($product['name']) ?></h5>
-                                    <p class="menu-item-description"><?= htmlspecialchars($product['description']) ?></p>
-                                    <div class="menu-item-footer">
-                                        <div class="menu-item-price"><?= number_format($product['price'], 2) ?> ₺</div>
-                                        <div class="order-controls">
-                                            <div class="quantity-control">
-                                                <button type="button" class="quantity-btn minus" onclick="decreaseAmount(<?= $product['id'] ?>)">
+                <?php else: ?>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Kategori bulunamadı.
+                    </div>
+                <?php endif; ?>
+                
+                <?php if($product_layout === 'grid-2col' || $product_layout === 'list' || $product_layout === 'list-2col'): ?>
+                    <!-- Theme-based layout -->
+                    <div class="products-grid">
+                        <?php foreach($products as $product): ?>
+                            <div class="product-card">
+                                <img src="uploads/<?= $product['image'] ?>" class="product-image" alt="<?= $product['name'] ?>">
+                                <div class="product-info">
+                                    <h5 class="product-title"><?= htmlspecialchars($product['name']) ?></h5>
+                                    <p class="product-description"><?= htmlspecialchars($product['description']) ?></p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="product-price"><?= number_format($product['price'], 2) ?> ₺</div>
+                                        <div class="order-controls d-flex align-items-center gap-2">
+                                            <div class="quantity-control d-flex align-items-center">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary quantity-btn minus" onclick="decreaseAmount(<?= $product['id'] ?>)">
                                                     <i class="fas fa-minus"></i>
                                                 </button>
-                                                <input type="number" id="qty_<?= $product['id'] ?>" class="quantity-input" value="1" min="1" max="99" readonly>
-                                                <button type="button" class="quantity-btn plus" onclick="increaseAmount(<?= $product['id'] ?>)">
+                                                <input type="number" id="qty_<?= $product['id'] ?>" class="form-control form-control-sm quantity-input mx-1" value="1" min="1" max="99" readonly style="width: 50px; text-align: center;">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary quantity-btn plus" onclick="increaseAmount(<?= $product['id'] ?>)">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
-                                           
-                                            <button class="add-to-cart" onclick="addToCart(<?= $product['id'] ?>)">
+                                            </div>
+                                            <button class="btn btn-sm btn-primary add-to-cart" onclick="addToCart(<?= $product['id'] ?>)">
                                                 <i class="fas fa-cart-plus"></i>
                                             </button>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <!-- Default Bootstrap grid layout -->
+                    <div class="row g-3">
+                        <?php foreach($products as $product): ?>
+                            <div class="col-12 col-md-6 col-lg-4">
+                                <div class="menu-item">
+                                    <div class="menu-item-image">
+                                        <img src="uploads/<?= $product['image'] ?>" alt="<?= $product['name'] ?>">
+                                    </div>
+                                    <div class="menu-item-content">
+                                        <h5 class="menu-item-title"><?= htmlspecialchars($product['name']) ?></h5>
+                                        <p class="menu-item-description"><?= htmlspecialchars($product['description']) ?></p>
+                                        <div class="menu-item-footer">
+                                            <div class="menu-item-price"><?= number_format($product['price'], 2) ?> ₺</div>
+                                           <!-- <div class="order-controls">
+                                                <div class="quantity-control">
+                                                    <button type="button" class="quantity-btn minus" onclick="decreaseAmount(<?= $product['id'] ?>)">
+                                                        <i class="fas fa-minus"></i>
+                                                    </button>
+                                                    <input type="number" id="qty_<?= $product['id'] ?>" class="quantity-input" value="1" min="1" max="99" readonly>
+                                                    <button type="button" class="quantity-btn plus" onclick="increaseAmount(<?= $product['id'] ?>)">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                               
+                                                <button class="add-to-cart" onclick="addToCart(<?= $product['id'] ?>)">
+                                                    <i class="fas fa-cart-plus"></i>
+                                                </button>
+                                                </div>
+                                            </div>-->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
                 </div>
     <?php endif; ?>
-
+<div class="d-md-none" style="height: 80px;"></div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

@@ -3,18 +3,24 @@ require_once '../includes/config.php';
 $db = new Database();
 
 if(isset($_POST['create_backup'])) {
-   $tables = ['categories', 'products', 'admins', 'settings'];
+   // Güvenli tablo listesi - sadece bu tablolar yedeklenebilir
+   $allowedTables = ['categories', 'products', 'admins', 'settings'];
    $backup = '';
    
-   foreach($tables as $table) {
-       $rows = $db->query("SELECT * FROM $table")->fetchAll();
+   foreach($allowedTables as $table) {
+       // Tablo adını validate et (ekstra güvenlik)
+       if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $table)) {
+           continue; // Geçersiz tablo adı, atla
+       }
        
-       $backup .= "DROP TABLE IF EXISTS $table;\n";
-       $create = $db->query("SHOW CREATE TABLE $table")->fetch();
+       $rows = $db->query("SELECT * FROM `$table`")->fetchAll();
+       
+       $backup .= "DROP TABLE IF EXISTS `$table`;\n";
+       $create = $db->query("SHOW CREATE TABLE `$table`")->fetch();
        $backup .= $create['Create Table'] . ";\n\n";
        
        foreach($rows as $row) {
-           $backup .= "INSERT INTO $table VALUES (";
+           $backup .= "INSERT INTO `$table` VALUES (";
            foreach($row as $value) {
                $value = addslashes($value);
                $backup .= "'$value',";

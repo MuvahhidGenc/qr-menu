@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
+require_once 'includes/print_helper.php';
 // Session kontrolü
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -115,7 +116,19 @@ window.handlePayment = function() {
 
 <?php
 $db = new Database();
-$tables = $db->query("SELECT * FROM tables ORDER BY table_no")->fetchAll();
+
+// Masa kategorilerini çek
+$tableCategories = $db->query("SELECT * FROM table_categories ORDER BY sort_order, name")->fetchAll();
+
+// Masaları kategoriler ile birlikte çek
+$tables = $db->query("
+    SELECT t.*, tc.name as category_name 
+    FROM tables t 
+    LEFT JOIN table_categories tc ON t.category_id = tc.id 
+   ORDER BY
+  (t.`table_no` REGEXP '[0-9]+$') DESC,
+  CAST(REGEXP_SUBSTR(t.`table_no`, '[0-9]+$') AS UNSIGNED),
+  t.`table_no`")->fetchAll();
 
 // Kategorileri çek
 $categoriesQuery = "SELECT * FROM categories WHERE status = 1 ORDER BY name";
@@ -154,9 +167,139 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
     
 </head>
 <style>
-.nav-link {
-    display: -webkit-box !important;
-    color: #ffff;
+/* Modern Tab Menü Stilleri */
+#categoryTabs {
+    border-bottom: 2px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px 12px 0 0;
+    padding: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#categoryTabs .nav-item {
+    margin-right: 0.25rem;
+}
+
+#categoryTabs .nav-link {
+    border: none !important;
+    background: transparent;
+    color: #495057 !important;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#categoryTabs .nav-link:hover {
+    background: rgba(0,123,255,0.1) !important;
+    color: #007bff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,123,255,0.2);
+}
+
+#categoryTabs .nav-link.active {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    transform: translateY(-2px);
+}
+
+#categoryTabs .nav-link.active .badge {
+    background-color: rgba(255,255,255,0.2) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+#categoryTabs .nav-link .badge {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+#categoryTabs .nav-link i {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+#categoryTabs .nav-link.active i {
+    opacity: 1;
+}
+
+/* Tab Geçiş Animasyonu */
+.table-card-wrapper {
+    transition: all 0.4s ease;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.table-card-wrapper[style*="display: none"] {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+/* Tab Container Modernleştirme */
+#categoryTabs .nav-item:last-child .nav-link {
+    margin-right: 0;
+}
+
+#categoryTabs .nav-link::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+#categoryTabs .nav-link.active::before {
+    width: 80%;
+}
+
+/* Responsive Tab Menü */
+@media (max-width: 768px) {
+    #categoryTabs {
+        padding: 0.25rem;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    #categoryTabs .nav-item {
+        flex-shrink: 0;
+    }
+    
+    #categoryTabs .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        white-space: nowrap;
+    }
+    
+    #categoryTabs .nav-link .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
+
+@media (max-width: 576px) {
+    #categoryTabs .nav-link {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    #categoryTabs .nav-link i {
+        font-size: 0.8rem;
+    }
 }
 
 /* Ana container stilleri */
@@ -716,20 +859,49 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
 </style>
 <div class="category-content">
     <div class="container-fluid p-3">
-        <!-- Başlık ve Yeni Masa Butonu -->
+        <!-- Başlık ve Butonlar -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">
                 <i class="fas fa-chair me-2"></i>Masalar
             </h2>
             <?php if ($canManageTables): ?>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary" onclick="openCategoryModal()">
+                        <i class="fas fa-layer-group"></i> Kategoriler
+                    </button>
                 <button type="button" class="btn btn-primary" onclick="showAddTableModal()">
                     <i class="fas fa-plus"></i> Yeni Masa
                 </button>
+                </div>
             <?php endif; ?>
         </div>
 
-        <!-- Masalar Grid -->
-        <div class="row g-4">
+        <!-- Kategori Tabları -->
+        <ul class="nav nav-tabs mb-4" id="categoryTabs">
+            <li class="nav-item">
+                <button class="nav-link active" id="all-tab" type="button" onclick="showAllTables()">
+                    <i class="fas fa-th-large"></i>
+                    Tümü <span class="badge"><?= count($tables) ?></span>
+                </button>
+            </li>
+            <?php foreach($tableCategories as $category): 
+                $categoryTableCount = count(array_filter($tables, function($table) use ($category) {
+                    return $table['category_id'] == $category['id'];
+                }));
+            ?>
+            <li class="nav-item">
+                <button class="nav-link" id="category-<?= $category['id'] ?>-tab" 
+                        type="button" onclick="showCategoryTables(<?= $category['id'] ?>)">
+                    <i class="fas fa-layer-group"></i>
+                    <?= htmlspecialchars($category['name']) ?> 
+                    <span class="badge"><?= $categoryTableCount ?></span>
+                </button>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <!-- Masalar Grid - JavaScript ile filtrelenecek -->
+        <div class="row g-4" id="tablesGrid">
             <?php foreach($tables as $table): 
                 // Masa durumunu ve toplam tutarı çek
                 $tableInfo = $db->query(
@@ -750,12 +922,14 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                     [$table['id'], $table['id']]
                 )->fetch();
             ?>
-                <div class="col-12 col-md-6 col-xl-4">
+                <div class="col-12 col-md-6 col-xl-4 table-card-wrapper" 
+                     data-category-id="<?= $table['category_id'] ?>" 
+                     data-table-id="<?= $table['id'] ?>">
                     <div class="card h-100 <?= $tableInfo['status'] === 'occupied' ? 'border-warning' : '' ?>">
                         <div class="card-header bg-transparent">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">
-                                    <i class="fas fa-chair me-2"></i>Masa <?= $table['table_no'] ?>
+                                    <i class="fas fa-chair me-2"></i><?= htmlspecialchars($table['table_no']) ?>
                                 </h5>
                                 <span class="badge <?= $tableInfo['status'] === 'occupied' ? 'bg-warning' : 'bg-success' ?>">
                                     <?= $tableInfo['status'] === 'occupied' ? 'Dolu' : 'Boş' ?>
@@ -767,6 +941,10 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                 <div>
                                     <small class="text-muted">Kapasite:</small>
                                     <div><?= $table['capacity'] ?? 4 ?> Kişilik</div>
+                                    <small class="text-muted mt-1">Kategori:</small>
+                                    <div class="small text-primary">
+                                        <i class="fas fa-layer-group me-1"></i><?= htmlspecialchars($table['category_name'] ?? 'Diğer') ?>
+                                    </div>
                                 </div>
                                 <?php if($tableInfo['status'] === 'occupied'): ?>
                                     <div class="text-end">
@@ -778,7 +956,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                             
                             <div class="d-grid gap-2">
                                 <?php if ($canViewSales): ?>
-                                    <button class="btn btn-primary" onclick="openPaymentModal(<?= $table['id'] ?>)">
+                                    <button class="btn btn-primary" onclick="openPaymentModal(<?= $table['id'] ?>,'<?= $table['table_no'] ?>');">
                                         <i class="fas fa-cash-register me-2"></i>Satış Ekranı
                                     </button>
                                 <?php endif; ?>
@@ -1027,8 +1205,18 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
             <div class="modal-body">
                 <form id="addTableForm">
                     <div class="mb-3">
-                        <label for="tableNo" class="form-label">Masa Numarası</label>
-                        <input type="text" class="form-control" id="tableNo" name="table_no" required>
+                        <label for="tableCategory" class="form-label">Kategori</label>
+                        <select class="form-control" id="tableCategory" name="category_id" required>
+                            <?php foreach($tableCategories as $category): ?>
+                                <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tableNo" class="form-label">Masa Adı/Numarası</label>
+                        <input type="text" class="form-control" id="tableNo" name="table_no" 
+                               placeholder="Örn: VIP Masa, Bahçe A1, Teras Premium, 15" required>
+                        <small class="form-text text-muted">Sayı veya metin girebilirsiniz (Örn: "VIP Masa", "Salon A1", "15")</small>
                     </div>
                     <div class="mb-3">
                         <label for="capacity" class="form-label">Kapasite</label>
@@ -1038,7 +1226,128 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-primary" onclick="addTable()">Masa Ekle</button>
+                <button type="button" class="btn btn-primary" onclick="saveTable()">Masa Ekle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kategori Yönetimi Modalı -->
+<div class="modal fade" id="categoryManagementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group me-2"></i>Kategori Yönetimi
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Kategori Listesi -->
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Mevcut Kategoriler</h6>
+                            <button class="btn btn-sm btn-primary" onclick="openAddCategoryForm()">
+                                <i class="fas fa-plus"></i> Yeni Kategori
+                            </button>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Sıra</th>
+                                        <th>Kategori</th>
+                                        <th>Masa Sayısı</th>
+                                        <th>İşlemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="categoryList">
+                                    <?php foreach($tableCategories as $category): 
+                                        $categoryTableCount = count(array_filter($tables, function($table) use ($category) {
+                                            return $table['category_id'] == $category['id'];
+                                        }));
+                                    ?>
+                                        <tr id="category-row-<?= $category['id'] ?>">
+                                            <td>
+                                                <span class="badge bg-secondary"><?= $category['sort_order'] ?></span>
+                                            </td>
+                                            <td>
+                                                <strong><?= htmlspecialchars($category['name']) ?></strong>
+                                                <?php if($category['description']): ?>
+                                                    <br><small class="text-muted"><?= htmlspecialchars($category['description']) ?></small>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info"><?= $categoryTableCount ?></span>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        onclick="editCategory(<?= $category['id'] ?>, '<?= htmlspecialchars($category['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($category['description'], ENT_QUOTES) ?>', <?= $category['sort_order'] ?>)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <?php if($categoryTableCount == 0): ?>
+                                                    <button class="btn btn-sm btn-outline-danger" 
+                                                            onclick="deleteCategory(<?= $category['id'] ?>, '<?= htmlspecialchars($category['name'], ENT_QUOTES) ?>')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button class="btn btn-sm btn-outline-secondary" disabled 
+                                                            title="Bu kategoride masalar var">
+                                                        <i class="fas fa-lock"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Kategori Ekleme/Düzenleme Formu -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0" id="categoryFormTitle">Yeni Kategori</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="categoryForm">
+                                    <input type="hidden" id="categoryAction" value="add">
+                                    <input type="hidden" id="categoryId">
+                                    
+                                    <div class="mb-3">
+                                        <label for="categoryName" class="form-label">Kategori Adı *</label>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               id="categoryName" required maxlength="100">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="categoryDescription" class="form-label">Açıklama</label>
+                                        <textarea class="form-control form-control-sm" 
+                                                  id="categoryDescription" rows="2" maxlength="500"></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="categorySortOrder" class="form-label">Sıra Numarası</label>
+                                        <input type="number" class="form-control form-control-sm" 
+                                               id="categorySortOrder" value="0" min="0">
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-save"></i> Kaydet
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-sm" onclick="resetCategoryForm()">
+                                            <i class="fas fa-times"></i> İptal
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1153,17 +1462,18 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Satış ekranını aç
-window.openPaymentModal = function(tableId) {
+window.openPaymentModal = function(tableId, tableNo) {
     if (!userPermissions.canViewSales) {
         Swal.fire('Yetkisiz İşlem', 'Satış ekranını görüntüleme yetkiniz bulunmuyor.', 'error');
         return;
     }
     
     currentTableId = tableId;
+   
     console.log('Opening modal for table:', currentTableId);
 
     // Masa bilgisini güncelle
-    document.getElementById('paymentTableInfo').textContent = `Masa ${currentTableId}`;
+    document.getElementById('paymentTableInfo').textContent = `${tableNo}`;
     
     // Modal'ı aç
     const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
@@ -1779,9 +2089,16 @@ function saveTable() {
     }
 
     const tableNumber = document.getElementById('tableNo').value;
+    const categoryId = document.getElementById('tableCategory').value;
+    const capacity = document.getElementById('capacity').value;
     
-    if (!tableNumber) {
-        Swal.fire('Hata!', 'Masa numarası giriniz', 'error');
+    if (!tableNumber || tableNumber.trim().length < 1) {
+        Swal.fire('Hata!', 'Masa adı/numarası giriniz', 'error');
+        return;
+    }
+    
+    if (tableNumber.trim().length > 50) {
+        Swal.fire('Hata!', 'Masa adı en fazla 50 karakter olabilir', 'error');
         return;
     }
 
@@ -1791,7 +2108,9 @@ function saveTable() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            table_no: tableNumber
+            table_no: tableNumber,
+            category_id: parseInt(categoryId),
+            capacity: parseInt(capacity) || 4
         })
     })
     .then(response => response.json())
@@ -1893,9 +2212,10 @@ function editTable(tableId) {
     }
 
     Swal.fire({
-        title: 'Masa Numarası',
-        input: 'number',
-        inputLabel: 'Yeni masa numarasını giriniz',
+        title: 'Masa Adı/Numarası',
+        input: 'text',
+        inputLabel: 'Yeni masa adını veya numarasını giriniz',
+        inputPlaceholder: 'Örn: VIP Masa, Bahçe A1, Teras Premium, 15',
         showCancelButton: true,
         confirmButtonText: 'Güncelle',
         cancelButtonText: 'İptal'
@@ -2057,7 +2377,7 @@ function showTransferModal(tableId) {
                                     <select class="form-select" id="sourceTable" onchange="loadSourceOrders(this.value)">
                                         <option value="">Masa Seçin</option>
                                         <?php foreach($tables as $table): ?>
-                                            <option value="<?= $table['id'] ?>">Masa <?= $table['table_no'] ?></option>
+                                            <option value="<?= $table['id'] ?>"><?= htmlspecialchars($table['table_no']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -2081,7 +2401,7 @@ function showTransferModal(tableId) {
                                     <select class="form-select" id="targetTable" onchange="loadTargetOrders(this.value)">
                                         <option value="">Masa Seçin</option>
                                         <?php foreach($tables as $table): ?>
-                                            <option value="<?= $table['id'] ?>">Masa <?= $table['table_no'] ?></option>
+                                            <option value="<?= $table['id'] ?>"><?= htmlspecialchars($table['table_no']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -2477,51 +2797,37 @@ function printReceipt() {
     // Masa numarasını al
     const tableNo = document.getElementById('paymentTableInfo').textContent.replace('Masa ', '');
     
-    // Sipariş öğelerini doğru seçicilerle al
+    // Sipariş öğelerini al
     const orderItems = document.querySelectorAll('#paymentOrderDetails .order-item');
     const subtotal = originalTotal || parseFloat(document.getElementById('subtotalAmount').textContent.replace(/[^0-9.]/g, ''));
     const discountAmount = parseFloat(document.getElementById('discountAmount')?.textContent.replace(/[^0-9.]/g, '')) || 0;
     const finalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
     
-    const receiptContent = `
-        <div style="font-family: 'Courier New', monospace; width: ${printerSettings['printer_paper_width'] ?? '80'}mm; padding: 10px;">
-            <div style="text-align: center; margin-bottom: 10px;">
-                ${printerSettings['printer_header'] ? `<div style="margin-bottom: 10px;">${printerSettings['printer_header']}</div>` : ''}
-                <h3 style="margin: 5px 0;">${restaurantName}</h3>
-                <p style="margin: 5px 0;">Tarih: ${new Date().toLocaleString('tr-TR')}</p>
-                <p style="margin: 5px 0;">Masa No: ${tableNo}</p>
-            </div>
-            <hr style="border-top: 1px dashed #000;">
-            <div style="margin-bottom: 10px;">
-                ${Array.from(orderItems).map(item => {
-                    const name = item.querySelector('.fw-bold').textContent;
-                    const quantityText = item.querySelector('.text-muted').textContent;
-                    const quantity = quantityText.split('x')[0].trim();
-                    const price = parseFloat(quantityText.split('x')[1].replace('₺', '').trim());
-                    const total = quantity * price;
-                    return `
-                        <div style="display: flex; justify-content: space-between; margin: 5px 0;">
-                            <span>${quantity}x ${name}</span>
-                            <span>${formatPrice(total)} ₺</span>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-            <hr style="border-top: 1px dashed #000;">
-            <div style="text-align: right; margin-bottom: 10px;">
-                <p style="margin: 5px 0;">Ara Toplam: ${formatPrice(subtotal)} ₺</p>
-                ${discountAmount > 0 ? `
-                    <p style="margin: 5px 0;">İskonto: ${formatPrice(discountAmount)} ₺</p>
-                ` : ''}
-                <p style="margin: 5px 0;"><strong>Genel Toplam: ${formatPrice(finalTotal)} ₺</strong></p>
-            </div>
-            ${printerSettings['printer_footer'] ? `
-                <div style="margin-top: 10px; text-align: center; font-size: 0.9em;">
-                    ${printerSettings['printer_footer']}
-                </div>
-            ` : ''}
-        </div>
-    `;
+    // Ödeme verilerini hazırla
+    const paymentData = {
+        table_no: tableNo,
+        subtotal: subtotal,
+        discount_amount: discountAmount,
+        total_amount: finalTotal,
+        created_at: new Date().toISOString()
+    };
+    
+    // Sipariş öğelerini hazırla
+    const items = Array.from(orderItems).map(item => {
+        const name = item.querySelector('.fw-bold').textContent;
+        const quantityText = item.querySelector('.text-muted').textContent;
+        const quantity = parseInt(quantityText.split('x')[0].trim());
+        const price = parseFloat(quantityText.split('x')[1].replace('₺', '').trim());
+        
+        return {
+            product_name: name,
+            quantity: quantity,
+            price: price
+        };
+    });
+    
+    // Merkezi web receipt builder kullan
+    const receiptContent = buildWebReceiptContent('payment', paymentData, items, printerSettings);
 
     const printWindow = window.open('', '', 'width=300,height=600');
     printWindow.document.write(`
@@ -2550,6 +2856,365 @@ function printReceipt() {
         </html>
     `);
     printWindow.document.close();
+}
+
+// Web-based receipt content builder (JavaScript sürümü)
+function buildWebReceiptContent(type, data, items, settings) {
+    const paperWidth = settings['printer_paper_width'] || '80';
+    const restaurantName = <?php echo json_encode($restaurantName); ?>;
+    
+    // Responsive karakter genişliği hesapla
+    const charWidth = getJSCharacterWidth(paperWidth);
+    const fontSize = getJSFontSize(paperWidth);
+    
+    let content = `<div style='font-family: "Courier New", monospace; width: ${paperWidth}mm; margin: 0 auto; padding: 10px; font-size: ${fontSize}px; line-height: 1.2;'>`;
+    
+    // Başlık
+    content += "<div style='text-align: center; margin-bottom: 20px;'>";
+    
+    if (settings['printer_header']) {
+        // Uzun başlıkları satırlara böl
+        const headerLines = wrapJSText(settings['printer_header'], charWidth);
+        headerLines.forEach(line => {
+            content += `<div style='margin-bottom: 5px;'>${line}</div>`;
+        });
+    }
+    
+    if (restaurantName) {
+        const nameLines = wrapJSText(restaurantName, charWidth);
+        nameLines.forEach(line => {
+            content += `<h3 style='margin: 3px 0; font-size: ${fontSize + 2}px;'>${line}</h3>`;
+        });
+    }
+    
+    content += `<p style='margin: 5px 0;'>Tarih: ${new Date().toLocaleString('tr-TR')}</p>`;
+    
+    if (type === 'payment') {
+        if (data.table_no) {
+            content += `<p style='margin: 5px 0;'>Masa: ${data.table_no}</p>`;
+        }
+    }
+    
+    content += "</div>";
+    
+    // İçerik
+    if (items && items.length > 0) {
+        content += "<hr style='border-top: 1px dashed #000;'>";
+        content += "<div style='margin-bottom: 10px;'>";
+        
+        items.forEach(item => {
+            const quantity = item.quantity;
+            const name = item.product_name || item.name;
+            const price = item.price;
+            const total = quantity * price;
+            
+            // Responsive iki kolonlu düzen
+            const leftText = `${quantity}x ${name}`;
+            const rightText = `${total.toFixed(2)} ₺`;
+            const formattedLine = formatJSTwoColumns(leftText, rightText, charWidth);
+            
+            content += `<div style='margin: 3px 0; font-family: "Courier New", monospace;'>${formattedLine}</div>`;
+        });
+        
+        content += "</div>";
+    }
+    
+    // Ödeme detayları
+    if (type === 'payment') {
+        content += "<hr style='border-top: 1px dashed #000;'>";
+        content += "<div style='margin-bottom: 10px;'>";
+        
+        if (data.subtotal && data.subtotal > 0) {
+            const formattedLine = formatJSTwoColumns('Ara Toplam:', `${data.subtotal.toFixed(2)} ₺`, charWidth);
+            content += `<div style='margin: 3px 0; font-family: "Courier New", monospace;'>${formattedLine}</div>`;
+        }
+        
+        if (data.discount_amount && data.discount_amount > 0) {
+            const formattedLine = formatJSTwoColumns('İskonto:', `-${data.discount_amount.toFixed(2)} ₺`, charWidth);
+            content += `<div style='margin: 3px 0; font-family: "Courier New", monospace;'>${formattedLine}</div>`;
+        }
+        
+        const totalLine = formatJSTwoColumns('Genel Toplam:', `${data.total_amount.toFixed(2)} ₺`, charWidth);
+        content += `<div style='margin: 3px 0; font-family: "Courier New", monospace; font-weight: bold;'>${totalLine}</div>`;
+        content += "</div>";
+    }
+    
+    // Altlık
+    if (settings['printer_footer']) {
+        const footerLines = wrapJSText(settings['printer_footer'], charWidth);
+        content += "<div style='margin-top: 10px; text-align: center; font-size: 0.9em;'>";
+        footerLines.forEach(line => {
+            content += `<div>${line}</div>`;
+        });
+        content += "</div>";
+    }
+    
+    content += "</div>";
+    
+    return content;
+}
+
+// JavaScript responsive helper functions
+function getJSCharacterWidth(paperWidth) {
+    const widthMap = {
+        '58': 24,  // 58mm -> 24 karakter
+        '80': 32,  // 80mm -> 32 karakter (varsayılan)
+        '112': 44  // 112mm -> 44 karakter
+    };
+    
+    if (widthMap[paperWidth]) {
+        return widthMap[paperWidth];
+    }
+    
+    // Hesaplanmış genişlik
+    const calculatedWidth = Math.floor(paperWidth * 0.4);
+    return Math.max(20, Math.min(60, calculatedWidth));
+}
+
+function getJSFontSize(paperWidth) {
+    // Kağıt genişliğine göre font boyutu ayarla
+    if (paperWidth <= 58) return 10;
+    if (paperWidth <= 80) return 12;
+    return 14;
+}
+
+function wrapJSText(text, width) {
+    if (text.length <= width) {
+        return [text];
+    }
+    
+    const lines = [];
+    const words = text.split(' ');
+    let currentLine = '';
+    
+    words.forEach(word => {
+        if ((currentLine + ' ' + word).length <= width) {
+            currentLine += (currentLine ? ' ' : '') + word;
+        } else {
+            if (currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                // Tek kelime çok uzunsa, kes
+                lines.push(word.substring(0, width - 3) + '...');
+                currentLine = '';
+            }
+        }
+    });
+    
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    
+    return lines;
+}
+
+function formatJSTwoColumns(leftText, rightText, totalWidth) {
+    // Sol kolon için %65, sağ kolon için %35 alan ayır
+    const leftWidth = Math.floor(totalWidth * 0.65);
+    const rightWidth = totalWidth - leftWidth;
+    
+    // Sol metni kes gerekirse
+    if (leftText.length > leftWidth) {
+        leftText = leftText.substring(0, leftWidth - 3) + '...';
+    }
+    
+    // Sağ metni kes gerekirse
+    if (rightText.length > rightWidth) {
+        rightText = rightText.substring(0, rightWidth - 1);
+    }
+    
+    // HTML span'lerde fixed-width karakterler kullan
+    const leftPadded = leftText.padEnd(leftWidth, ' ');
+    const rightPadded = rightText.padStart(rightWidth, ' ');
+    
+    return `<span style='white-space: pre;'>${leftPadded}${rightPadded}</span>`;
+}
+
+// Kategori Yönetimi Fonksiyonları
+function openCategoryModal() {
+    if (!userPermissions.canManageTables) {
+        Swal.fire('Yetkisiz İşlem', 'Masa yönetim yetkiniz bulunmuyor.', 'error');
+        return;
+    }
+    
+    new bootstrap.Modal(document.getElementById('categoryManagementModal')).show();
+}
+
+function openAddCategoryForm() {
+    resetCategoryForm();
+    document.getElementById('categoryFormTitle').textContent = 'Yeni Kategori';
+    document.getElementById('categoryAction').value = 'add';
+}
+
+function resetCategoryForm() {
+    document.getElementById('categoryForm').reset();
+    document.getElementById('categoryId').value = '';
+    document.getElementById('categoryAction').value = 'add';
+    document.getElementById('categoryFormTitle').textContent = 'Yeni Kategori';
+    document.getElementById('categorySortOrder').value = '0';
+}
+
+function editCategory(id, name, description, sortOrder) {
+    document.getElementById('categoryFormTitle').textContent = 'Kategori Düzenle';
+    document.getElementById('categoryAction').value = 'edit';
+    document.getElementById('categoryId').value = id;
+    document.getElementById('categoryName').value = name;
+    document.getElementById('categoryDescription').value = description;
+    document.getElementById('categorySortOrder').value = sortOrder;
+}
+
+function deleteCategory(id, name) {
+    Swal.fire({
+        title: 'Kategoriyi Sil?',
+        text: `"${name}" kategorisini silmek istediğinizden emin misiniz?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Evet, Sil',
+        cancelButtonText: 'İptal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('api/manage_categories.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    id: id
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Başarılı!', 'Kategori silindi', 'success')
+                    .then(() => location.reload());
+                } else {
+                    throw new Error(data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Hata!', error.message, 'error');
+            });
+        }
+    });
+}
+
+// Kategori form submit handler
+document.getElementById('categoryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const action = document.getElementById('categoryAction').value;
+    const id = document.getElementById('categoryId').value;
+    const name = document.getElementById('categoryName').value.trim();
+    const description = document.getElementById('categoryDescription').value.trim();
+    const sortOrder = parseInt(document.getElementById('categorySortOrder').value) || 0;
+    
+    if (!name) {
+        Swal.fire('Hata!', 'Kategori adı gerekli', 'error');
+        return;
+    }
+    
+    const requestData = {
+        action: action,
+        name: name,
+        description: description,
+        sort_order: sortOrder
+    };
+    
+    if (action === 'edit') {
+        requestData.id = parseInt(id);
+    }
+    
+    fetch('api/manage_categories.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Başarılı!', action === 'add' ? 'Kategori eklendi' : 'Kategori güncellendi', 'success')
+            .then(() => location.reload());
+        } else {
+            throw new Error(data.message || 'Bir hata oluştu');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Hata!', error.message, 'error');
+    });
+});
+
+// Tab Sistemi Fonksiyonları - Animasyonlu JavaScript filtreleme
+function showAllTables() {
+    // Önce gizle sonra göster animasyonu
+    const cards = document.querySelectorAll('.table-card-wrapper');
+    
+    // Tüm kartları kısa bir süre gizle
+    cards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+    });
+    
+    // Sonra tümünü göster
+    setTimeout(() => {
+        cards.forEach((card, index) => {
+            card.style.display = 'block';
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            }, index * 50); // Sıralı animasyon
+        });
+    }, 150);
+    
+    // Tab'ları güncelle
+    document.querySelectorAll('#categoryTabs .nav-link').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.getElementById('all-tab').classList.add('active');
+}
+
+function showCategoryTables(categoryId) {
+    const cards = document.querySelectorAll('.table-card-wrapper');
+    
+    // Önce tüm kartları gizle
+    cards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+    });
+    
+    setTimeout(() => {
+        let visibleIndex = 0;
+        cards.forEach(card => {
+            const cardCategoryId = card.dataset.categoryId;
+            if (cardCategoryId == categoryId) {
+                card.style.display = 'block';
+                // Sıralı animasyon ile göster
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                }, visibleIndex * 80);
+                visibleIndex++;
+            } else {
+                // Diğerlerini tamamen gizle
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 200);
+            }
+        });
+    }, 150);
+    
+    // Tab'ları güncelle
+    document.querySelectorAll('#categoryTabs .nav-link').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.getElementById('category-' + categoryId + '-tab').classList.add('active');
 }
 </script>
 

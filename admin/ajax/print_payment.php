@@ -7,13 +7,7 @@ try {
     $db = new Database();
     
     // Yazıcı ayarlarını al
-    $settings = [];
-    $settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%'");
-    $results = $settingsQuery->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ($results as $row) {
-        $settings[$row['setting_key']] = $row['setting_value'];
-    }
+    $settings = getPrinterSettings();
     
     $printer = $settings['printer_default'] ?? '';
     if (empty($printer)) {
@@ -27,44 +21,26 @@ try {
     }
 
     // Ödeme detaylarını getir
-    $payment = $db->query("SELECT p.*, t.table_name, t.table_number 
+    $payment = $db->query("SELECT p.*, t.table_no 
                           FROM payments p 
                           LEFT JOIN tables t ON p.table_id = t.id 
                           WHERE p.id = ?", [$paymentId])->fetch();
 
-    // Fiş içeriğini oluştur
-    $content = [
-        str_repeat('=', 32),
-        str_pad('ÖDEME FİŞİ', 32, ' ', STR_PAD_BOTH),
-        str_repeat('=', 32),
-        '',
-        'Tarih: ' . date('d.m.Y H:i:s', strtotime($payment['created_at'])),
-        'Masa: ' . $payment['table_name'] . ' (#' . $payment['table_number'] . ')',
-        'Fiş No: ' . str_pad($payment['id'], 6, '0', STR_PAD_LEFT),
-        '',
-        str_repeat('-', 32),
-        str_pad('ÖDEME DETAYLARI', 32, ' ', STR_PAD_BOTH),
-        str_repeat('-', 32),
-        '',
-        str_pad('TOPLAM TUTAR:', 20) . 
-        str_pad(number_format($payment['amount'], 2) . ' TL', 12, ' ', STR_PAD_LEFT),
-        str_pad('ÖDEME TİPİ:', 20) . 
-        str_pad($payment['payment_type'], 12, ' ', STR_PAD_LEFT),
-        '',
-        str_repeat('=', 32)
-    ];
-
-    // Varsa header ve footer ekle
-    if (!empty($settings['printer_header'])) {
-        array_unshift($content, '', $settings['printer_header'], '');
-    }
-    if (!empty($settings['printer_footer'])) {
-        $content[] = '';
-        $content[] = $settings['printer_footer'];
+    if (!$payment) {
+        throw new Exception('Ödeme bulunamadı.');
     }
 
-    // Kağıt kesme için boşluk
-    $content[] = "\n\n\n\n";
+    // Bu ödemeye ait sipariş öğelerini getir (varsa)
+    $orderItems = $db->query("
+        SELECT oi.*, p.name as product_name, oi.price
+        FROM order_items oi 
+        LEFT JOIN products p ON oi.product_id = p.id 
+        LEFT JOIN orders o ON oi.order_id = o.id
+        WHERE o.payment_id = ?
+    ", [$paymentId])->fetchAll();
+
+    // Merkezi fiş oluşturma fonksiyonunu kullan
+    $content = buildPaymentReceipt($payment, $orderItems);
 
     // Yazdırma işlemini gerçekleştir
     $result = printReceipt($printer, $content, $settings);

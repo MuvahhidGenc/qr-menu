@@ -135,23 +135,10 @@
    text-align: center;
 }
 
-/* Sidebar içi stiller */
-.nav-link {
-   color: rgba(255,255,255,0.8);
-   padding: 12px 15px;
-   border-radius: 8px;
-   margin-bottom: 5px;
-   transition: all 0.3s;
-   display: flex;
-   align-items: center;
-   text-decoration: none;
-}
+/* Sidebar içi stiller - DEPRECATED - bu kural artık kullanılmıyor */
+/* Yeni .nav-link kuralı aşağıda tanımlandı */
 
-.nav-link i {
-   margin-right: 10px;
-   width: 20px;
-   text-align: center;
-}
+/* DEPRECATED - Bu kural artık kullanılmıyor, yeni kural aşağıda */
 
 .nav-link:hover, .nav-link.active {
    color: #fff;
@@ -595,22 +582,27 @@
 .nav-link {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     padding: 0.8rem 1rem;
     color: rgba(255,255,255,0.7);
     border-radius: 8px;
     margin: 0.2rem 0;
     transition: all 0.3s ease;
+    text-decoration: none;
+    line-height: 1.4;
 }
 
 .nav-link i {
     width: 24px;
     height: 24px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     margin-right: 12px;
     font-size: 1.1rem;
     transition: all 0.3s ease;
+    vertical-align: middle;
+    flex-shrink: 0;
 }
 
 .nav-link:hover {
@@ -1061,28 +1053,28 @@
                 <?php if (hasPermission('dashboard.view')): ?>
                     <li class="nav-item">
                         <a href="dashboard.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">
-                            <i class="fas fa-home me-2"></i>Ana Sayfa
+                            <i class="fas fa-home"></i>Ana Sayfa
                         </a>
                     </li>
                     <?php endif; ?>
                     <?php if (hasPermission('products.view')): ?>   
                     <li class="nav-item">
                         <a href="products.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'products.php' ? 'active' : '' ?>">
-                            <i class="fas fa-utensils me-2"></i>Ürünler & Kategoriler
+                            <i class="fas fa-utensils"></i>Ürünler & Kategoriler
                         </a>
                     </li>
                     <?php endif; ?>
                     <?php if (hasPermission('orders.view')): ?>
                     <li class="nav-item">
                         <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
-                            <i class="fas fa-shopping-cart me-2"></i>Siparişler
+                            <i class="fas fa-shopping-cart"></i>Siparişler
                         </a>
                     </li>
                     <?php endif; ?>
                     <?php if (hasPermission('tables.view')): ?>
                     <li class="nav-item">
                         <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
-                            <i class="fas fa-chair me-2"></i>Masalar
+                            <i class="fas fa-chair"></i>Masalar
                         </a>
                     </li>
                     <?php endif; ?>
@@ -1090,13 +1082,13 @@
                     <?php if (hasPermission('payments.view') /*&& hasPermission('payments.manage')*/): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
-                                <i class="fas fa-money-bill-wave me-2"></i>
+                                <i class="fas fa-money-bill-wave"></i>
                                 Alınmış Ödemeler
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="expenses.php">
-                                <i class="fas fa-money-bill-wave me-2"></i>
+                                <i class="fas fa-money-bill-wave"></i>
                                 Gider Yönetimi
                             </a>
                         </li>
@@ -1105,8 +1097,8 @@
                     <!-- İstatistikler Menüsü -->
                     <?php if (hasPermission('reports.view')): ?>
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#statisticsPanel" role="button" aria-expanded="false" aria-controls="statisticsPanel">
-                            <i class="fas fa-chart-bar me-2"></i>
+                        <a class="nav-link" data-bs-toggle="collapse" href="#statisticsPanel" role="button" aria-expanded="false" aria-controls="statisticsPanel">
+                            <i class="fas fa-chart-bar"></i>
                             Genel İstatistikler
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
@@ -1115,14 +1107,14 @@
                         <div class="collapse" id="statisticsPanel">
                             <ul class="navbar-nav ps-4 ms-3 border-start">
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center" href="reports.php">
-                                        <i class="fas fa-chart-line me-2"></i>
+                                    <a class="nav-link text-white" href="reports.php">
+                                        <i class="fas fa-chart-line"></i>
                                         Raporlar
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center" href="financial.php">
-                                        <i class="fas fa-box me-2"></i>
+                                    <a class="nav-link text-white" href="financial.php">
+                                        <i class="fas fa-box"></i>
                                         Finansal Raporlar
                                     </a>
                                 </li>
@@ -1133,22 +1125,22 @@
                     <?php if (hasPermission('kitchen.view')): ?>
                     <li class="nav-item">
                         <a href="kitchen.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'kitchen.php' ? 'active' : '' ?>">
-                            <i class="fas fa-fire me-2"></i>Mutfak
+                            <i class="fas fa-fire"></i>Mutfak
                         </a>
                     </li>
                     <?php endif; ?>
                     <?php if (hasPermission('reservations.view')): ?>
                     <li class="nav-item">
                         <a href="reservations.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reservations.php' ? 'active' : '' ?>">
-                            <i class="fas fa-calendar-alt me-2"></i>Rezervasyonlar
+                            <i class="fas fa-calendar-alt"></i>Rezervasyonlar
                         </a>
                     </li>
                     <?php endif; ?>
                        <!-- Kullanıcı Yönetimi Menüsü -->
                        <?php if (hasPermission('users.view')): ?>
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#userManagementPanel" role="button" aria-expanded="false" aria-controls="userManagementPanel">
-                            <i class="fas fa-users me-2"></i>
+                        <a class="nav-link" data-bs-toggle="collapse" href="#userManagementPanel" role="button" aria-expanded="false" aria-controls="userManagementPanel">
+                            <i class="fas fa-users"></i>
                             Kullanıcı Yönetimi
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
@@ -1157,14 +1149,14 @@
                         <div class="collapse" id="userManagementPanel">
                             <ul class="navbar-nav ps-4 ms-3 border-start">
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center" href="admins.php">
-                                        <i class="fas fa-users-cog me-2"></i>
+                                    <a class="nav-link text-white" href="admins.php">
+                                        <i class="fas fa-users-cog"></i>
                                         Personel Yönetimi
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-white d-flex align-items-center" href="roles.php">
-                                        <i class="fas fa-user-shield me-2"></i>
+                                    <a class="nav-link text-white" href="roles.php">
+                                        <i class="fas fa-user-shield"></i>
                                         Kullanıcı Rolleri
                                     </a>
                                 </li>
@@ -1175,8 +1167,8 @@
                      <!-- Ayarlar Dropdown Menüsü -->
                 <?php if (hasPermission('settings.view')): ?>
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#settingsPanel" role="button" aria-expanded="false" aria-controls="settingsPanel">
-                        <i class="fas fa-cog me-2"></i>
+                    <a class="nav-link" data-bs-toggle="collapse" href="#settingsPanel" role="button" aria-expanded="false" aria-controls="settingsPanel">
+                        <i class="fas fa-cog"></i>
                         Ayarlar
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down ms-auto" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
@@ -1185,20 +1177,26 @@
                     <div class="collapse" id="settingsPanel">
                         <ul class="navbar-nav ps-4 ms-3 border-start">
                             <li class="nav-item">
-                                <a class="nav-link text-white d-flex align-items-center" href="settings.php">
-                                    <i class="fas fa-sliders-h me-2"></i>
+                                <a class="nav-link text-white" href="settings.php">
+                                    <i class="fas fa-sliders-h"></i>
                                     Site Ayarları
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-white d-flex align-items-center" href="printer_settings.php">
-                                    <i class="fas fa-print me-2"></i>
+                                <a class="nav-link text-white" href="themes.php">
+                                    <i class="fas fa-palette"></i>
+                                    Tema Yönetimi
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white" href="printer_settings.php">
+                                    <i class="fas fa-print"></i>
                                     Yazıcı Ayarları
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-white d-flex align-items-center" href="order_settings.php">
-                                    <i class="fas fa-clipboard-list me-2"></i>
+                                <a class="nav-link text-white" href="order_settings.php">
+                                    <i class="fas fa-clipboard-list"></i>
                                     Sipariş Ayarları
                                 </a>
                             </li>
@@ -1477,7 +1475,6 @@ $(document).ready(function() {
     checkNotifications();
     setInterval(checkNotifications, 10000);
 });
-</script>
 </script>
 <!-- Bootstrap JS - Sayfanın en altına ekleyin -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

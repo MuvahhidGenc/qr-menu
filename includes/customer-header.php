@@ -20,19 +20,27 @@ if (isset($_SESSION['table_id'])) {
         [$_SESSION['table_id']]
     )->fetch();
 
-    // Debug bilgileri
-    echo "<pre style='display:none;'>";
-    echo "Session Table ID: " . $_SESSION['table_id'] . "\n";
-    echo "Active Order: ";
-    print_r($activeOrder);
-    echo "</pre>";
+    // Debug bilgileri - sadece development modunda
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        echo "<pre style='display:none;'>";
+        echo "Session Table ID: " . htmlspecialchars($_SESSION['table_id']) . "\n";
+        echo "Active Order: ";
+        print_r($activeOrder);
+        echo "</pre>";
+    }
 }
 
 $theme_color = $settings['theme_color'] ?? '#e74c3c';
 $theme_rgb = hexToRgb($theme_color);
-$header_bg = isset($settings['header_bg']) && !empty($settings['header_bg']) 
-    ? "url('/qr-menu/uploads/" . $settings['header_bg'] . "')"  // Tam yolu belirttik
-    : "url('/qr-menu/assets/images/bg-restaurant.jpg')";
+// Header background güvenli şekilde ayarla
+$header_bg = "url('/qr-menu/assets/images/bg-restaurant.jpg')"; // Varsayılan
+if (isset($settings['header_bg']) && !empty($settings['header_bg'])) {
+    $safe_header_bg = htmlspecialchars($settings['header_bg'], ENT_QUOTES, 'UTF-8');
+    // Dosya adının güvenli olduğunu kontrol et
+    if (preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif)$/i', $safe_header_bg)) {
+        $header_bg = "url('/qr-menu/uploads/" . $safe_header_bg . "')";
+    }
+}
 
 
 ?>
@@ -42,11 +50,18 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title><?= $settings['restaurant_name'] ?? 'Restaurant Menü' ?></title>
+   <title><?= htmlspecialchars($settings['restaurant_name'] ?? 'Restaurant Menü', ENT_QUOTES, 'UTF-8') ?></title>
    
    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+   
+   <?php 
+   // Dynamic theme CSS
+   $active_theme = $db->query("SELECT id FROM customer_themes WHERE is_active = 1 LIMIT 1")->fetch();
+   if($active_theme): ?>
+   <link href="admin/theme.css.php?theme=<?= $active_theme['id'] ?>" rel="stylesheet" id="dynamic-theme">
+   <?php endif; ?>
    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
    <style>
@@ -171,19 +186,114 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
         margin-bottom: 50px;
     }
     .hero-section {
-        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), <?= $header_bg ?> !important;
+        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), <?= $header_bg ?> !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
-        padding: 60px 0px !important;
+        padding: 25px 0 !important;
         color: white;
-        text-align: center;
         margin-bottom: 0px !important;
-        height: 200px !important;
+        min-height: 140px !important;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-bottom: 4px solid var(--primary-red);
+        border-bottom: 3px solid var(--theme-color);
+    }
+    
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 1200px;
+        padding: 0 20px;
+    }
+    
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        justify-content: center;
+    }
+    
+    .logo-container {
+        flex-shrink: 0;
+        margin-right: 25px;
+    }
+    
+    .logo-img {
+        width: 100px;
+        height: 100px;
+        object-fit: contain;
+        border-radius: 15px;
+        background: rgba(255,255,255,0.9);
+        padding: 8px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        border: 3px solid rgba(255,255,255,0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .logo-img:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.3);
+        background: rgba(255,255,255,1);
+    }
+    
+    .restaurant-info h1 {
+        margin: 0;
+        font-size: 2.2rem;
+        font-weight: 700;
+        text-shadow: 0 3px 6px rgba(0,0,0,0.6);
+        margin-left: 10px;
+    }
+
+    
+    @media (max-width: 768px) {
+        .header-content {
+            flex-direction: column;
+            gap: 20px;
+            text-align: center;
+        }
+        
+        .header-left {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .logo-container {
+            margin-right: 0;
+        }
+        
+        .logo-img {
+            width: 80px;
+            height: 80px;
+        }
+        
+        .restaurant-info h1 {
+            font-size: 1.8rem;
+            margin-left: 0;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .hero-section {
+            min-height: 120px !important;
+            padding: 20px 0 !important;
+        }
+        
+        .header-content {
+            padding: 0 15px;
+        }
+        
+        .logo-img {
+            width: 70px;
+            height: 70px;
+        }
+        
+        .restaurant-info h1 {
+            font-size: 1.6rem;
+        }
     }
     .category-card {
         position: relative;
@@ -302,13 +412,8 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
         font-weight: 500;
     }
     .logo-img {
-   width: 100px;  /* Genişlik */
-   height: 100px; /* Yükseklik */
-   object-fit: contain; /* Resmi oranını koruyarak sığdır */
-   margin: 0 auto 0px; /* Ortalama için */
-   display: block; /* Block element yap */
-  
-}
+        /* Logo styling moved to header section */
+    }
 
 .floating-order-btn {
     position: fixed;
@@ -600,20 +705,28 @@ $header_bg = isset($settings['header_bg']) && !empty($settings['header_bg'])
 </head>
 <body>
    <div class="hero-section">
-       <div class="container">
-           <?php if(isset($settings['logo']) && !empty($settings['logo'])): ?>
-               <img src="uploads/<?= $settings['logo'] ?>" alt="Logo" class="logo-img">
-           <?php endif; ?>
-           <h1><?= htmlspecialchars($settings['restaurant_name'] ?? 'Restaurant İsmi') ?></h1>
-           <p class="lead">Lezzetli yemeklerimizi keşfedin</p>
+       <div class="header-content">
+           <div class="header-left">
+               <?php if(isset($settings['logo']) && !empty($settings['logo'])): 
+                   $safe_logo = htmlspecialchars($settings['logo'], ENT_QUOTES, 'UTF-8');
+                   // Logo dosya adının güvenli olduğunu kontrol et
+                   if (preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif)$/i', $safe_logo)): ?>
+                   <div class="logo-container">
+                       <img src="uploads/<?= $safe_logo ?>" alt="Logo" class="logo-img">
+                   </div>
+               <?php endif; endif; ?>
+               <div class="restaurant-info">
+                   <h1><?= htmlspecialchars($settings['restaurant_name'] ?? 'Restaurant İsmi') ?></h1>
+               </div>
+           </div>
        </div>
    </div>
 
    <?php 
    // Sadece aktif sipariş varsa butonu göster
    if (isset($_SESSION['existing_order_id']) && $_SESSION['existing_order_id']): ?>
-       <a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
+       <!--<a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
            <i class="fas fa-receipt"></i>
            <span>Siparişlerim</span>
-       </a>
+       </a>-->
    <?php endif; ?>

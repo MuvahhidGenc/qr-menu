@@ -6,7 +6,11 @@ class RateLimit {
     private $maxAttempts = 100; // 5 dakika içinde maksimum istek sayısı
 
     public function __construct($db = null) {
-        $this->db = $db;
+        if ($db) {
+            $this->db = $db;
+        } else {
+            $this->db = new Database();
+        }
         $this->createTable();
     }
 
@@ -29,7 +33,7 @@ class RateLimit {
 
     public function check($endpoint, $ip = null) {
         if (!$ip) {
-            $ip = $this->getClientIP();
+            $ip = getClientIP();
         }
 
         try {
@@ -113,14 +117,7 @@ class RateLimit {
         }
     }
 
-    private function getClientIP() {
-        if (isset($_SERVER['HTTP_CLIENT_IP'])) {
-            return $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            return $_SERVER['HTTP_X_FORWARDED_FOR'];
-        }
-        return $_SERVER['REMOTE_ADDR'];
-    }
+    // getClientIP() fonksiyonu functions.php'de global olarak tanımlı
 
     public function setWindow($seconds) {
         $this->window = $seconds;
@@ -132,7 +129,7 @@ class RateLimit {
 
     public function getRemainingAttempts($endpoint, $ip = null) {
         if (!$ip) {
-            $ip = $this->getClientIP();
+            $ip = getClientIP();
         }
 
         try {
@@ -151,7 +148,7 @@ class RateLimit {
 
     public function reset($endpoint, $ip = null) {
         if (!$ip) {
-            $ip = $this->getClientIP();
+            $ip = getClientIP();
         }
 
         try {
@@ -164,6 +161,147 @@ class RateLimit {
         } catch (Exception $e) {
             error_log("Rate limit sıfırlama hatası: " . $e->getMessage());
             return false;
+        }
+    }
+
+    // Login için özel rate limiting metodları
+    public function isLimited($ip) {
+        try {
+            $this->cleanup();
+            
+            $record = $this->db->query(
+                "SELECT * FROM {$this->tableName} 
+                WHERE ip_address = ? AND endpoint = 'login'",
+                [$ip]
+            )->fetch();
+
+            if (!$record) {
+                return false;
+            }
+
+            // 5 başarısız denemeden sonra bloklanmış mı kontrol et
+            if ($record['attempts'] >= 5) {
+                if ($record['blocked_until']) {
+                    return strtotime($record['blocked_until']) > time();
+                } else {
+                    // Eğer blocked_until NULL ise, şimdi blokla
+                    $blockedUntil = date('Y-m-d H:i:s', time() + 600); // 10 dakika
+                    $this->db->query(
+                        "UPDATE {$this->tableName} 
+                        SET blocked_until = ? 
+                        WHERE ip_address = ? AND endpoint = 'login'",
+                        [$blockedUntil, $ip]
+                    );
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (Exception $e) {
+            error_log("Rate limit kontrolü hatası: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function recordAttempt($ip, $success = false) {
+        try {
+            $record = $this->db->query(
+                "SELECT * FROM {$this->tableName} 
+                WHERE ip_address = ? AND endpoint = 'login'",
+                [$ip]
+            )->fetch();
+
+            if ($success) {
+                // Başarılı giriş - kayıtları temizle
+                if ($record) {
+                    $this->db->query(
+                        "DELETE FROM {$this->tableName} 
+                        WHERE ip_address = ? AND endpoint = 'login'",
+                        [$ip]
+                    );
+                }
+            } else {
+                // Başarısız giriş
+                if ($record) {
+                    $newAttempts = $record['attempts'] + 1;
+                    $blockedUntil = null;
+                    
+                    // 5. denemeden sonra 10 dakika blokla
+                    if ($newAttempts >= 5) {
+                        $blockedUntil = date('Y-m-d H:i:s', time() + 600); // 10 dakika
+                    }
+                    
+                    $this->db->query(
+                        "UPDATE {$this->tableName} 
+                        SET attempts = ?, last_attempt = CURRENT_TIMESTAMP, blocked_until = ?
+                        WHERE ip_address = ? AND endpoint = 'login'",
+                        [$newAttempts, $blockedUntil, $ip]
+                    );
+                } else {
+                    // İlk deneme
+                    $this->db->query(
+                        "INSERT INTO {$this->tableName} (ip_address, endpoint, attempts) 
+                        VALUES (?, 'login', 1)",
+                        [$ip]
+                    );
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Rate limit kayıt hatası: " . $e->getMessage());
+        }
+    }
+
+    public function getRemainingTime($ip) {
+        try {
+            $record = $this->db->query(
+                "SELECT blocked_until FROM {$this->tableName} 
+                WHERE ip_address = ? AND endpoint = 'login'",
+                [$ip]
+            )->fetch();
+
+            if ($record && $record['blocked_until']) {
+                $remainingTime = strtotime($record['blocked_until']) - time();
+                return max(0, $remainingTime);
+            }
+
+            return 0;
+        } catch (Exception $e) {
+            error_log("Kalan süre hesaplama hatası: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function getAttemptsLeft($ip) {
+        try {
+            $record = $this->db->query(
+                "SELECT attempts FROM {$this->tableName} 
+                WHERE ip_address = ? AND endpoint = 'login'",
+                [$ip]
+            )->fetch();
+
+            if ($record) {
+                return max(0, 5 - $record['attempts']);
+            }
+
+            return 5;
+        } catch (Exception $e) {
+            error_log("Kalan deneme hesaplama hatası: " . $e->getMessage());
+            return 5;
+        }
+    }
+
+    public function getAttempts($ip) {
+        try {
+            $record = $this->db->query(
+                "SELECT attempts FROM {$this->tableName} 
+                WHERE ip_address = ? AND endpoint = 'login'",
+                [$ip]
+            )->fetch();
+
+            return $record ? (int)$record['attempts'] : 0;
+        } catch (Exception $e) {
+            error_log("Deneme sayısı alma hatası: " . $e->getMessage());
+            return 0;
         }
     }
 }

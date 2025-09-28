@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
+require_once 'includes/print_helper.php';
 
 // Yetki kontrolü
 if (!hasPermission('orders.view')) {
@@ -15,12 +16,15 @@ $db = new Database();
 
 // Yazıcı ayarlarını al
 $printerSettings = [];
-$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%'");
+$settingsQuery = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'printer_%' OR setting_key = 'restaurant_name'");
 $results = $settingsQuery->fetchAll();
 
 foreach ($results as $row) {
     $printerSettings[$row['setting_key']] = $row['setting_value'];
 }
+
+// Restoran adını ayrıca al
+$restaurantName = $printerSettings['restaurant_name'] ?? 'Restaurant';
 
 // Filtreleme parametreleri
 $filter_type = $_GET['filter_type'] ?? 'active';
@@ -544,60 +548,385 @@ $(document).ready(function() {
     // Mevcut view-order click eventi (değiştirmeyin)
     $('.view-order').on('click', function() {
         var orderId = $(this).data('order-id');
-        $.get('ajax/get_order_detail.php', {order_id: orderId}, function(response) {
-            $('#orderModal .modal-body').html(response);
-            $('#orderModal').modal('show');
-        });
+        $.post('ajax/get_order_details.php', {order_id: orderId}, function(response) {
+            if(response.success) {
+                $('#orderModal .modal-body').html(response.html);
+                $('#orderModal').modal('show');
+            } else {
+                alert(response.message || 'Sipariş detayları alınamadı.');
+            }
+        }, 'json');
     });
 
-    // Sadece yazdırma özelliğini ekleyelim
+    // Responsive sipariş detayı yazdırma fonksiyonu
     $('.btn-print').on('click', function() {
         // PHP'den gelen yazıcı ayarlarını al
-        const printerSettings = <?php echo json_encode($printerSettings); ?>;
+        const printerSettings = <?php echo json_encode($printerSettings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+        const restaurantName = <?php echo json_encode($restaurantName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
         
-        const printContent = $('#orderModal .modal-body').html();
-        const printWindow = window.open('', '', 'height=600,width=800');
+        // Modal içeriğinden sipariş verilerini çıkar
+        const orderDetails = extractOrderDataFromModal();
+        
+        if (!orderDetails) {
+            alert('Sipariş verileri alınamadı. Lütfen tekrar deneyin.');
+            return;
+        }
+        
+        // Responsive receipt içeriği oluştur
+        const receiptContent = buildResponsiveOrderReceipt(orderDetails, printerSettings);
+
+        // Dynamic window size based on content
+        const printWindow = window.open('', '', 'width=400,height=500,scrollbars=yes,resizable=yes');
+        
+        const paperWidth = printerSettings['printer_paper_width'] || '80';
+        const fontSize = paperWidth <= 58 ? '10px' : (paperWidth <= 80 ? '12px' : '14px');
         
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Sipariş Detayı</title>
-                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <title>Sipariş Detayı #${orderDetails.id}</title>
+                    <meta charset="UTF-8">
                     <style>
-                        body { padding: 20px; }
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        body { 
+                            font-family: "Courier New", monospace;
+                            font-size: ${fontSize};
+                            line-height: 1.1;
+                            padding: 5px;
+                            background: white;
+                        }
                         .receipt-content {
-                            width: ${printerSettings['printer_paper_width'] ?? '80'}mm;
+                            width: ${paperWidth}mm;
                             margin: 0 auto;
+                            font-family: "Courier New", monospace;
+                            min-height: auto;
+                        }
+                        .responsive-line {
+                            white-space: pre;
+                            margin: 1px 0;
+                            line-height: 1.1;
                         }
                         @media print {
+                            body { 
+                                margin: 0; 
+                                padding: 2px;
+                                background: white;
+                                -webkit-print-color-adjust: exact;
+                            }
+                            @page { 
+                                margin: 0;
+                                size: ${paperWidth}mm auto;
+                            }
                             .no-print { display: none; }
+                            .receipt-content {
+                                width: 100%;
+                                margin: 0;
+                            }
+                        }
+                        @media screen {
+                            body {
+                                padding: 10px;
+                            }
                         }
                     </style>
                 </head>
                 <body>
                     <div class="receipt-content">
-                        ${printerSettings['printer_header'] ? `<div class="text-center mb-3">${printerSettings['printer_header']}</div>` : ''}
-                        ${printContent}
-                        ${printerSettings['printer_footer'] ? `<div class="text-center mt-3">${printerSettings['printer_footer']}</div>` : ''}
+                        ${receiptContent}
                     </div>
+                    <script>
+                        window.onload = function() {
+                            // Auto-resize window to content
+                            const content = document.querySelector('.receipt-content');
+                            const contentHeight = content.offsetHeight;
+                            const windowHeight = Math.min(contentHeight + 60, 700); // Max 700px
+                            
+                            window.resizeTo(400, windowHeight);
+                            
+                            // Auto print after a short delay
+                            setTimeout(() => {
+                                window.print();
+                            }, 100);
+                            
+                            window.onafterprint = function() {
+                                window.close();
+                            }
+                        }
+                    <\/script>
                 </body>
             </html>
         `);
         
-        printWindow.document.write('<script>');
-        printWindow.document.write(`
-            window.onload = function() {
-                window.print();
-                window.onafterprint = function() {
-                    window.close();
-                }
-            }
-        `);
-        printWindow.document.write('</scr' + 'ipt>');
-        
         printWindow.document.close();
     });
 });
+
+// Modal içeriğinden sipariş verilerini çıkar
+function extractOrderDataFromModal() {
+    try {
+        const modalBody = document.querySelector('#orderModal .modal-body');
+        if (!modalBody) return null;
+
+        // Sipariş bilgilerini çıkar
+        const orderDetails = modalBody.querySelector('.order-details');
+        if (!orderDetails) return null;
+
+        // Temel bilgileri al
+        const orderInfo = orderDetails.textContent;
+        const orderIdMatch = orderInfo.match(/Sipariş No:\s*#(\d+)/);
+        const tableMatch = orderInfo.match(/Masa:\s*([^\n]+)/);
+        const dateMatch = orderInfo.match(/Tarih:\s*([^\n]+)/);
+
+        // Sipariş notunu al
+        const noteElement = orderDetails.querySelector('.alert-info');
+        const note = noteElement ? noteElement.textContent.replace('Sipariş Notu:', '').trim() : '';
+
+        // Ürünleri al
+        const items = [];
+        const rows = orderDetails.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 4) {
+                items.push({
+                    product_name: cells[0].textContent.trim(),
+                    quantity: parseInt(cells[1].textContent.trim()),
+                    price: parseFloat(cells[2].textContent.replace(/[^0-9.]/g, '')),
+                    total: parseFloat(cells[3].textContent.replace(/[^0-9.]/g, ''))
+                });
+            }
+        });
+
+        // Toplam tutarı al
+        const totalElement = orderDetails.querySelector('tfoot th:last-child');
+        const total = totalElement ? parseFloat(totalElement.textContent.replace(/[^0-9.]/g, '')) : 0;
+
+        return {
+            id: orderIdMatch ? orderIdMatch[1] : '',
+            table_name: tableMatch ? tableMatch[1] : '',
+            created_at: dateMatch ? dateMatch[1] : '',
+            note: note,
+            items: items,
+            total_amount: total
+        };
+    } catch (error) {
+        console.error('Modal veri çıkarma hatası:', error);
+        return null;
+    }
+}
+
+// Responsive sipariş fişi oluştur
+function buildResponsiveOrderReceipt(orderData, settings) {
+    const paperWidth = settings['printer_paper_width'] || '80';
+    const charWidth = getJSCharacterWidth(paperWidth);
+    const autoCut = settings['printer_auto_cut'] == '1';
+    
+    let content = '';
+    
+    // Başlık
+    if (settings['printer_header']) {
+        const headerLines = wrapJSText(settings['printer_header'], charWidth);
+        headerLines.forEach(line => {
+            content += `<div class="responsive-line" style="text-align: center;">${line}</div>`;
+        });
+        content += '<div class="responsive-line"></div>';
+    }
+    
+    // Restoran adı
+    if (settings['restaurant_name']) {
+        const nameLines = wrapJSText(settings['restaurant_name'], charWidth);
+        nameLines.forEach(line => {
+            content += `<div class="responsive-line" style="text-align: center; font-weight: bold;">${line}</div>`;
+        });
+    }
+    
+    content += `<div class="responsive-line" style="text-align: center;">${'='.repeat(charWidth)}</div>`;
+    
+    // Fiş türü
+    content += `<div class="responsive-line" style="text-align: center; font-weight: bold;">SİPARİŞ DETAYI</div>`;
+    content += `<div class="responsive-line">${'='.repeat(charWidth)}</div>`;
+    
+    // Temel bilgiler
+    content += `<div class="responsive-line">Tarih: ${orderData.created_at}</div>`;
+    if (orderData.table_name) {
+        content += `<div class="responsive-line">Masa: ${orderData.table_name}</div>`;
+    }
+    content += `<div class="responsive-line">Sipariş No: #${orderData.id}</div>`;
+    content += '<div class="responsive-line"></div>';
+    
+    // Ürünler
+    content += `<div class="responsive-line">${'-'.repeat(charWidth)}</div>`;
+    content += `<div class="responsive-line" style="text-align: center; font-weight: bold;">ÜRÜNLER</div>`;
+    content += `<div class="responsive-line">${'-'.repeat(charWidth)}</div>`;
+    
+    let total = 0;
+    orderData.items.forEach(item => {
+        const itemTotal = item.quantity * item.price;
+        total += itemTotal;
+        
+        const formattedLine = formatJSPriceLine(item.product_name, item.quantity, item.price, charWidth);
+        content += `<div class="responsive-line">${formattedLine}</div>`;
+    });
+    
+    // Toplam
+    content += `<div class="responsive-line">${'-'.repeat(charWidth)}</div>`;
+    const totalLine = formatJSTotalLine('TOPLAM:', total, charWidth);
+    content += `<div class="responsive-line" style="font-weight: bold;">${totalLine}</div>`;
+    content += `<div class="responsive-line">${'='.repeat(charWidth)}</div>`;
+    
+    // Sipariş notu (sadece varsa)
+    if (orderData.note && orderData.note.trim()) {
+        content += '<div class="responsive-line"></div>';
+        const noteLines = wrapJSText('Not: ' + orderData.note, charWidth);
+        noteLines.forEach(line => {
+            content += `<div class="responsive-line">${line}</div>`;
+        });
+    }
+    
+    // Alt bilgi (sadece varsa)
+    if (settings['printer_footer'] && settings['printer_footer'].trim()) {
+        content += '<div class="responsive-line"></div>';
+        const footerLines = wrapJSText(settings['printer_footer'], charWidth);
+        footerLines.forEach(line => {
+            content += `<div class="responsive-line" style="text-align: center;">${line}</div>`;
+        });
+    }
+    
+    // Minimal spacing based on auto-cut setting
+    if (autoCut) {
+        // Auto-cut enabled: minimal spacing
+        content += '<div class="responsive-line"></div>';
+    } else {
+        // Manual cut: slightly more space for tearing
+        content += '<div class="responsive-line"></div>';
+        content += '<div class="responsive-line"></div>';
+    }
+    
+    return content;
+}
+
+// JavaScript karakter genişliği hesapla
+function getJSCharacterWidth(paperWidth) {
+    const widthMap = {
+        '58': 24,
+        '80': 32,
+        '112': 44
+    };
+    
+    if (widthMap[paperWidth]) {
+        return widthMap[paperWidth];
+    }
+    
+    const calculatedWidth = Math.floor(paperWidth * 0.4);
+    return Math.max(20, Math.min(60, calculatedWidth));
+}
+
+// JavaScript metin sarma
+function wrapJSText(text, width) {
+    if (text.length <= width) {
+        return [text];
+    }
+    
+    const lines = [];
+    const words = text.split(' ');
+    let currentLine = '';
+    
+    words.forEach(word => {
+        if ((currentLine + ' ' + word).length <= width) {
+            currentLine += (currentLine ? ' ' : '') + word;
+        } else {
+            if (currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                lines.push(word.substring(0, width - 3) + '...');
+                currentLine = '';
+            }
+        }
+    });
+    
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    
+    return lines;
+}
+
+// JavaScript iki kolon formatı (Geliştirilmiş)
+function formatJSTwoColumns(leftText, rightText, totalWidth) {
+    // Sağ kolonda fiyat/toplam olacaksa daha fazla alan ver
+    const isPriceText = /\d+[.,]\d+\s*(TL|₺)|\d+\s*x\s*\d+[.,]\d+/.test(rightText);
+    
+    let leftWidth, rightWidth;
+    if (isPriceText) {
+        // Fiyat metni için: sol %60, sağ %40
+        leftWidth = Math.floor(totalWidth * 0.60);
+        rightWidth = totalWidth - leftWidth;
+    } else {
+        // Normal metin için: sol %65, sağ %35
+        leftWidth = Math.floor(totalWidth * 0.65);
+        rightWidth = totalWidth - leftWidth;
+    }
+    
+    // Sağ metni önce kontrol et - bu fiyat olabilir, kesilmemeli
+    if (rightText.length > rightWidth) {
+        // Sağ metin çok uzunsa, sol metni daha çok kes
+        rightWidth = Math.min(rightWidth + 3, totalWidth - 10); // Min 10 karakter sol için
+        leftWidth = totalWidth - rightWidth;
+    }
+    
+    // Sol metni kes gerekirse
+    if (leftText.length > leftWidth) {
+        leftText = leftText.substring(0, leftWidth - 3) + '...';
+    }
+    
+    // Sağ metni son kontrol
+    if (rightText.length > rightWidth) {
+        rightText = rightText.substring(0, rightWidth - 1);
+    }
+    
+    return leftText.padEnd(leftWidth, ' ') + rightText.padStart(rightWidth, ' ');
+}
+
+// JavaScript fiyat satırı formatlama
+function formatJSPriceLine(productName, quantity, price, totalWidth) {
+    const priceNum = parseFloat(price);
+    const quantityPrice = quantity + ' x ' + priceNum.toFixed(2);
+    
+    // Fiyat alanı için gerekli minimum genişlik
+    const priceMinWidth = Math.max(quantityPrice.length, 8) + 1;
+    
+    // Fiyat alanı toplam genişliğin max %45'i olabilir, min 8 karakter
+    const rightWidth = Math.min(Math.max(priceMinWidth, 8), Math.floor(totalWidth * 0.45));
+    const leftWidth = totalWidth - rightWidth;
+    
+    // Ürün adını kes gerekirse
+    if (productName.length > leftWidth) {
+        productName = productName.substring(0, leftWidth - 3) + '...';
+    }
+    
+    return productName.padEnd(leftWidth, ' ') + quantityPrice.padStart(rightWidth, ' ');
+}
+
+// JavaScript toplam satırı formatlama
+function formatJSTotalLine(label, amount, totalWidth) {
+    const amountNum = parseFloat(amount);
+    const amountText = amountNum.toFixed(2) + ' TL';
+    
+    // Tutar için gerekli minimum genişlik
+    const rightWidth = Math.max(amountText.length + 1, 10);
+    const leftWidth = totalWidth - rightWidth;
+    
+    // Etiket metni kes gerekirse
+    if (label.length > leftWidth) {
+        label = label.substring(0, leftWidth - 1);
+    }
+    
+    return label.padEnd(leftWidth, ' ') + amountText.padStart(rightWidth, ' ');
+}
 
 function applyFilters() {
     const filterType = document.getElementById('filterType').value;
@@ -732,3 +1061,6 @@ function updateOrderStatus(orderId, newStatus) {
     });
 }
 </script>
+
+</body>
+</html>

@@ -91,29 +91,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             case 'edit':
                 try {
                     $id = intval($_POST['id']);
+                    if ($id <= 0) {
+                        throw new Exception('Geçersiz kullanıcı ID');
+                    }
+                    
+                    // Input validation
+                    $username = cleanInput($_POST['username'] ?? '');
+                    $name = cleanInput($_POST['name'] ?? '');
+                    $email = cleanInput($_POST['email'] ?? '');
+                    $role_id = intval($_POST['role_id'] ?? 0);
+                    
+                    if (empty($username)) {
+                        throw new Exception('Kullanıcı adı gerekli');
+                    }
+                    if (empty($name)) {
+                        throw new Exception('İsim gerekli');
+                    }
+                    if ($role_id <= 0) {
+                        throw new Exception('Geçersiz rol ID');
+                    }
+                    
                     $salary = isset($_POST['salary']) && $_POST['salary'] !== '' ? floatval($_POST['salary']) : null;
                     $bonus = isset($_POST['bonus_percentage']) && $_POST['bonus_percentage'] !== '' ? floatval($_POST['bonus_percentage']) : null;
                     
+                    // Güvenli field mapping
                     $updates = [
-                        "username = ?",
-                        "name = ?",
-                        "email = ?",
-                        "role_id = ?",
-                        "salary = ?",
-                        "bonus_percentage = ?"
+                        "`username` = ?",
+                        "`name` = ?",
+                        "`email` = ?",
+                        "`role_id` = ?",
+                        "`salary` = ?",
+                        "`bonus_percentage` = ?"
                     ];
                     
                     $params = [
-                        $_POST['username'],
-                        $_POST['name'],
-                        $_POST['email'],
-                        $_POST['role_id'],
+                        $username,
+                        $name,
+                        $email,
+                        $role_id,
                         $salary,
                         $bonus
                     ];
 
                     if (!empty($_POST['password'])) {
-                        $updates[] = "password = ?";
+                        $updates[] = "`password` = ?";
                         $params[] = password_hash($_POST['password'], PASSWORD_DEFAULT);
                     }
 

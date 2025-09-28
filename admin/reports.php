@@ -21,9 +21,9 @@ if (!hasPermission('reports.view')) {
 
 $db = new Database();
 
-// Filtreler
-$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d', strtotime('-30 days'));
-$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+// Filtreler - Saat destekli
+$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d\T00:00', strtotime('-30 days'));
+$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d\T23:59');
 $report_type = isset($_GET['report_type']) ? $_GET['report_type'] : 'all';
 $export_format = isset($_GET['export']) ? $_GET['export'] : null;
 
@@ -54,9 +54,43 @@ $general_stats = $db->query("
         COUNT(CASE WHEN p.status = 'cancelled' THEN 1 END) as total_cancelled_orders
     FROM orders o
     LEFT JOIN payments p ON o.payment_id = p.id
-    WHERE DATE(o.created_at) BETWEEN ? AND ?",
+    WHERE o.created_at BETWEEN ? AND ?",
     [$start_date, $end_date]
 )->fetch();
+
+// İndirim ve Gelir İstatistikleri
+$discount_revenue_stats = $db->query("
+    SELECT 
+        COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.discount_amount ELSE 0 END), 0) as total_discount,
+        COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.paid_amount ELSE 0 END), 0) as actual_revenue,
+        COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.subtotal ELSE 0 END), 0) as gross_revenue,
+        COUNT(CASE WHEN p.status = 'completed' AND p.discount_amount > 0 THEN 1 END) as discounted_orders,
+        COALESCE(AVG(CASE WHEN p.status = 'completed' AND p.discount_amount > 0 THEN p.discount_amount END), 0) as avg_discount_amount,
+        COALESCE(SUM(CASE WHEN p.status = 'completed' AND p.payment_method = 'cash' THEN p.paid_amount ELSE 0 END), 0) as cash_revenue,
+        COALESCE(SUM(CASE WHEN p.status = 'completed' AND p.payment_method = 'pos' THEN p.paid_amount ELSE 0 END), 0) as card_revenue
+    FROM payments p
+    WHERE p.created_at BETWEEN ? AND ?",
+    [$start_date, $end_date]
+)->fetch();
+
+// İndirim Analizi
+$discount_analysis = $db->query("
+    SELECT 
+        DATE(p.created_at) as date,
+        COUNT(CASE WHEN p.discount_amount > 0 THEN 1 END) as discounted_count,
+        COALESCE(SUM(p.discount_amount), 0) as total_discount,
+        COALESCE(SUM(CASE WHEN p.discount_type = 'percent' THEN p.discount_amount ELSE 0 END), 0) as percent_discount,
+        COALESCE(SUM(CASE WHEN p.discount_type = 'amount' THEN p.discount_amount ELSE 0 END), 0) as amount_discount,
+        COALESCE(AVG(CASE WHEN p.discount_amount > 0 THEN p.discount_amount END), 0) as avg_discount,
+        COALESCE(SUM(p.subtotal), 0) as gross_revenue,
+        COALESCE(SUM(p.paid_amount), 0) as net_revenue
+    FROM payments p
+    WHERE p.status = 'completed' 
+    AND p.created_at BETWEEN ? AND ?
+    GROUP BY DATE(p.created_at)
+    ORDER BY date DESC",
+    [$start_date, $end_date]
+)->fetchAll();
 
 // En Çok Satan Ürünler
 $top_products = $db->query("
@@ -73,7 +107,7 @@ $top_products = $db->query("
     LEFT JOIN orders o ON o.id = oi.order_id
     LEFT JOIN payments pay ON o.payment_id = pay.id
     WHERE pay.status = 'completed' 
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     GROUP BY p.id, p.name, c.name
     ORDER BY total_revenue DESC
     LIMIT 10",
@@ -90,7 +124,7 @@ $daily_sales = $db->query("
         COALESCE(SUM(CASE WHEN p.payment_method = 'pos' AND p.status = 'completed' THEN p.total_amount ELSE 0 END), 0) as card_revenue
     FROM orders o
     LEFT JOIN payments p ON o.payment_id = p.id
-    WHERE DATE(o.created_at) BETWEEN ? AND ?
+    WHERE o.created_at BETWEEN ? AND ?
     GROUP BY DATE(o.created_at)
     ORDER BY sale_date",
     [$start_date, $end_date]
@@ -105,7 +139,7 @@ $hourly_analysis = $db->query("
         AVG(total_amount) as avg_order_value
     FROM orders
     WHERE status = 'completed'
-    AND DATE(created_at) BETWEEN ? AND ?
+    AND created_at BETWEEN ? AND ?
     GROUP BY HOUR(created_at)
     ORDER BY hour",
     [$start_date, $end_date]
@@ -129,7 +163,7 @@ $cancellation_analysis = $db->query("
     FROM orders o
     LEFT JOIN payments p ON o.payment_id = p.id
     WHERE p.status = 'cancelled'
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     GROUP BY DATE(o.created_at)
     ORDER BY date DESC",
     [$start_date, $end_date]
@@ -151,7 +185,7 @@ $cancelled_items = $db->query("
     JOIN payments pay ON o.payment_id = pay.id
     JOIN tables t ON o.table_id = t.id
     WHERE pay.status = 'cancelled'
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     GROUP BY p.id, p.name, c.name
     ORDER BY cancel_count DESC",
     [$start_date, $end_date]
@@ -183,7 +217,7 @@ $staff_performance = $db->query("
     )
     LEFT JOIN payments p ON o.payment_id = p.id
     WHERE a.role_id != 1  -- Sistem yöneticisini hariç tut
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     GROUP BY a.id, a.name
     ORDER BY total_revenue DESC",
     [$start_date, $end_date]
@@ -202,7 +236,7 @@ $table_analysis = $db->query("
     FROM tables t
     LEFT JOIN orders o ON o.table_id = t.id
     LEFT JOIN payments p ON o.payment_id = p.id
-    WHERE DATE(o.created_at) BETWEEN ? AND ?
+    WHERE o.created_at BETWEEN ? AND ?
     GROUP BY t.id, t.table_no
     ORDER BY total_revenue DESC",
     [$start_date, $end_date]
@@ -216,7 +250,7 @@ $completed_orders = $db->query("
     LEFT JOIN payments p ON o.payment_id = p.id
     WHERE o.status = 'completed' 
     AND p.status = 'completed'
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     ORDER BY o.created_at DESC",
     [$start_date, $end_date]
 )->fetchAll();
@@ -228,7 +262,7 @@ $cancelled_orders = $db->query("
     LEFT JOIN tables t ON o.table_id = t.id
     LEFT JOIN payments p ON o.payment_id = p.id
     WHERE p.status = 'cancelled'
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     ORDER BY o.created_at DESC",
     [$start_date, $end_date]
 )->fetchAll();
@@ -241,7 +275,7 @@ $active_orders = $db->query("
     LEFT JOIN payments p ON o.payment_id = p.id
     WHERE o.status IN ('pending', 'preparing', 'ready', 'delivered') 
     AND (p.status IS NULL OR p.status = 'pending')
-    AND DATE(o.created_at) BETWEEN ? AND ?
+    AND o.created_at BETWEEN ? AND ?
     ORDER BY o.created_at DESC",
     [$start_date, $end_date]
 )->fetchAll();
@@ -340,12 +374,18 @@ include 'navbar.php';
             <div class="card-body">
                 <form method="GET" class="row g-3">
                     <div class="col-md-3">
-                        <label>Başlangıç Tarihi</label>
-                        <input type="date" name="start_date" class="form-control" value="<?= $start_date ?>">
+                        <label class="form-label">
+                            <i class="fas fa-calendar-alt me-1"></i>Başlangıç Tarihi ve Saati
+                        </label>
+                        <input type="datetime-local" name="start_date" class="form-control" value="<?= $start_date ?>">
+                        <small class="form-text text-muted">Tarih ve saat seçiniz</small>
                     </div>
                     <div class="col-md-3">
-                        <label>Bitiş Tarihi</label>
-                        <input type="date" name="end_date" class="form-control" value="<?= $end_date ?>">
+                        <label class="form-label">
+                            <i class="fas fa-calendar-alt me-1"></i>Bitiş Tarihi ve Saati
+                        </label>
+                        <input type="datetime-local" name="end_date" class="form-control" value="<?= $end_date ?>">
+                        <small class="form-text text-muted">Tarih ve saat seçiniz</small>
                     </div>
                     <div class="col-md-2">
                         <label>Rapor Tipi</label>
@@ -369,21 +409,34 @@ include 'navbar.php';
                         </div>
                     </div>
                 </form>
+                
+                <!-- Hızlı Zaman Seçimi -->
+                <div class="mt-3">
+                    <small class="text-muted me-2">Hızlı Seçim:</small>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('today')">Bugün</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('yesterday')">Dün</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('thisWeek')">Bu Hafta</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('lastWeek')">Geçen Hafta</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('thisMonth')">Bu Ay</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setTimeRange('lastMonth')">Geçen Ay</button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Özet Kartları -->
         <div class="row g-4 mb-4">
             <!-- Toplam Gelir Kartı -->
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6">
                 <div class="card bg-success text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="card-subtitle mb-2">Toplam Gelir</h6>
-                                <h3 class="card-title mb-0"><?= number_format($general_stats['total_revenue'], 2) ?> ₺</h3>
+                                <h6 class="card-subtitle mb-2">Net Gelir</h6>
+                                <h3 class="card-title mb-0"><?= number_format($discount_revenue_stats['actual_revenue'], 2) ?> ₺</h3>
                                 <a href="#" class="text-white" data-bs-toggle="modal" data-bs-target="#ordersModal">
-                                    <?= $general_stats['total_orders'] ?> Sipariş
+                                    Gerçek Ödenen
                                 </a>
                             </div>
                             <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -392,13 +445,45 @@ include 'navbar.php';
                 </div>
             </div>
             
+            <!-- Brüt Gelir Kartı -->
+            <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2">Brüt Gelir</h6>
+                                <h3 class="card-title mb-0"><?= number_format($discount_revenue_stats['gross_revenue'], 2) ?> ₺</h3>
+                                <small>İndirim Öncesi</small>
+                            </div>
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Toplam İndirim Kartı -->
+            <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2">Toplam İndirim</h6>
+                                <h3 class="card-title mb-0"><?= number_format($discount_revenue_stats['total_discount'], 2) ?> ₺</h3>
+                                <small><?= number_format($discount_revenue_stats['discounted_orders']) ?> Sipariş</small>
+                            </div>
+                            <i class="fas fa-percentage fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Tamamlanan Siparişler Kartı -->
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6">
                 <div class="card bg-primary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="card-subtitle mb-2">Tamamlanan Siparişler</h6>
+                                <h6 class="card-subtitle mb-2">Tamamlanan</h6>
                                 <h3 class="card-title mb-0"><?= number_format($general_stats['completed_orders']) ?></h3>
                                 <small><?= number_format($general_stats['completed_revenue'], 2) ?> ₺</small>
                             </div>
@@ -409,12 +494,12 @@ include 'navbar.php';
             </div>
             
             <!-- İptal Edilen Siparişler Kartı -->
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6">
                 <div class="card bg-danger text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="card-subtitle mb-2">İptal Edilen Siparişler</h6>
+                                <h6 class="card-subtitle mb-2">İptal Edilen</h6>
                                 <h3 class="card-title mb-0"><?= number_format($general_stats['total_cancelled_orders']) ?></h3>
                                 <small><?= number_format($general_stats['total_cancelled_amount'], 2) ?> ₺</small>
                             </div>
@@ -425,12 +510,12 @@ include 'navbar.php';
             </div>
             
             <!-- Aktif Siparişler Kartı -->
-            <div class="col-md-3">
-                <div class="card bg-warning text-dark">
+            <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="card bg-secondary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="card-subtitle mb-2">Aktif Siparişler</h6>
+                                <h6 class="card-subtitle mb-2">Aktif</h6>
                                 <h3 class="card-title mb-0"><?= number_format($general_stats['active_orders']) ?></h3>
                                 <small><?= number_format($general_stats['active_revenue'], 2) ?> ₺</small>
                             </div>
@@ -441,13 +526,55 @@ include 'navbar.php';
             </div>
         </div>
 
+        <!-- Ödeme Yöntemi İstatistikleri -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h6 class="card-title text-success">
+                            <i class="fas fa-money-bill me-2"></i>Nakit Ödemeler
+                        </h6>
+                        <h4><?= number_format($discount_revenue_stats['cash_revenue'], 2) ?> ₺</h4>
+                        <small class="text-muted">
+                            <?php 
+                            $cashPercentage = $discount_revenue_stats['actual_revenue'] > 0 
+                                ? ($discount_revenue_stats['cash_revenue'] / $discount_revenue_stats['actual_revenue']) * 100 
+                                : 0;
+                            echo number_format($cashPercentage, 1) . '% toplam gelirin';
+                            ?>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-credit-card me-2"></i>Kartlı Ödemeler
+                        </h6>
+                        <h4><?= number_format($discount_revenue_stats['card_revenue'], 2) ?> ₺</h4>
+                        <small class="text-muted">
+                            <?php 
+                            $cardPercentage = $discount_revenue_stats['actual_revenue'] > 0 
+                                ? ($discount_revenue_stats['card_revenue'] / $discount_revenue_stats['actual_revenue']) * 100 
+                                : 0;
+                            echo number_format($cardPercentage, 1) . '% toplam gelirin';
+                            ?>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Grafikler -->
         <div class="row g-4 mb-4">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Günlük Satış Grafiği</h5>
-                        <div style="height: 400px;">
+                        <h5 class="card-title">
+                            <i class="fas fa-chart-line me-2"></i>Günlük Satış Grafiği
+                        </h5>
+                        <div style="height: 400px; position: relative;">
                             <canvas id="salesChart"></canvas>
                         </div>
                     </div>
@@ -458,11 +585,125 @@ include 'navbar.php';
 
         <!-- Detaylı Tablolar -->
         <div class="row g-4">
+            <!-- İndirim Analizi -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-percentage me-2"></i>İndirim Analizi
+                            <small class="text-muted ms-2">Günlük indirim detayları</small>
+                        </h5>
+                        <?php if (empty($discount_analysis)): ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Seçilen tarih aralığında indirim verisi bulunamadı.
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="discountTable">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Tarih</th>
+                                            <th>İndirimli Sipariş</th>
+                                            <th>Toplam İndirim</th>
+                                            <th>Yüzde İndirim</th>
+                                            <th>Tutar İndirim</th>
+                                            <th>Ortalama İndirim</th>
+                                            <th>Brüt Gelir</th>
+                                            <th>Net Gelir</th>
+                                            <th>İndirim Oranı</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach($discount_analysis as $discount): ?>
+                                        <tr>
+                                            <td><?= date('d.m.Y', strtotime($discount['date'])) ?></td>
+                                            <td>
+                                                <span class="badge bg-warning text-dark">
+                                                    <?= number_format($discount['discounted_count']) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong class="text-danger">
+                                                    -<?= number_format($discount['total_discount'], 2) ?> ₺
+                                                </strong>
+                                            </td>
+                                            <td><?= number_format($discount['percent_discount'], 2) ?> ₺</td>
+                                            <td><?= number_format($discount['amount_discount'], 2) ?> ₺</td>
+                                            <td><?= number_format($discount['avg_discount'], 2) ?> ₺</td>
+                                            <td><?= number_format($discount['gross_revenue'], 2) ?> ₺</td>
+                                            <td>
+                                                <strong class="text-success">
+                                                    <?= number_format($discount['net_revenue'], 2) ?> ₺
+                                                </strong>
+                                            </td>
+                                            <td>
+                                                <?php 
+                                                $discountRate = $discount['gross_revenue'] > 0 
+                                                    ? ($discount['total_discount'] / $discount['gross_revenue']) * 100 
+                                                    : 0;
+                                                ?>
+                                                <span class="badge bg-<?= $discountRate > 15 ? 'danger' : ($discountRate > 10 ? 'warning' : 'success') ?>">
+                                                    <?= number_format($discountRate, 1) ?>%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                    <tfoot class="table-dark">
+                                        <tr>
+                                            <th>Toplam</th>
+                                            <th><?= number_format(array_sum(array_column($discount_analysis, 'discounted_count'))) ?></th>
+                                            <th>
+                                                <strong class="text-danger">
+                                                    -<?= number_format(array_sum(array_column($discount_analysis, 'total_discount')), 2) ?> ₺
+                                                </strong>
+                                            </th>
+                                            <th><?= number_format(array_sum(array_column($discount_analysis, 'percent_discount')), 2) ?> ₺</th>
+                                            <th><?= number_format(array_sum(array_column($discount_analysis, 'amount_discount')), 2) ?> ₺</th>
+                                            <th>
+                                                <?php 
+                                                $totalDiscountCount = array_sum(array_column($discount_analysis, 'discounted_count'));
+                                                $avgTotalDiscount = $totalDiscountCount > 0 
+                                                    ? array_sum(array_column($discount_analysis, 'total_discount')) / $totalDiscountCount 
+                                                    : 0;
+                                                echo number_format($avgTotalDiscount, 2);
+                                                ?> ₺
+                                            </th>
+                                            <th><?= number_format(array_sum(array_column($discount_analysis, 'gross_revenue')), 2) ?> ₺</th>
+                                            <th>
+                                                <strong class="text-success">
+                                                    <?= number_format(array_sum(array_column($discount_analysis, 'net_revenue')), 2) ?> ₺
+                                                </strong>
+                                            </th>
+                                            <th>
+                                                <?php 
+                                                $totalGrossRevenue = array_sum(array_column($discount_analysis, 'gross_revenue'));
+                                                $totalDiscountAmount = array_sum(array_column($discount_analysis, 'total_discount'));
+                                                $overallDiscountRate = $totalGrossRevenue > 0 
+                                                    ? ($totalDiscountAmount / $totalGrossRevenue) * 100 
+                                                    : 0;
+                                                ?>
+                                                <span class="badge bg-<?= $overallDiscountRate > 15 ? 'danger' : ($overallDiscountRate > 10 ? 'warning' : 'success') ?>">
+                                                    <?= number_format($overallDiscountRate, 1) ?>%
+                                                </span>
+                                            </th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Ürün Analizi -->
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">En Çok Satan Ürünler</h5>
+                        <h5 class="card-title">
+                            <i class="fas fa-crown me-2"></i>En Çok Satan Ürünler
+                        </h5>
                         <div class="table-responsive">
                             <table class="table table-striped" id="productsTable">
                                 <thead>
@@ -630,7 +871,7 @@ include 'navbar.php';
     </div>
 
     <!-- Siparişler Modal -->
-    <div class="modal fade" id="ordersModal" tabindex="-1">
+    <div class="modal fade" id="ordersModal" tabindex="-1" data-bs-focus="false">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -747,7 +988,7 @@ include 'navbar.php';
     </div>
 
     <!-- Sipariş Detayları Modal -->
-    <div class="modal fade" id="orderDetailsModal" tabindex="-1">
+    <div class="modal fade" id="orderDetailsModal" tabindex="-1" data-bs-focus="false">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -878,6 +1119,15 @@ include 'navbar.php';
     };
 
     // Tablolar için DataTables inicializasyonu
+    $('#discountTable').DataTable({
+        ...buttonConfig,
+        language: dataTablesTurkish,
+        pageLength: 25,
+        order: [[0, 'desc']],
+        responsive: true,
+        title: 'İndirim Analizi Raporu'
+    });
+
     $('#productsTable').DataTable({
         ...buttonConfig,
         language: dataTablesTurkish,
@@ -915,8 +1165,10 @@ include 'navbar.php';
     });
 
     function showOrderDetails(orderId) {
-        // Bootstrap modal'ı göster
-        const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+        // Bootstrap modal'ı göster - focustrap devre dışı
+        const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'), {
+            focus: false
+        });
         modal.show();
 
         // Sipariş detaylarını getir
@@ -1057,6 +1309,196 @@ include 'navbar.php';
             pageLength: 10,
             order: [[3, 'desc']]
         });
+
+        // Modal focus sorununu çöz
+        $('#ordersModal').on('show.bs.modal', function () {
+            // Modal açılırken focustrap'i devre dışı bırak
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(this);
+                if (modal && modal._config) {
+                    modal._config.focus = false;
+                }
+            }, 50);
+        });
+
+        // Günlük Satış Grafiği
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        
+        // PHP verilerini JavaScript'e aktar
+        const dailySalesData = <?= json_encode($daily_sales) ?>;
+        
+        // Grafik verilerini hazırla
+        const labels = dailySalesData.map(item => {
+            const date = new Date(item.sale_date);
+            return date.toLocaleDateString('tr-TR', { 
+                day: '2-digit', 
+                month: '2-digit' 
+            });
+        });
+        
+        const revenueData = dailySalesData.map(item => parseFloat(item.total_revenue));
+        const orderCountData = dailySalesData.map(item => parseInt(item.total_orders));
+        
+        // Chart.js ile grafik oluştur
+        const salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Günlük Gelir (₺)',
+                    data: revenueData,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Sipariş Sayısı',
+                    data: orderCountData,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    yAxisID: 'y1',
+                    type: 'bar',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Günlük Satış Performansı',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.dataset.label === 'Günlük Gelir (₺)') {
+                                    label += new Intl.NumberFormat('tr-TR', {
+                                        style: 'currency',
+                                        currency: 'TRY'
+                                    }).format(context.parsed.y);
+                                } else {
+                                    label += context.parsed.y + ' adet';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Tarih'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Gelir (₺)',
+                            color: 'rgb(75, 192, 192)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return new Intl.NumberFormat('tr-TR', {
+                                    style: 'currency',
+                                    currency: 'TRY'
+                                }).format(value);
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Sipariş Sayısı',
+                            color: 'rgb(255, 99, 132)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + ' adet';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Hızlı zaman seçimi fonksiyonu
+        window.setTimeRange = function(range) {
+            const now = new Date();
+            let startDate, endDate;
+
+            switch(range) {
+                case 'today':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+                    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(now);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    startDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0);
+                    endDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59);
+                    break;
+                case 'thisWeek':
+                    const startOfWeek = new Date(now);
+                    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Pazartesi
+                    startDate = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate(), 0, 0);
+                    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+                    break;
+                case 'lastWeek':
+                    const lastWeekStart = new Date(now);
+                    lastWeekStart.setDate(now.getDate() - now.getDay() - 6); // Geçen hafta pazartesi
+                    const lastWeekEnd = new Date(lastWeekStart);
+                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // Geçen hafta pazar
+                    startDate = new Date(lastWeekStart.getFullYear(), lastWeekStart.getMonth(), lastWeekStart.getDate(), 0, 0);
+                    endDate = new Date(lastWeekEnd.getFullYear(), lastWeekEnd.getMonth(), lastWeekEnd.getDate(), 23, 59);
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0);
+                    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+                    break;
+                case 'lastMonth':
+                    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                    startDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1, 0, 0);
+                    endDate = new Date(lastDayOfLastMonth.getFullYear(), lastDayOfLastMonth.getMonth(), lastDayOfLastMonth.getDate(), 23, 59);
+                    break;
+            }
+
+            // Input alanlarını güncelle
+            const formatDateTime = (date) => {
+                return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM formatı
+            };
+
+            document.querySelector('input[name="start_date"]').value = formatDateTime(startDate);
+            document.querySelector('input[name="end_date"]').value = formatDateTime(endDate);
+        };
     });
     </script>
 

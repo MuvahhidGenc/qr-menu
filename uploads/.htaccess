@@ -1,0 +1,59 @@
+# Güvenlik ayarları - upload dizini
+# PHP dosyalarının çalıştırılmasını engelle
+<Files "*.php">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.phtml">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.php3">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.php4">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.php5">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.pl">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.py">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+<Files "*.cgi">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Sadece resim dosyalarına izin ver
+<FilesMatch "\.(jpg|jpeg|png|gif)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Directory browsing'i kapat
+Options -Indexes
+
+# Server bilgilerini gizle
+ServerSignature Off
+
+# Dosya içeriğine göre mime type belirle
+<IfModule mod_mime.c>
+    RemoveHandler .php .phtml .php3 .php4 .php5 .pl .py .cgi
+    RemoveType .php .phtml .php3 .php4 .php5 .pl .py .cgi
+</IfModule>

@@ -1,6 +1,6 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <!-- Media Modal -->
-<div class="modal fade" id="mediaModal" tabindex="-1">
+<div class="modal fade" id="mediaModal" tabindex="-1" data-bs-focus="false">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -8,6 +8,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+            
             <ul class="nav nav-tabs mb-3">
                 <li class="nav-item">
                     <a class="nav-link active" data-bs-toggle="tab" href="#existingMedia">
@@ -31,10 +32,17 @@
                                 $filename = basename($file);
                             ?>
                             <div class="col-md-3 mb-3">
-                                <div class="card media-item">
-                                    <img src="/qr-menu/uploads/<?= $filename ?>" class="card-img-top" 
-                                        style="height:120px;object-fit:cover;"
-                                        onclick="selectMedia('<?= $filename ?>', this)">
+                                <div class="card media-item" onclick="selectMediaItem(this)" data-filename="<?= $filename ?>">
+                                    <div class="position-relative">
+                                        <img src="/qr-menu/uploads/<?= $filename ?>" class="card-img-top" 
+                                            style="height:120px;object-fit:cover;">
+                                        <!-- Seçim overlay -->
+                                        <div class="position-absolute top-0 start-0 w-100 h-100 selected-overlay" style="display: none; background: rgba(13,110,253,0.3);">
+                                            <div class="d-flex align-items-center justify-content-center h-100">
+                                                <i class="fas fa-check-circle text-white fs-1"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="card-body p-2 d-flex justify-content-between align-items-center">
                                         <small class="text-muted text-truncate" style="max-width: 120px;" title="<?= $filename ?>">
                                             <?= $filename ?>
@@ -55,7 +63,8 @@
                         <form id="uploadForm">
                             <div class="mb-3">
                                 <label>Dosya Seç</label>
-                                <input type="file" class="form-control" name="file" accept="image/*" required>
+                                <input type="file" class="form-control" name="files[]" accept="image/*" multiple required>
+                            <div class="form-text">Birden fazla dosya seçebilirsiniz (Ctrl+tıklama ile)</div>
                                 <small class="text-muted">İzin verilen formatlar: JPG, PNG, GIF</small>
                             </div>
                             <button type="submit" class="btn btn-primary">
@@ -66,8 +75,10 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-                <button type="button" class="btn btn-primary" id="selectMediaBtn" onclick="useSelectedMedia()" disabled>Seç</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="selectMediaBtn" onclick="useSelectedMedia()" disabled>
+                    <i class="fas fa-check me-1"></i>Seçileni Kullan
+                </button>
             </div>
         </div>
     </div>
@@ -158,22 +169,37 @@
 <script>
 let selectedMediaItem = null;
 
-// Medya seçme fonksiyonu
-function selectMediaItem(img) {
-    const allImages = document.querySelectorAll('.media-item');
-    allImages.forEach(img => img.style.border = 'none');
+// Medya seçme fonksiyonu - tek tıkla otomatik seçim
+function selectMediaItem(element) {
+    const filename = element.dataset.filename;
     
-    img.style.border = '3px solid #0d6efd';
-    selectedMediaItem = img.dataset.filename;
+    // Önceki seçimleri temizle
+    document.querySelectorAll('.media-item').forEach(item => {
+        item.style.border = 'none';
+        const overlay = item.querySelector('.selected-overlay');
+        if (overlay) overlay.style.display = 'none';
+    });
     
-    document.getElementById('selectMediaBtn').disabled = false;
+    // Yeni seçimi işaretle
+    element.style.border = '3px solid #0d6efd';
+    const overlay = element.querySelector('.selected-overlay');
+    if (overlay) overlay.style.display = 'block';
+    
+    selectedMediaItem = filename;
+    
+    // Otomatik kullan
+    setTimeout(() => {
+        useSelectedMedia();
+    }, 200);
 }
 
-// Seçilen medyayı kullanma fonksiyonu
+// Seçilen medyayı kullan
 function useSelectedMedia() {
     if (selectedMediaItem) {
         // Ana sayfadaki selectMedia fonksiyonunu çağır
-        window.parent.selectMedia(selectedMediaItem);
+        if (typeof window.selectMedia === 'function') {
+            window.selectMedia(selectedMediaItem);
+        }
         
         // Modal'ı kapat
         const mediaModal = document.getElementById('mediaModal');
@@ -184,11 +210,10 @@ function useSelectedMedia() {
         
         // Seçimi temizle
         selectedMediaItem = null;
-        document.getElementById('selectMediaBtn').disabled = true;
     }
 }
 
-// Yeni dosya yükleme
+// Yeni dosya yükleme (çoklu dosya desteği)
 $('#uploadForm').on('submit', function(e) {
     e.preventDefault();
     
@@ -196,7 +221,10 @@ $('#uploadForm').on('submit', function(e) {
     let fileInput = $(this).find('input[type="file"]');
     
     if(fileInput[0].files.length > 0) {
-        formData.append('file', fileInput[0].files[0]);
+        // Çoklu dosya desteği
+        for (let i = 0; i < fileInput[0].files.length; i++) {
+            formData.append('files[]', fileInput[0].files[i]);
+        }
         
         $.ajax({
             url: 'upload_media.php',
@@ -207,29 +235,78 @@ $('#uploadForm').on('submit', function(e) {
             success: function(response) {
                 try {
                     if(response.success) {
-                        // Medya grid'i güncelle
-                        let html = `
-                        <div class="col-md-3 mb-3">
-                            <div class="card media-item" onclick="selectMedia('${response.filename}', this)">
-                                <img src="/qr-menu/uploads/${response.filename}" class="card-img-top" style="height:120px;object-fit:cover;">
-                                <div class="card-body p-2">
-                                    <small class="text-muted">${response.filename}</small>
+                        // Çoklu dosya desteği
+                        if(response.files && response.files.length > 0) {
+                            // Çoklu dosya yüklendi
+                            response.files.forEach(filename => {
+                                let html = `
+                                <div class="col-md-3 mb-3">
+                                    <div class="card media-item" onclick="selectMediaItem(this)" data-filename="${filename}">
+                                        <div class="position-relative">
+                                            <img src="/qr-menu/uploads/${filename}" class="card-img-top" style="height:120px;object-fit:cover;">
+                                            <!-- Seçim overlay -->
+                                            <div class="position-absolute top-0 start-0 w-100 h-100 selected-overlay" style="display: none; background: rgba(13,110,253,0.3);">
+                                                <div class="d-flex align-items-center justify-content-center h-100">
+                                                    <i class="fas fa-check-circle text-white fs-1"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                                            <small class="text-muted text-truncate" style="max-width: 120px;" title="${filename}">
+                                                ${filename}
+                                            </small>
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteMedia('${filename}', this, event)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>`;
+                                $('#mediaGrid').prepend(html);
+                            });
+                            
+                            // Başarı mesajı
+                            alert(`${response.files.length} dosya başarıyla yüklendi!`);
+                            
+                            // Hata varsa göster
+                            if(response.errors && response.errors.length > 0) {
+                                alert('Bazı dosyalar yüklenemedi:\n' + response.errors.join('\n'));
+                            }
+                        }
+                        // Tek dosya desteği (geriye uyumluluk)
+                        else if(response.filename) {
+                            let html = `
+                            <div class="col-md-3 mb-3">
+                                <div class="card media-item" onclick="selectMediaItem(this)" data-filename="${response.filename}">
+                                    <div class="position-relative">
+                                        <img src="/qr-menu/uploads/${response.filename}" class="card-img-top" style="height:120px;object-fit:cover;">
+                                        <!-- Seçim overlay -->
+                                        <div class="position-absolute top-0 start-0 w-100 h-100 selected-overlay" style="display: none; background: rgba(13,110,253,0.3);">
+                                            <div class="d-flex align-items-center justify-content-center h-100">
+                                                <i class="fas fa-check-circle text-white fs-1"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                                        <small class="text-muted text-truncate" style="max-width: 120px;" title="${response.filename}">
+                                            ${response.filename}
+                                        </small>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteMedia('${response.filename}', this, event)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>`;
-                        $('#mediaGrid').prepend(html);
-                        
-                        // Otomatik olarak yeni yüklenen dosyayı seç
-                        selectMedia(response.filename, $('#mediaGrid').find('.media-item').first());
+                            </div>`;
+                            $('#mediaGrid').prepend(html);
+                            
+                            alert('Dosya başarıyla yüklendi!');
+                        }
                         
                         // Form'u temizle
                         $('#uploadForm')[0].reset();
                         
-                        // Başarı mesajı
-                        alert('Dosya başarıyla yüklendi!');
-                        
                         // Mevcut medya tab'ına geç
                         $('.nav-tabs a[href="#existingMedia"]').tab('show');
+                        
                     } else {
                         alert('Hata: ' + response.message);
                     }

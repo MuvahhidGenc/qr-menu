@@ -58,15 +58,7 @@ function validateFile($file, $allowedTypes = ['jpg', 'jpeg', 'png'], $maxSize = 
     return true;
 }
 
-// IP adresi kontrolü
-function getClientIP() {
-    if (isset($_SERVER['HTTP_CLIENT_IP'])) {
-        return $_SERVER['HTTP_CLIENT_IP'];
-    } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        return $_SERVER['HTTP_X_FORWARDED_FOR'];
-    }
-    return $_SERVER['REMOTE_ADDR'];
-}
+// getClientIP() fonksiyonu functions.php'de tanımlı
 
 // Güvenli şifreleme
 function secureEncrypt($data, $key) {

@@ -10,12 +10,14 @@ if (!$table_id) {
     exit;
 }
 
-// Debug - Tüm siparişleri göster
-echo "<pre style='display:none;'>";
-echo "Checking all orders for table $table_id:\n";
-$all_orders = $db->query("SELECT id, status FROM orders WHERE table_id = ?", [$table_id])->fetchAll();
-print_r($all_orders);
-echo "</pre>";
+// Debug - Sadece development modunda göster
+if (defined('DEBUG_MODE') && DEBUG_MODE) {
+    echo "<pre style='display:none;'>";
+    echo "Checking all orders for table $table_id:\n";
+    $all_orders = $db->query("SELECT id, status FROM orders WHERE table_id = ?", [$table_id])->fetchAll();
+    print_r($all_orders);
+    echo "</pre>";
+}
 
 // Masanın tüm ödenmemiş siparişlerini getir (DESC sıralama)
 $orders = $db->query(
@@ -28,11 +30,13 @@ $orders = $db->query(
     [$table_id]
 )->fetchAll();
 
-// Debug - Filtrelenmiş siparişleri göster
-echo "<pre style='display:none;'>";
-echo "Filtered orders (Descending order):\n";
-print_r($orders);
-echo "</pre>";
+// Debug - Filtrelenmiş siparişleri göster (sadece development modunda)
+if (defined('DEBUG_MODE') && DEBUG_MODE) {
+    echo "<pre style='display:none;'>";
+    echo "Filtered orders (Descending order):\n";
+    print_r($orders);
+    echo "</pre>";
+}
 
 // Her sipariş için detayları getir
 $filtered_orders = [];
@@ -89,13 +93,15 @@ foreach ($orders as $order) {
     }
 }
 
-// Debug - Son filtrelenmiş siparişleri göster
-echo "<pre style='display:none;'>";
-echo "Final filtered orders:\n";
-foreach ($filtered_orders as $order) {
-    echo "Order ID: {$order['id']}, Status: {$order['status']}, Items: " . count($order['items']) . "\n";
+// Debug - Son filtrelenmiş siparişleri göster (sadece development modunda)
+if (defined('DEBUG_MODE') && DEBUG_MODE) {
+    echo "<pre style='display:none;'>";
+    echo "Final filtered orders:\n";
+    foreach ($filtered_orders as $order) {
+        echo "Order ID: {$order['id']}, Status: {$order['status']}, Items: " . count($order['items']) . "\n";
+    }
+    echo "</pre>";
 }
-echo "</pre>";
 
 $orders = $filtered_orders;
 
@@ -200,7 +206,7 @@ include 'includes/customer-header.php';
 </div>
 
 <!-- Mobil için alt padding -->
-<div class="d-md-none" style="height: 80px;"></div>
+
 
 <!-- JavaScript ile geri dönüş kontrolü -->
 <script>
