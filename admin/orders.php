@@ -10,9 +10,8 @@ if (!hasPermission('orders.view')) {
     exit();
 }
 
-include 'navbar.php';
-
 $db = new Database();
+include 'navbar.php';
 
 // Yazıcı ayarlarını al
 $printerSettings = [];

@@ -23,7 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_parameters'])) {
             'system_table_management' => isset($_POST['table_management']) ? '1' : '0',
             'system_stock_tracking' => isset($_POST['stock_tracking']) ? '1' : '0',
             'system_multi_payment' => isset($_POST['multi_payment']) ? '1' : '0',
-            'system_reservation_enabled' => isset($_POST['reservation_enabled']) ? '1' : '0'
+            'system_reservation_enabled' => isset($_POST['reservation_enabled']) ? '1' : '0',
+            // QR Menü Alt Modüller
+            'system_qr_tables_visible' => isset($_POST['qr_tables_visible']) ? '1' : '0',
+            'system_qr_orders_visible' => isset($_POST['qr_orders_visible']) ? '1' : '0',
+            'system_qr_kitchen_visible' => isset($_POST['qr_kitchen_visible']) ? '1' : '0',
+            'system_qr_reservations_visible' => isset($_POST['qr_reservations_visible']) ? '1' : '0',
+            'system_customer_access' => isset($_POST['customer_access']) ? '1' : '0',
+            // Stok Yönetimi Alt Modül
+            'system_stock_management_visible' => isset($_POST['stock_management_visible']) ? '1' : '0'
         ];
         
         foreach ($parameters as $key => $value) {
@@ -65,7 +73,15 @@ $defaults = [
     'system_table_management' => '1',
     'system_stock_tracking' => '0',
     'system_multi_payment' => '1',
-    'system_reservation_enabled' => '1'
+    'system_reservation_enabled' => '1',
+    // QR Menü Alt Modüller
+    'system_qr_tables_visible' => '1',
+    'system_qr_orders_visible' => '1',
+    'system_qr_kitchen_visible' => '1',
+    'system_qr_reservations_visible' => '1',
+    'system_customer_access' => '1',
+    // Stok Yönetimi Alt Modül
+    'system_stock_management_visible' => '1'
 ];
 
 foreach ($defaults as $key => $value) {
@@ -217,6 +233,25 @@ foreach ($defaults as $key => $value) {
 
 .parameter-box:hover .param-icon {
     transform: scale(1.1) rotate(5deg);
+}
+
+/* Small Parameter Box */
+.parameter-box-small {
+    padding: 15px;
+    border-radius: 12px;
+    background: white;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.parameter-box-small.active {
+    border-color: #28a745;
+    background: linear-gradient(135deg, rgba(67, 233, 123, 0.05) 0%, rgba(56, 249, 215, 0.05) 100%);
+}
+
+.parameter-box-small:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
 }
 
 /* Page Header */
@@ -426,6 +461,99 @@ foreach ($defaults as $key => $value) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- QR Menü Görünürlük Ayarları -->
+                <div class="alert alert-info mt-4 mb-0" style="border-left: 4px solid #667eea; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-eye me-2"></i>
+                        Admin Panel Görünürlük Ayarları
+                    </h6>
+                    <p class="small text-muted mb-3">Bu ayarlar sadece admin panelindeki menü görünürlüğünü etkiler</p>
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <div class="parameter-box-small <?= $current_params['system_qr_tables_visible'] == '1' ? 'active' : '' ?>">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                           id="qr_tables_visible" name="qr_tables_visible"
+                                           <?= $current_params['system_qr_tables_visible'] == '1' ? 'checked' : '' ?>>
+                                    <label class="form-check-label ms-2" for="qr_tables_visible">
+                                        <i class="fas fa-chair text-primary me-1"></i>
+                                        <strong>Masalar</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block mt-1">Masalar menüsünü göster/gizle</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <div class="parameter-box-small <?= $current_params['system_qr_orders_visible'] == '1' ? 'active' : '' ?>">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                           id="qr_orders_visible" name="qr_orders_visible"
+                                           <?= $current_params['system_qr_orders_visible'] == '1' ? 'checked' : '' ?>>
+                                    <label class="form-check-label ms-2" for="qr_orders_visible">
+                                        <i class="fas fa-receipt text-success me-1"></i>
+                                        <strong>Siparişler</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block mt-1">Siparişler menüsünü göster/gizle</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <div class="parameter-box-small <?= $current_params['system_qr_kitchen_visible'] == '1' ? 'active' : '' ?>">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                           id="qr_kitchen_visible" name="qr_kitchen_visible"
+                                           <?= $current_params['system_qr_kitchen_visible'] == '1' ? 'checked' : '' ?>>
+                                    <label class="form-check-label ms-2" for="qr_kitchen_visible">
+                                        <i class="fas fa-utensils text-danger me-1"></i>
+                                        <strong>Mutfak</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block mt-1">Mutfak ekranını göster/gizle</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <div class="parameter-box-small <?= $current_params['system_qr_reservations_visible'] == '1' ? 'active' : '' ?>">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                           id="qr_reservations_visible" name="qr_reservations_visible"
+                                           <?= $current_params['system_qr_reservations_visible'] == '1' ? 'checked' : '' ?>>
+                                    <label class="form-check-label ms-2" for="qr_reservations_visible">
+                                        <i class="fas fa-calendar-alt text-warning me-1"></i>
+                                        <strong>Rezervasyonlar</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block mt-1">Rezervasyonlar menüsünü göster/gizle</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Müşteri Arayüzü Erişimi -->
+                <div class="alert alert-danger mt-4 mb-0" style="border-left: 4px solid #dc3545; background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(255, 77, 79, 0.1) 100%);">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-lock me-2"></i>
+                        Müşteri Arayüzü Erişim Kontrolü
+                    </h6>
+                    <p class="small text-muted mb-3">⚠️ <strong>Dikkat:</strong> Bu seçenek pasif edildiğinde müşteriler QR menüye hiç erişemez!</p>
+                    <div class="parameter-box-small <?= $current_params['system_customer_access'] == '1' ? 'active' : '' ?>">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" 
+                                   id="customer_access" name="customer_access"
+                                   <?= $current_params['system_customer_access'] == '1' ? 'checked' : '' ?>>
+                            <label class="form-check-label ms-2" for="customer_access">
+                                <i class="fas fa-users text-danger me-1"></i>
+                                <strong>Müşteri Erişimi Aktif</strong>
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            Pasif edilirse: Müşteriler menüye erişemez, QR kod çalışmaz
+                        </small>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -475,6 +603,36 @@ foreach ($defaults as $key => $value) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Alt Modüller: Stok Yönetimi -->
+                <?php if ($current_params['system_stock_tracking'] == '1'): ?>
+                <div class="alert alert-info mt-3 mb-0" style="border-radius: 12px; border-left: 4px solid #0dcaf0;">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-cog me-2"></i>
+                        Stok Yönetimi Modülleri
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="parameter-box-small <?= $current_params['system_stock_management_visible'] == '1' ? 'active' : '' ?>">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <i class="fas fa-chart-line me-2 text-info"></i>
+                                        <strong>Stok Hareketleri Görünürlüğü</strong>
+                                    </div>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" 
+                                               id="stock_management_visible" name="stock_management_visible"
+                                               <?= $current_params['system_stock_management_visible'] == '1' ? 'checked' : '' ?>>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    Admin panelde "Stok Yönetimi" menüsü ve sayfası
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 

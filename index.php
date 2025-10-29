@@ -36,6 +36,67 @@ foreach($settingsResult->fetchAll() as $row) {
 // Sistem parametrelerini kontrol et
 $acceptOrders = isset($settings['system_accept_qr_orders']) && $settings['system_accept_qr_orders'] == '1';
 $qrMenuEnabled = isset($settings['system_qr_menu_enabled']) && $settings['system_qr_menu_enabled'] == '1';
+$customerAccess = isset($settings['system_customer_access']) && $settings['system_customer_access'] == '1';
+
+// Müşteri erişimi kapalıysa sayfayı gösterme
+if (!$customerAccess) {
+    http_response_code(403);
+    ?>
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erişim Kapalı</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            .access-denied {
+                background: white;
+                padding: 60px 40px;
+                border-radius: 20px;
+                text-align: center;
+                max-width: 500px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            }
+            .access-denied i {
+                font-size: 5rem;
+                color: #dc3545;
+                margin-bottom: 30px;
+            }
+            .access-denied h1 {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 20px;
+            }
+            .access-denied p {
+                font-size: 1.1rem;
+                color: #6c757d;
+                margin-bottom: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="access-denied">
+            <i class="fas fa-lock"></i>
+            <h1>Erişim Kapalı</h1>
+            <p>Menü sistemimiz şu anda aktif değil.</p>
+            <p class="mt-3 small text-muted">Lütfen daha sonra tekrar deneyiniz.</p>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    </body>
+    </html>
+    <?php
+    exit();
+}
 
 // Tema rengini al
 $theme_color = $_SESSION['theme_color'] ?? '#343a40'; // Varsayılan koyu renk

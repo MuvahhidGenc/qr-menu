@@ -1,3 +1,24 @@
+<?php
+// Database bağlantısı yoksa oluştur
+if (!isset($db)) {
+    require_once '../includes/config.php';
+    require_once '../includes/db.php';
+    $db = new Database();
+}
+
+// Sistem parametrelerini çek
+$visibilitySettings = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('system_qr_tables_visible', 'system_qr_orders_visible', 'system_qr_kitchen_visible', 'system_qr_reservations_visible')")->fetchAll();
+$visibilityParams = [];
+foreach ($visibilitySettings as $setting) {
+    $visibilityParams[$setting['setting_key']] = $setting['setting_value'];
+}
+
+// Varsayılan değerler
+$showTables = isset($visibilityParams['system_qr_tables_visible']) ? $visibilityParams['system_qr_tables_visible'] == '1' : true;
+$showOrders = isset($visibilityParams['system_qr_orders_visible']) ? $visibilityParams['system_qr_orders_visible'] == '1' : true;
+$showKitchen = isset($visibilityParams['system_qr_kitchen_visible']) ? $visibilityParams['system_qr_kitchen_visible'] == '1' : true;
+$showReservations = isset($visibilityParams['system_qr_reservations_visible']) ? $visibilityParams['system_qr_reservations_visible'] == '1' : true;
+?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -1064,14 +1085,14 @@
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('orders.view')): ?>
+                    <?php if ($showOrders && hasPermission('orders.view')): ?>
                     <li class="nav-item">
                         <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
                             <i class="fas fa-shopping-cart"></i>Siparişler
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('tables.view')): ?>
+                    <?php if ($showTables && hasPermission('tables.view')): ?>
                     <li class="nav-item">
                         <a href="tables.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'tables.php' ? 'active' : '' ?>">
                             <i class="fas fa-chair"></i>Masalar
@@ -1079,6 +1100,40 @@
                     </li>
                     <?php endif; ?>
                
+                    <?php 
+                    // POS Satış Menüsü - Sadece barkodlu satış aktifse
+                    $settingsResult = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_barcode_sales_enabled'");
+                    $posSetting = $settingsResult->fetch();
+                    $posEnabled = $posSetting && $posSetting['setting_value'] == '1';
+                    
+                    if ($posEnabled && hasPermission('tables.view')): 
+                    ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="pos_sales.php">
+                            <i class="fas fa-cash-register text-warning"></i>Peşin Satış
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    
+                    <?php 
+                    // Stok Yönetimi Menüsü - Sadece stok takibi ve görünürlük aktifse
+                    $stockTrackingResult = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_stock_tracking'");
+                    $stockTracking = $stockTrackingResult->fetch();
+                    $stockTrackingEnabled = $stockTracking && $stockTracking['setting_value'] == '1';
+                    
+                    $stockVisibilityResult = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_stock_management_visible'");
+                    $stockVisibility = $stockVisibilityResult->fetch();
+                    $stockVisibilityEnabled = $stockVisibility && $stockVisibility['setting_value'] == '1';
+                    
+                    if ($stockTrackingEnabled && $stockVisibilityEnabled && hasPermission('products.view')):
+                    ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="stock_management.php">
+                            <i class="fas fa-boxes text-info"></i>Stok Yönetimi
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    
                     <?php if (hasPermission('payments.view_completed')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
@@ -1122,14 +1177,14 @@
                         </div>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('kitchen.view')): ?>
+                    <?php if ($showKitchen && hasPermission('kitchen.view')): ?>
                     <li class="nav-item">
                         <a href="kitchen.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'kitchen.php' ? 'active' : '' ?>">
                             <i class="fas fa-fire"></i>Mutfak
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasPermission('reservations.view')): ?>
+                    <?php if ($showReservations && hasPermission('reservations.view')): ?>
                     <li class="nav-item">
                         <a href="reservations.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'reservations.php' ? 'active' : '' ?>">
                             <i class="fas fa-calendar-alt"></i>Rezervasyonlar

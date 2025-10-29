@@ -27,6 +27,15 @@ $canDeleteProduct = hasPermission('products.delete');
 // Sayfa içeriği
 $db = new Database();
 
+// Sistem parametrelerini kontrol et
+$posSettings = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('system_barcode_sales_enabled', 'system_stock_tracking')")->fetchAll();
+$systemParams = [];
+foreach ($posSettings as $setting) {
+    $systemParams[$setting['setting_key']] = $setting['setting_value'];
+}
+$barcodeSalesEnabled = isset($systemParams['system_barcode_sales_enabled']) && $systemParams['system_barcode_sales_enabled'] == '1';
+$stockTrackingEnabled = isset($systemParams['system_stock_tracking']) && $systemParams['system_stock_tracking'] == '1';
+
 // Kategorileri sıralı şekilde getir (status filtresi kaldırıldı)
 $categories = $db->query("
     SELECT * FROM categories 
@@ -631,6 +640,43 @@ toastr.options = {
                                             <?php echo number_format($product['price'], 2); ?> ₺
                                         </span>
                                     </div>
+                                    
+                                    <?php if ($barcodeSalesEnabled): ?>
+                                    <!-- Barkod Bilgisi (POS Aktifse) -->
+                                    <div class="product-barcode mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-barcode text-primary"></i> Barkod:
+                                        </small>
+                                        <span class="editable-field ms-1" 
+                                              data-field="barcode" 
+                                              data-type="text"
+                                              style="font-family: monospace; color: #495057; cursor: pointer;">
+                                            <?php echo !empty($product['barcode']) ? htmlspecialchars($product['barcode']) : '<span style="color: #dc3545;">Girilmedi</span>'; ?>
+                                        </span>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($stockTrackingEnabled): ?>
+                                    <!-- Stok Bilgisi (Stok Takibi Aktifse) -->
+                                    <div class="product-stock mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-boxes text-success"></i> Stok:
+                                        </small>
+                                        <span class="editable-field ms-1" 
+                                              data-field="stock" 
+                                              data-type="number"
+                                              style="cursor: pointer;">
+                                            <?php 
+                                            $stock = $product['stock'] ?? 0;
+                                            $stockClass = $stock == 0 ? 'text-danger' : ($stock < 10 ? 'text-warning' : 'text-success');
+                                            $stockIcon = $stock == 0 ? 'fa-times-circle' : ($stock < 10 ? 'fa-exclamation-triangle' : 'fa-check-circle');
+                                            ?>
+                                            <strong class="<?= $stockClass ?>">
+                                                <i class="fas <?= $stockIcon ?>"></i> <?= $stock ?> Adet
+                                            </strong>
+                                        </span>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="product-actions">
                                     <div class="form-check form-switch">
@@ -639,6 +685,14 @@ toastr.options = {
                                                data-product-id="<?= $product['id'] ?>"
                                                <?= $product['status'] ? 'checked' : '' ?>>
                                     </div>
+                                    <button type="button" class="btn btn-sm btn-outline-info print-label" 
+                                            data-id="<?= $product['id'] ?>"
+                                            data-name="<?= htmlspecialchars($product['name']) ?>"
+                                            data-barcode="<?= htmlspecialchars($product['barcode'] ?? '') ?>"
+                                            data-price="<?= $product['price'] ?>"
+                                            title="Etiket Yazdır">
+                                        <i class="fas fa-print"></i>
+                                    </button>
                                     <?php if ($canDeleteProduct): ?>
                                     <button type="button" class="btn btn-sm btn-outline-danger delete-product" 
                                             data-id="<?= $product['id'] ?>">
@@ -699,6 +753,45 @@ toastr.options = {
                                         <span class="input-group-text">₺</span>
                                     </div>
                                 </div>
+                                
+                                <?php if ($barcodeSalesEnabled): ?>
+                                <!-- Barkod Alanı (POS Aktifse Zorunlu) -->
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-barcode text-primary"></i> Barkod No
+                                        <span class="badge bg-danger ms-1">Zorunlu</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                        <input type="text" class="form-control" id="productBarcode" 
+                                               placeholder="Barkod numarası girin" required>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="generateRandomBarcode()" 
+                                                title="Rastgele barkod oluştur">
+                                            <i class="fas fa-random"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">POS satış sistemi aktif - Barkod zorunlu</small>
+                                </div>
+                                <?php endif; ?>
+                                
+                                <?php if ($stockTrackingEnabled): ?>
+                                <!-- Stok Alanı (Stok Takibi Aktifse Zorunlu) -->
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-boxes text-success"></i> Stok Miktarı
+                                        <span class="badge bg-danger ms-1">Zorunlu</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-cubes"></i></span>
+                                        <input type="number" class="form-control" id="productStock" 
+                                               min="0" value="0" required>
+                                        <span class="input-group-text">Adet</span>
+                                    </div>
+                                    <small class="text-muted">Stok takibi aktif - Başlangıç stoku girin</small>
+                                </div>
+                                <?php endif; ?>
+                                
                                 <div class="mb-4">
                                     <label class="form-label">Ürün Görseli</label>
                                     <div class="image-preview-container mb-2">
@@ -767,6 +860,49 @@ toastr.options = {
                                     <label>Fiyat</label>
                                     <input type="number" step="0.01" name="price" id="edit_product_price" class="form-control" required>
                                 </div>
+                                
+                                <?php if ($barcodeSalesEnabled): ?>
+                                <!-- Barkod Alanı (POS Aktifse Zorunlu) -->
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-barcode text-primary"></i> Barkod No
+                                        <span class="badge bg-danger ms-1">Zorunlu</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                        <input type="text" class="form-control" name="barcode" id="edit_product_barcode" 
+                                               placeholder="Barkod numarası" required>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="generateRandomBarcodeEdit()" 
+                                                title="Rastgele barkod oluştur">
+                                            <i class="fas fa-random"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                                
+                                <?php if ($stockTrackingEnabled): ?>
+                                <!-- Stok Alanı (Stok Takibi Aktifse) -->
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-boxes text-success"></i> Stok Miktarı
+                                        <span class="badge bg-info ms-1">Mevcut</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-cubes"></i></span>
+                                        <input type="number" class="form-control" name="stock" id="edit_product_stock" 
+                                               min="0" readonly style="background: #f8f9fa;">
+                                        <span class="input-group-text">Adet</span>
+                                        <button type="button" class="btn btn-success" 
+                                                onclick="openStockAdjustModal()" 
+                                                title="Stok düzenle">
+                                            <i class="fas fa-edit"></i> Düzenle
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Stok düzenlemek için "Düzenle" butonuna tıklayın</small>
+                                </div>
+                                <?php endif; ?>
+                                
                                 <div class="mb-3">
                                      <div class="mb-2">
                                          <img id="editProductImagePreview" 
@@ -885,6 +1021,82 @@ toastr.options = {
             </div>
         </div>
     </div>
+
+    <!-- Stok Düzenleme Modal -->
+    <?php if ($stockTrackingEnabled): ?>
+    <div class="modal fade" id="stockAdjustModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-boxes me-2"></i>Stok Düzenleme
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="stock-display">
+                            <span class="text-muted">Mevcut Stok</span>
+                            <h2 class="mb-0" id="currentStockDisplay">0</h2>
+                            <span class="text-muted">Adet</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">İşlem Tipi</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="stockOperation" id="stockAdd" value="add" checked>
+                            <label class="btn btn-outline-success" for="stockAdd">
+                                <i class="fas fa-plus-circle"></i> Stok Ekle
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="stockOperation" id="stockRemove" value="remove">
+                            <label class="btn btn-outline-danger" for="stockRemove">
+                                <i class="fas fa-minus-circle"></i> Stok Çıkar
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="stockOperation" id="stockSet" value="set">
+                            <label class="btn btn-outline-primary" for="stockSet">
+                                <i class="fas fa-edit"></i> Manuel Ayarla
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <span id="stockAmountLabel">Eklenecek Miktar</span>
+                        </label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text"><i class="fas fa-cubes"></i></span>
+                            <input type="number" class="form-control" id="stockAmount" min="0" value="0" required>
+                            <span class="input-group-text">Adet</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Not <span class="text-muted">(Opsiyonel)</span></label>
+                        <textarea class="form-control" id="stockNote" rows="3" placeholder="Stok hareket notu..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <div>
+                            <strong id="resultPreview">Yeni Stok: 0 Adet</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> İptal
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="saveStockAdjustment()">
+                        <i class="fas fa-check"></i> Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -1050,11 +1262,21 @@ toastr.options = {
         function handleBlur(e) {
             const input = e.target;
             const field = input.nextElementSibling;
-            const currentValue = field.textContent.trim();
+            let currentValue = field.textContent.trim();
             const newValue = input.value.trim();
             const fieldType = field.dataset.type;
             const fieldName = field.dataset.field;
             const productId = field.closest('.product-row').dataset.productId;
+            
+            // Stok için özel temizleme
+            if (fieldName === 'stock') {
+                currentValue = currentValue.replace(/[^\d]/g, ''); // Sadece rakamları al
+            }
+            
+            // Barkod için özel temizleme
+            if (fieldName === 'barcode') {
+                currentValue = currentValue.replace('Girilmedi', '').trim();
+            }
 
             if (newValue !== currentValue) {
                 // AJAX ile güncelle
@@ -1072,7 +1294,21 @@ toastr.options = {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        field.textContent = fieldType === 'price' ? newValue + ' ₺' : newValue;
+                        // Başarılı - içeriği güncelle
+                        if (fieldType === 'price') {
+                            field.textContent = newValue + ' ₺';
+                        } else if (fieldName === 'stock') {
+                            // Stok için renk ve ikon güncelle
+                            const stockVal = parseInt(newValue) || 0;
+                            const stockClass = stockVal == 0 ? 'text-danger' : (stockVal < 10 ? 'text-warning' : 'text-success');
+                            const stockIcon = stockVal == 0 ? 'fa-times-circle' : (stockVal < 10 ? 'fa-exclamation-triangle' : 'fa-check-circle');
+                            field.innerHTML = `<strong class="${stockClass}"><i class="fas ${stockIcon}"></i> ${stockVal} Adet</strong>`;
+                        } else if (fieldName === 'barcode') {
+                            field.textContent = newValue || 'Girilmedi';
+                            field.style.color = newValue ? '#495057' : '#dc3545';
+                        } else {
+                            field.textContent = newValue;
+                        }
                         toastr.success('Güncelleme başarılı');
                     } else {
                         throw new Error(data.message);
@@ -1080,7 +1316,12 @@ toastr.options = {
                 })
                 .catch(error => {
                     toastr.error(error.message || 'Güncelleme sırasında bir hata oluştu');
-                    field.textContent = currentValue;
+                    // Hata durumunda eski değeri geri yükle
+                    if (fieldName === 'price') {
+                        field.textContent = currentValue + ' ₺';
+                    } else {
+                        field.textContent = currentValue;
+                    }
                 });
             }
 
@@ -1096,26 +1337,56 @@ toastr.options = {
             }
         }
 
-        // Inline edit özelliği - metin ve fiyat alanları için
+        // Inline edit özelliği - metin, fiyat, barkod ve stok alanları için
         document.querySelectorAll('.editable-field').forEach(field => {
             field.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                const currentValue = this.textContent.trim();
+                let currentValue = this.textContent.trim();
                 const fieldType = this.dataset.type;
                 const fieldName = this.dataset.field;
                 
+                // Stok için özel işlem
+                if (fieldName === 'stock') {
+                    currentValue = currentValue.replace(/[^\d]/g, ''); // Sadece rakamları al
+                }
+                
+                // Barkod için özel işlem
+                if (fieldName === 'barcode') {
+                    currentValue = currentValue.replace('Girilmedi', '').trim();
+                }
+                
                 // Mevcut içeriği input ile değiştir
                 const input = document.createElement('input');
-                input.type = fieldType === 'price' ? 'number' : 'text';
-                input.step = fieldType === 'price' ? '0.01' : null;
-                input.value = fieldType === 'price' ? currentValue.replace('₺', '').trim() : currentValue;
+                
+                // Input tipini belirle
+                if (fieldType === 'price' || fieldName === 'stock') {
+                    input.type = 'number';
+                    input.step = fieldType === 'price' ? '0.01' : '1';
+                    input.min = '0';
+                } else {
+                    input.type = 'text';
+                }
+                
+                // Value'yu ayarla
+                if (fieldType === 'price') {
+                    input.value = currentValue.replace('₺', '').trim();
+                } else if (fieldName === 'stock') {
+                    input.value = currentValue;
+                } else if (fieldName === 'barcode') {
+                    input.value = currentValue;
+                    input.placeholder = 'Barkod numarası';
+                } else {
+                    input.value = currentValue;
+                }
+                
                 input.className = 'form-control form-control-sm';
                 
                 // Input'u yerleştir
                 this.style.display = 'none';
                 this.parentNode.insertBefore(input, this);
                 input.focus();
+                input.select(); // Tüm metni seç
                 
                 // Input blur olduğunda kaydet
                 input.addEventListener('blur', handleBlur);
@@ -1638,9 +1909,21 @@ toastr.options = {
             const image = document.getElementById('productImage').value;
             const description = document.getElementById('productDescription').value.trim();
             const status = document.getElementById('productStatus').checked ? 1 : 0;
+            
+            // Barkod ve stok (varsa)
+            const barcodeInput = document.getElementById('productBarcode');
+            const stockInput = document.getElementById('productStock');
+            const barcode = barcodeInput ? barcodeInput.value.trim() : '';
+            const stock = stockInput ? parseInt(stockInput.value) : 0;
 
             if (!name || !category || !price) {
                 toastr.error('Lütfen gerekli alanları doldurun');
+                return;
+            }
+            
+            // Barkod zorunlu kontrolü (POS aktifse)
+            if (barcodeInput && barcodeInput.hasAttribute('required') && !barcode) {
+                toastr.error('Barkod numarası zorunludur');
                 return;
             }
 
@@ -1651,6 +1934,8 @@ toastr.options = {
             formData.append('image', image);
             formData.append('description', description);
             formData.append('status', status);
+            if (barcode) formData.append('barcode', barcode);
+            if (stockInput) formData.append('stock', stock);
 
             fetch('add_product.php', {
                 method: 'POST',
@@ -1983,7 +2268,672 @@ const userPermissions = {
     canEditProduct: <?php echo $canEditProduct ? 'true' : 'false' ?>,
     canDeleteProduct: <?php echo $canDeleteProduct ? 'true' : 'false' ?>
 };
+
+<?php if ($barcodeSalesEnabled): ?>
+// Rastgele barkod oluştur (Add Form)
+function generateRandomBarcode() {
+    const barcode = '89' + Math.floor(Math.random() * 100000000000).toString().padStart(11, '0');
+    document.getElementById('productBarcode').value = barcode;
+}
+
+// Rastgele barkod oluştur (Edit Form)
+function generateRandomBarcodeEdit() {
+    const barcode = '89' + Math.floor(Math.random() * 100000000000).toString().padStart(11, '0');
+    document.getElementById('edit_product_barcode').value = barcode;
+}
+<?php endif; ?>
+
+<?php if ($stockTrackingEnabled): ?>
+// Stok düzenleme modalını aç
+let currentEditingProductId = null;
+let currentStock = 0;
+
+function openStockAdjustModal() {
+    currentEditingProductId = document.getElementById('edit_product_id').value;
+    currentStock = parseInt(document.getElementById('edit_product_stock').value) || 0;
+    
+    document.getElementById('currentStockDisplay').textContent = currentStock;
+    document.getElementById('stockAmount').value = 0;
+    document.getElementById('stockNote').value = '';
+    document.getElementById('stockAdd').checked = true;
+    updateStockPreview();
+    
+    const modal = new bootstrap.Modal(document.getElementById('stockAdjustModal'));
+    modal.show();
+}
+
+// Stok işlem tipini değiştir
+document.querySelectorAll('input[name="stockOperation"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const label = document.getElementById('stockAmountLabel');
+        if (this.value === 'add') {
+            label.textContent = 'Eklenecek Miktar';
+        } else if (this.value === 'remove') {
+            label.textContent = 'Çıkarılacak Miktar';
+        } else {
+            label.textContent = 'Yeni Stok Miktarı';
+        }
+        updateStockPreview();
+    });
+});
+
+// Stok önizlemesini güncelle
+document.getElementById('stockAmount').addEventListener('input', updateStockPreview);
+
+function updateStockPreview() {
+    const operation = document.querySelector('input[name="stockOperation"]:checked').value;
+    const amount = parseInt(document.getElementById('stockAmount').value) || 0;
+    let newStock = currentStock;
+    
+    if (operation === 'add') {
+        newStock = currentStock + amount;
+    } else if (operation === 'remove') {
+        newStock = Math.max(0, currentStock - amount);
+    } else {
+        newStock = amount;
+    }
+    
+    document.getElementById('resultPreview').textContent = 'Yeni Stok: ' + newStock + ' Adet';
+    
+    // Renk göstergesi
+    const alert = document.querySelector('#stockAdjustModal .alert');
+    if (newStock === 0) {
+        alert.className = 'alert alert-danger d-flex align-items-center';
+    } else if (newStock < 10) {
+        alert.className = 'alert alert-warning d-flex align-items-center';
+    } else {
+        alert.className = 'alert alert-success d-flex align-items-center';
+    }
+}
+
+// Stok değişikliğini kaydet
+function saveStockAdjustment() {
+    const operation = document.querySelector('input[name="stockOperation"]:checked').value;
+    const amount = parseInt(document.getElementById('stockAmount').value) || 0;
+    const note = document.getElementById('stockNote').value;
+    
+    if (amount === 0 && operation !== 'set') {
+        Swal.fire('Uyarı', 'Lütfen geçerli bir miktar girin', 'warning');
+        return;
+    }
+    
+    let newStock = currentStock;
+    if (operation === 'add') {
+        newStock = currentStock + amount;
+    } else if (operation === 'remove') {
+        newStock = Math.max(0, currentStock - amount);
+    } else {
+        newStock = amount;
+    }
+    
+    // AJAX ile stok güncelle
+    $.ajax({
+        url: 'ajax/update_stock.php',
+        type: 'POST',
+        data: {
+            product_id: currentEditingProductId,
+            old_stock: currentStock,
+            new_stock: newStock,
+            operation: operation,
+            amount: amount,
+            note: note
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                document.getElementById('edit_product_stock').value = newStock;
+                currentStock = newStock;
+                
+                const modal = bootstrap.Modal.getInstance(document.getElementById('stockAdjustModal'));
+                modal.hide();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Başarılı',
+                    text: 'Stok güncellendi',
+                    timer: 2000
+                });
+            } else {
+                Swal.fire('Hata', response.message, 'error');
+            }
+        },
+        error: function() {
+            Swal.fire('Hata', 'Stok güncellenemedi', 'error');
+        }
+    });
+}
+<?php endif; ?>
+
+// Etiket Yazdırma
+$(document).on('click', '.print-label', function() {
+    const productId = $(this).data('id');
+    const productName = $(this).data('name');
+    const barcode = $(this).data('barcode');
+    const price = $(this).data('price');
+    
+    openLabelPrintModal(productId, productName, barcode, price);
+});
+
+function openLabelPrintModal(productId, productName, barcode, price) {
+    console.log('Modal açılıyor:', {productId, productName, barcode, price});
+    
+    const modal = new bootstrap.Modal(document.getElementById('labelPrintModal'));
+    
+    // Form verilerini doldur
+    $('#labelProductName').val(productName);
+    $('#labelBarcode').val(barcode);
+    $('#labelPrice').val(price);
+    $('#labelQuantity').val(1);
+    $('#currentProductId').val(productId);
+    
+    // Standart boyutu sıfırla
+    $('#standardLabelSize').val('');
+    
+    // Varsayılan olarak barkod seçili olsun
+    $('input[name="labelType"][value="barcode"]').prop('checked', true);
+    
+    console.log('QRCode kütüphanesi:', typeof QRCode);
+    
+    // Önizlemeyi güncelle (modal göründükten sonra)
+    setTimeout(() => {
+        updateLabelPreview();
+    }, 100);
+    
+    modal.show();
+}
+
+function updateLabelPreview() {
+    const labelType = $('input[name="labelType"]:checked').val();
+    const productName = $('#labelProductName').val();
+    const barcode = $('#labelBarcode').val();
+    const price = parseFloat($('#labelPrice').val()) || 0;
+    const showPrice = $('#labelShowPrice').is(':checked');
+    const showName = $('#labelShowName').is(':checked');
+    const labelWidth = parseInt($('#labelWidth').val()) || 50;
+    const labelHeight = parseInt($('#labelHeight').val()) || 30;
+    const fontSize = parseInt($('#labelFontSize').val()) || 10;
+    const barcodeHeight = parseInt($('#barcodeHeight').val()) || 50;
+    
+    // Boyut bilgisini güncelle
+    $('#currentLabelSize').text(labelWidth + '×' + labelHeight + 'mm');
+    
+    let previewHTML = '';
+    
+    if (labelType === 'barcode') {
+        previewHTML = `
+            <div class="label-preview-item barcode-label" style="width: ${labelWidth}mm; height: ${labelHeight}mm; font-size: ${fontSize}px;">
+                ${showName ? `<div class="label-name" style="font-size: ${fontSize}px;">${productName}</div>` : ''}
+                <svg id="barcode-preview"></svg>
+                ${showPrice ? `<div class="label-price" style="font-size: ${fontSize + 2}px;">${price.toFixed(2)} ₺</div>` : ''}
+            </div>
+        `;
+    } else if (labelType === 'qrcode') {
+        const qrSize = Math.min(labelWidth, labelHeight) * 3; // mm to px approximation
+        previewHTML = `
+            <div class="label-preview-item qr-label" style="
+                width: ${labelWidth}mm; 
+                height: ${labelHeight}mm; 
+                font-size: ${fontSize}px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 2mm;
+                box-sizing: border-box;
+            ">
+                ${showName ? `<div class="label-name" style="font-size: ${fontSize}px; margin-bottom: 2mm; text-align: center;">${productName}</div>` : ''}
+                <div id="qrcode-preview" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    max-width: 100%;
+                    max-height: 100%;
+                "></div>
+                ${showPrice ? `<div class="label-price" style="font-size: ${fontSize + 2}px; margin-top: 2mm; text-align: center;">${price.toFixed(2)} ₺</div>` : ''}
+            </div>
+        `;
+    }
+    
+    $('#labelPreview').html(previewHTML);
+    
+    // Barkod/QR kod oluştur
+    if (labelType === 'barcode' && barcode) {
+        try {
+            setTimeout(() => {
+                JsBarcode("#barcode-preview", barcode, {
+                    format: "CODE128",
+                    width: 2,
+                    height: barcodeHeight,
+                    displayValue: true,
+                    fontSize: fontSize,
+                    margin: 5
+                });
+            }, 100);
+        } catch (e) {
+            console.error('Barkod hatası:', e);
+            $('#barcode-preview').replaceWith('<p class="text-danger small">Geçersiz barkod</p>');
+        }
+    } else if (labelType === 'qrcode') {
+        setTimeout(() => {
+            const qrContainer = document.getElementById("qrcode-preview");
+            console.log('QR Container:', qrContainer);
+            
+            if (qrContainer) {
+                // Önce tamamen temizle
+                qrContainer.innerHTML = '';
+                
+                // QR kod verisini hazırla
+                const qrData = barcode || 'ID:' + $('#currentProductId').val();
+                console.log('QR Data:', qrData);
+                
+                // QRCode kütüphanesinin yüklendiğini kontrol et
+                if (typeof QRCode === 'undefined') {
+                    console.error('QRCode kütüphanesi yüklenmedi!');
+                    qrContainer.innerHTML = '<p class="text-danger small">QRCode kütüphanesi yüklenmedi</p>';
+                    return;
+                }
+                
+                try {
+                    // Yeni QR kod oluştur
+                    const qr = new QRCode(qrContainer, {
+                        text: qrData,
+                        width: 128,
+                        height: 128,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    console.log('QR kod oluşturuldu:', qr);
+                } catch(e) {
+                    console.error('QR kod hatası:', e);
+                    qrContainer.innerHTML = '<p class="text-danger small">QR kod oluşturulamadı: ' + e.message + '</p>';
+                }
+            } else {
+                console.error('QR Container bulunamadı!');
+            }
+        }, 150);
+    }
+}
+
+function printLabels() {
+    const quantity = parseInt($('#labelQuantity').val()) || 1;
+    const labelType = $('input[name="labelType"]:checked').val();
+    const labelWidth = parseInt($('#labelWidth').val()) || 50;
+    const labelHeight = parseInt($('#labelHeight').val()) || 30;
+    const fontSize = parseInt($('#labelFontSize').val()) || 10;
+    
+    // Yazdırma penceresini aç
+    const printWindow = window.open('', '_blank');
+    
+    let labelsHTML = '';
+    for (let i = 0; i < quantity; i++) {
+        labelsHTML += $('#labelPreview').html();
+    }
+    
+    const pageSize = labelWidth + 'mm ' + labelHeight + 'mm';
+    const pageWidth = labelWidth + 'mm';
+    const pageHeight = labelHeight + 'mm';
+    
+    const printContent = '<!DOCTYPE html>' +
+        '<html>' +
+        '<head>' +
+        '<meta charset="UTF-8">' +
+        '<title>Etiket Yazdır</title>' +
+        '<style>' +
+        '* { margin: 0; padding: 0; box-sizing: border-box; }' +
+        '@page { size: ' + pageSize + '; margin: 0; }' +
+        'body {' +
+        '  margin: 0;' +
+        '  padding: 0;' +
+        '  font-family: Arial, sans-serif;' +
+        '  background: white;' +
+        '}' +
+        '.label-preview-item {' +
+        '  width: ' + pageWidth + ';' +
+        '  height: ' + pageHeight + ';' +
+        '  padding: 1mm;' +
+        '  text-align: center;' +
+        '  display: flex;' +
+        '  flex-direction: column;' +
+        '  justify-content: center;' +
+        '  align-items: center;' +
+        '  page-break-after: always;' +
+        '  page-break-inside: avoid;' +
+        '  overflow: hidden;' +
+        '  box-sizing: border-box;' +
+        '}' +
+        '.label-name {' +
+        '  font-size: ' + fontSize + 'px;' +
+        '  font-weight: bold;' +
+        '  margin: 0 0 1mm 0;' +
+        '  line-height: 1.2;' +
+        '  max-width: 100%;' +
+        '  overflow: hidden;' +
+        '  text-overflow: ellipsis;' +
+        '  white-space: nowrap;' +
+        '}' +
+        '.label-price {' +
+        '  font-size: ' + (fontSize + 2) + 'px;' +
+        '  font-weight: bold;' +
+        '  margin: 1mm 0 0 0;' +
+        '  line-height: 1;' +
+        '}' +
+        'svg {' +
+        '  max-width: calc(' + pageWidth + ' - 2mm);' +
+        '  max-height: calc(' + pageHeight + ' - 10mm);' +
+        '  display: block;' +
+        '  margin: 0 auto;' +
+        '}' +
+        '#qrcode-preview, #qrcode-preview img, #qrcode-preview canvas {' +
+        '  max-width: calc(' + pageWidth + ' - 4mm);' +
+        '  max-height: calc(' + pageHeight + ' - 10mm);' +
+        '  margin: 0 auto;' +
+        '  display: block;' +
+        '}' +
+        '@media print {' +
+        '  body { background: white; }' +
+        '  .label-preview-item {' +
+        '    border: none !important;' +
+        '    box-shadow: none !important;' +
+        '  }' +
+        '  @page { margin: 0; }' +
+        '}' +
+        '</style>' +
+        '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>' +
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
+        '</head>' +
+        '<body>' +
+        labelsHTML +
+        '<script>' +
+        'window.onload = function() {' +
+        '  setTimeout(function() {' +
+        '    window.print();' +
+        '    setTimeout(function() { window.close(); }, 500);' +
+        '  }, 800);' +
+        '};' +
+        '<\/script>' +
+        '</body>' +
+        '</html>';
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+}
+
+// Standart boyut uygulama fonksiyonu
+function applyStandardSize() {
+    const value = $('#standardLabelSize').val();
+    if (!value) return;
+    
+    const [width, height] = value.split(',').map(v => parseInt(v));
+    $('#labelWidth').val(width);
+    $('#labelHeight').val(height);
+    
+    // Font boyutunu otomatik ayarla
+    if (width <= 30) {
+        $('#labelFontSize').val(8);
+        $('#barcodeHeight').val(35);
+    } else if (width <= 40) {
+        $('#labelFontSize').val(9);
+        $('#barcodeHeight').val(40);
+    } else if (width <= 50) {
+        $('#labelFontSize').val(10);
+        $('#barcodeHeight').val(50);
+    } else {
+        $('#labelFontSize').val(12);
+        $('#barcodeHeight').val(60);
+    }
+    
+    updateLabelPreview();
+}
+
+// Debounce fonksiyonu - gereksiz render'ları önler
+let previewTimeout;
+function debouncedUpdatePreview() {
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(() => {
+        updateLabelPreview();
+    }, 150);
+}
+
+// Label modal event listeners - TÜM DEĞİŞİKLİKLERDE ANINDA ÖNİZLEME
+$('input[name="labelType"]').on('change', function() {
+    // QR kod seçildiğinde boyutları kare yap
+    if ($(this).val() === 'qrcode') {
+        const width = parseInt($('#labelWidth').val());
+        const height = parseInt($('#labelHeight').val());
+        const size = Math.max(width, height);
+        $('#labelWidth').val(size);
+        $('#labelHeight').val(size);
+    }
+    
+    // Standart boyut seçimini sıfırla
+    $('#standardLabelSize').val('');
+    
+    // ANINDA önizle (debounce YOK)
+    updateLabelPreview();
+});
+
+// Checkboxlarda ANINDA önizleme
+$('#labelShowPrice, #labelShowName').on('change', function() {
+    updateLabelPreview();
+});
+
+// Text inputlarda ANINDA önizleme (her tuş vuruşunda)
+$('#labelProductName, #labelBarcode, #labelPrice').on('input', function() {
+    updateLabelPreview();
+});
+
+// Boyut değişikliklerinde ANINDA önizleme
+$('#labelWidth, #labelHeight, #labelFontSize, #barcodeHeight').on('input', function() {
+    $('#standardLabelSize').val(''); // Özel boyut kullanılıyor
+    updateLabelPreview();
+});
+
 </script>
+
+<!-- Etiket Yazdırma Modal -->
+<div class="modal fade" id="labelPrintModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title">
+                    <i class="fas fa-print me-2"></i>Etiket Yazdır
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="currentProductId">
+                
+                <div class="row">
+                    <!-- Sol: Ayarlar -->
+                    <div class="col-md-6">
+                        <h6 class="mb-3">
+                            <i class="fas fa-cog text-primary"></i> Etiket Ayarları
+                        </h6>
+                        
+                        <!-- Etiket Tipi -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Etiket Tipi</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="labelType" id="typeBarkod" value="barcode" checked>
+                                    <label class="form-check-label" for="typeBarkod">
+                                        <i class="fas fa-barcode"></i> Barkod
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="labelType" id="typeQR" value="qrcode">
+                                    <label class="form-check-label" for="typeQR">
+                                        <i class="fas fa-qrcode"></i> QR Kod
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Ürün Adı -->
+                        <div class="mb-3">
+                            <label class="form-label">Ürün Adı</label>
+                            <input type="text" class="form-control" id="labelProductName">
+                        </div>
+                        
+                        <!-- Barkod -->
+                        <div class="mb-3">
+                            <label class="form-label">Barkod No</label>
+                            <input type="text" class="form-control" id="labelBarcode">
+                        </div>
+                        
+                        <!-- Fiyat -->
+                        <div class="mb-3">
+                            <label class="form-label">Fiyat</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="labelPrice" step="0.01">
+                                <span class="input-group-text">₺</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Etiket Boyutları -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-ruler-combined text-info"></i> Etiket Boyutları
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Genişlik (mm)</label>
+                                    <input type="number" class="form-control form-control-sm" id="labelWidth" min="20" max="100" value="50">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Yükseklik (mm)</label>
+                                    <input type="number" class="form-control form-control-sm" id="labelHeight" min="20" max="100" value="30">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Yazı Boyutları -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-text-height text-success"></i> Yazı Ayarları
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Font Boyutu (px)</label>
+                                    <input type="number" class="form-control form-control-sm" id="labelFontSize" min="6" max="20" value="10">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Barkod Yükseklik (px)</label>
+                                    <input type="number" class="form-control form-control-sm" id="barcodeHeight" min="30" max="100" value="50">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Görünüm Seçenekleri -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-eye text-primary"></i> Görünüm
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="labelShowName" checked>
+                                <label class="form-check-label" for="labelShowName">
+                                    Ürün adını göster
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="labelShowPrice" checked>
+                                <label class="form-check-label" for="labelShowPrice">
+                                    Fiyatı göster
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Adet -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-copy text-warning"></i> Etiket Adedi
+                            </label>
+                            <input type="number" class="form-control" id="labelQuantity" min="1" max="100" value="1">
+                        </div>
+                        
+                        <!-- Standart Etiket Boyutları -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-tags text-danger"></i> Standart Etiket Boyutları
+                            </label>
+                            <select class="form-select" id="standardLabelSize" onchange="applyStandardSize()">
+                                <option value="">Özel Boyut</option>
+                                <optgroup label="Barkod Etiketleri">
+                                    <option value="50,30">50×30mm - Standart Ürün</option>
+                                    <option value="40,25">40×25mm - Küçük Ürün</option>
+                                    <option value="60,40">60×40mm - Büyük Ürün</option>
+                                    <option value="70,30">70×30mm - Geniş Etiket</option>
+                                    <option value="38,25">38×25mm - Mini Etiket</option>
+                                </optgroup>
+                                <optgroup label="QR Kod Etiketleri">
+                                    <option value="50,50">50×50mm - Standart Kare</option>
+                                    <option value="40,40">40×40mm - Küçük Kare</option>
+                                    <option value="60,60">60×60mm - Büyük Kare</option>
+                                </optgroup>
+                                <optgroup label="Fiyat Etiketleri">
+                                    <option value="30,20">30×20mm - Küçük Fiyat</option>
+                                    <option value="40,30">40×30mm - Orta Fiyat</option>
+                                    <option value="50,35">50×35mm - Büyük Fiyat</option>
+                                </optgroup>
+                            </select>
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle"></i> Etiket yazıcınıza uygun boyutu seçin
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Sağ: Önizleme -->
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">
+                                <i class="fas fa-eye text-success"></i> Canlı Önizleme
+                            </h6>
+                            <small class="text-muted" id="previewSizeInfo">
+                                <i class="fas fa-ruler-combined"></i> <span id="currentLabelSize">50×30mm</span>
+                            </small>
+                        </div>
+                        <div id="labelPreview" style="
+                            border: 2px dashed #ccc; 
+                            padding: 20px; 
+                            text-align: center; 
+                            min-height: 250px; 
+                            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            position: relative;
+                            overflow: hidden;
+                        ">
+                            <div style="color: #6c757d; font-size: 14px;">
+                                <i class="fas fa-tag fa-3x mb-3" style="opacity: 0.3;"></i>
+                                <p>Etiket önizlemesi burada görünecek</p>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-2 mb-0 py-2 px-3" style="font-size: 12px;">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Not:</strong> Değişiklikler anında önizlemede görünür
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>İptal
+                </button>
+                <button type="button" class="btn btn-primary" onclick="printLabels()">
+                    <i class="fas fa-print me-2"></i>Yazdır
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JsBarcode ve QRCode Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <?php include '../includes/media-modal.php'; ?>
 </body>
 </html>

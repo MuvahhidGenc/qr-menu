@@ -1066,10 +1066,25 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                             </td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="stat-icon primary" style="width: 35px; height: 35px; font-size: 0.8rem; margin-right: 10px;">
-                                        <i class="fas fa-chair"></i>
-                                    </div>
-                                    <span class="fw-bold"><?= $payment['table_no'] ?></span>
+                                    <?php
+                                    // POS satışı mı kontrol et
+                                    $paymentNote = $payment['payment_note'] ?? '';
+                                    $isPOS = strpos($paymentNote, 'POS Satış') !== false;
+                                    if ($isPOS) {
+                                        // Kasa numarasını parse et
+                                        preg_match('/Kasa (\d+)/', $paymentNote, $matches);
+                                        $kasaNo = isset($matches[1]) ? $matches[1] : '1';
+                                        echo '<div class="stat-icon warning" style="width: 35px; height: 35px; font-size: 0.8rem; margin-right: 10px;">
+                                                <i class="fas fa-cash-register"></i>
+                                              </div>
+                                              <span class="fw-bold">Kasa ' . $kasaNo . '</span>';
+                                    } else {
+                                        echo '<div class="stat-icon primary" style="width: 35px; height: 35px; font-size: 0.8rem; margin-right: 10px;">
+                                                <i class="fas fa-chair"></i>
+                                              </div>
+                                              <span class="fw-bold">' . ($payment['table_no'] ?: '-') . '</span>';
+                                    }
+                                    ?>
                                 </div>
                             </td>
                                         <td>
@@ -1116,14 +1131,14 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                 <div class="d-flex flex-column align-items-end">
                                     <span class="amount-badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                                         <?= number_format($paidAmount, 2) ?> ₺
-                                    </span>
+                                            </span>
                                     <?php if ($isPartialPayment): ?>
                                         <span class="badge bg-warning text-dark mt-1" style="font-size: 0.7rem;">
                                             <i class="fas fa-divide"></i> Kısmi
                                         </span>
                                     <?php endif; ?>
                                 </div>
-                            </td>
+                                        </td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-<?= $payment['payment_method'] == 'cash' ? 'money-bill' : 'credit-card' ?> me-2 text-<?= $payment['payment_method'] == 'cash' ? 'success' : 'primary' ?>"></i>
@@ -1241,8 +1256,20 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                             <span class="fw-bold"><?= date('d.m.Y', strtotime($payment['created_at'])) ?></span>
                                             <small class="text-muted ms-2"><?= date('H:i', strtotime($payment['created_at'])) ?></small>
                                             <br>
-                                            <i class="fas fa-chair me-2 text-success"></i>
-                                            <small class="text-muted"><?= $payment['table_no'] ?></small>
+                                            <?php
+                                            // POS satışı mı kontrol et
+                                            $paymentNote = $payment['payment_note'] ?? '';
+                                            $isPOS = strpos($paymentNote, 'POS Satış') !== false;
+                                            if ($isPOS) {
+                                                preg_match('/Kasa (\d+)/', $paymentNote, $matches);
+                                                $kasaNo = isset($matches[1]) ? $matches[1] : '1';
+                                                echo '<i class="fas fa-cash-register me-2 text-warning"></i>
+                                                      <small class="text-muted">Kasa ' . $kasaNo . '</small>';
+                                            } else {
+                                                echo '<i class="fas fa-chair me-2 text-success"></i>
+                                                      <small class="text-muted">' . ($payment['table_no'] ?: '-') . '</small>';
+                                            }
+                                            ?>
                                             <span class="amount-badge ms-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 0.8rem;">
                                                 <?= number_format($paidAmount, 2) ?> ₺
                                             </span>
@@ -1496,7 +1523,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
         canCancelPayment: <?php echo $canCancelPayment ? 'true' : 'false' ?>,
         canReorderToTable: <?php echo $canReorderToTable ? 'true' : 'false' ?>
     };
-    
+
     // Debug için yetkileri console'a yazdır
     console.log('User Permissions:', userPermissions);
 

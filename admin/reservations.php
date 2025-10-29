@@ -27,9 +27,9 @@ if (!isLoggedIn()) {
     header('Location: login.php');
     exit();
 }
-include 'navbar.php';
 
 $db = new Database();
+include 'navbar.php';
 
 // Filtreleme
 $status = isset($_GET['status']) ? $_GET['status'] : 'all';

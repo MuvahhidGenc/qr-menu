@@ -89,3 +89,4 @@
 [2025-10-26 12:08:33] [LOW] [LOGIN_ATTEMPT] IP: ::1 - Başarılı giriş: admin | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0
 [2025-10-28 14:02:08] [MEDIUM] [LOGIN_ATTEMPT] IP: ::1 - Başarısız giriş: admin@qrmenu.com - Geçersiz kullanıcı adı veya şifre | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0
 [2025-10-28 14:02:20] [LOW] [LOGIN_ATTEMPT] IP: ::1 - Başarılı giriş: admin | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0
+[2025-10-29 14:19:06] [LOW] [LOGIN_ATTEMPT] IP: ::1 - Başarılı giriş: admin | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0

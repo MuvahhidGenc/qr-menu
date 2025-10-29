@@ -95,7 +95,7 @@ try {
         error_log("Updating product ID: $id, Field: $field, Value: $value");
 
         // İzin verilen alanları kontrol et
-        $allowedFields = ['name', 'description', 'price', 'image', 'status', 'sort_order'];
+        $allowedFields = ['name', 'description', 'price', 'image', 'status', 'sort_order', 'barcode', 'stock'];
         if (!in_array($field, $allowedFields)) {
             throw new Exception('Geçersiz alan: ' . $field);
         }
@@ -111,6 +111,27 @@ try {
                 if ($value < 0) {
                     throw new Exception('Fiyat negatif olamaz');
                 }
+                break;
+            case 'stock':
+                $value = (int)$value;
+                if ($value < 0) {
+                    throw new Exception('Stok negatif olamaz');
+                }
+                error_log("Stock value: $value");
+                break;
+            case 'barcode':
+                $value = cleanInput($value);
+                // Benzersizlik kontrolü
+                if (!empty($value)) {
+                    $existing = $db->query(
+                        "SELECT id FROM products WHERE barcode = ? AND id != ?",
+                        [$value, $id]
+                    )->fetch();
+                    if ($existing) {
+                        throw new Exception('Bu barkod numarası başka bir ürüne ait');
+                    }
+                }
+                error_log("Barcode value: $value");
                 break;
             case 'name':
                 $value = cleanInput($value);
@@ -137,7 +158,9 @@ try {
                 'price' => '`price`',
                 'image' => '`image`',
                 'status' => '`status`',
-                'sort_order' => '`sort_order`'
+                'sort_order' => '`sort_order`',
+                'barcode' => '`barcode`',
+                'stock' => '`stock`'
             ];
             
             if (!isset($fieldMapping[$field])) {
