@@ -40,8 +40,21 @@ function generateThemeCSS($theme_id = null) {
 }
 
 function generateThemeCSS_Content($theme, $primary_rgb, $secondary_rgb, $accent_rgb) {
+    $category_style = $theme['category_style'] ?? 'grid';
+    $product_layout = $theme['product_layout'] ?? 'grid';
+    
     $css = "
-/* Dynamic Theme CSS - {$theme['concept']} */
+/* 
+ * Dynamic Theme CSS Generator v2.0
+ * ================================
+ * Theme Name: {$theme['name']}
+ * Concept: {$theme['concept']}
+ * Category Style: {$category_style}
+ * Product Layout: {$product_layout}
+ * Primary Color: {$theme['primary_color']}
+ * Generated: " . date('Y-m-d H:i:s') . "
+ */
+
 @import url('https://fonts.googleapis.com/css2?family={$theme['font_family']}:wght@300;400;500;600;700&display=swap');
 
 :root {
@@ -84,66 +97,188 @@ body {
 .modern-category-item {
     background: linear-gradient(135deg, var(--theme-primary), rgba(var(--primary-rgb), 0.8)) !important;
 }
-";
 
-    // Category style specific CSS
-    if($theme['category_style'] === 'masonry') {
-        $css .= "
+/* Default Grid Style (if not specified) */
 .modern-category-grid {
-    columns: 3;
-    column-gap: 0;
-    column-fill: balance;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
 }
 
 .modern-category-item {
-    break-inside: avoid;
-    margin-bottom: 0;
-    page-break-inside: avoid;
-    height: auto !important;
-    min-height: 150px;
+    position: relative;
+    height: 180px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-category-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.3) 100%);
+    z-index: 2;
+    transition: opacity 0.4s ease;
+}
+
+.modern-category-item:hover::before {
+    opacity: 0.5;
+}
+
+.modern-category-item:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.category-bg-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.modern-category-item:hover .category-bg-image {
+    transform: scale(1.1);
+}
+
+.modern-category-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 25px;
+    color: white;
+    z-index: 3;
+    background: linear-gradient(transparent, rgba(0,0,0,0.8) 60%);
+    transform: translateY(10px);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-category-item:hover .modern-category-content {
+    transform: translateY(0);
+}
+
+.modern-category-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    letter-spacing: 0.5px;
+    color: white !important;
 }
 
 @media (max-width: 768px) {
     .modern-category-grid {
-        columns: 2;
+        grid-template-columns: 1fr;
+    }
+    
+    .modern-category-item {
+        height: 150px;
+    }
+    
+    .modern-category-title {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .modern-category-item {
+        height: 130px;
+    }
+    
+    .modern-category-content {
+        padding: 20px;
+    }
+    
+    .modern-category-title {
+        font-size: 1.2rem;
+    }
+}
+";
+
+    // Category style specific CSS - OVERRIDE defaults
+    if($theme['category_style'] === 'grid-2col') {
+        $css .= "
+/* Category 2-Column Grid Style - OVERRIDE */
+.modern-category-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
+    margin: 0 !important;
+    padding: 15px !important;
+}
+
+.modern-category-item {
+    height: 180px !important;
+    border-radius: 15px !important;
+    overflow: hidden !important;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
+    transition: all 0.4s ease !important;
+}
+
+.modern-category-item:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 8px 25px rgba(var(--primary-rgb), 0.2) !important;
+}
+
+@media (max-width: 768px) {
+    .modern-category-grid {
+        grid-template-columns: repeat(2, 1fr) !important; /* Tablet: 2 sütun */
+        gap: 10px !important;
+        padding: 10px !important;
     }
 }
 
 @media (max-width: 576px) {
     .modern-category-grid {
-        columns: 1;
+        grid-template-columns: repeat(2, 1fr) !important; /* Mobil: 2 sütun */
+        gap: 8px !important;
+        padding: 8px !important;
+    }
+    
+    .modern-category-item {
+        height: 150px !important;
     }
 }
 ";
-    } elseif($theme['category_style'] === 'grid-2col') {
+    } elseif($theme['category_style'] === 'masonry') {
         $css .= "
-/* Category 2-Column Grid Style */
+/* Category Masonry Style - OVERRIDE */
 .modern-category-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 15px;
-    margin: 0;
-    padding: 15px;
+    columns: 3 !important;
+    column-gap: 0 !important;
+    column-fill: balance !important;
+    display: block !important;
 }
 
 .modern-category-item {
-    height: 180px;
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    transition: all 0.4s ease;
-}
-
-.modern-category-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(var(--primary-rgb), 0.2);
+    break-inside: avoid !important;
+    margin-bottom: 0 !important;
+    page-break-inside: avoid !important;
+    height: auto !important;
+    min-height: 150px !important;
 }
 
 @media (max-width: 768px) {
     .modern-category-grid {
-        grid-template-columns: 1fr !important;
-        gap: 10px;
-        padding: 10px;
+        columns: 2 !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .modern-category-grid {
+        columns: 1 !important;
     }
 }
 ";
@@ -205,50 +340,57 @@ body {
 ";
     } elseif($theme['category_style'] === 'list-2col') {
         $css .= "
-/* Category 2-Column List Style */
+/* Category 2-Column List Style - OVERRIDE */
 .modern-category-grid {
     display: grid !important;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    padding: 15px;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
+    padding: 15px !important;
+    margin: 0 !important;
 }
 
 .modern-category-item {
     height: 100px !important;
-    margin-bottom: 0;
-    display: flex;
-    align-items: center;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    background: white;
-    border: 1px solid rgba(var(--primary-rgb), 0.1);
-    transition: all 0.3s ease;
+    margin-bottom: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    background: white !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.1) !important;
+    transition: all 0.3s ease !important;
+    position: relative !important;
+}
+
+.modern-category-item::before {
+    display: none !important;
 }
 
 .modern-category-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.2);
-    border-color: var(--theme-primary);
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.2) !important;
+    border-color: var(--theme-primary) !important;
 }
 
 .category-bg-image {
     width: 120px !important;
     height: 100px !important;
-    flex-shrink: 0;
-    object-fit: cover;
+    flex-shrink: 0 !important;
+    object-fit: cover !important;
+    position: static !important;
 }
 
 .modern-category-content {
     position: static !important;
     background: transparent !important;
     color: var(--theme-text) !important;
-    padding: 15px;
+    padding: 15px !important;
     transform: none !important;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
 }
 
 .modern-category-title {
@@ -256,53 +398,132 @@ body {
     font-size: 1.1rem !important;
     margin: 0 !important;
     text-shadow: none !important;
-    line-height: 1.2;
-    font-weight: 600;
-    text-align: left;
+    line-height: 1.2 !important;
+    font-weight: 600 !important;
+    text-align: left !important;
 }
 
-/* Mobile adjustments for category list-2col */
+/* Mobile adjustments for category list-2col - MOBİLDE DE 2 SÜTUN! */
 @media (max-width: 768px) {
     .modern-category-grid {
-        grid-template-columns: 1fr !important;
-        gap: 10px;
-        padding: 10px;
+        grid-template-columns: repeat(2, 1fr) !important; /* Tablet: 2 sütun */
+        gap: 8px !important;
+        padding: 8px !important;
     }
     
     .modern-category-item {
-        height: 80px !important;
+        height: 90px !important;
     }
     
     .category-bg-image {
-        width: 100px !important;
-        height: 80px !important;
+        width: 90px !important;
+        height: 90px !important;
     }
     
     .modern-category-content {
-        padding: 10px;
-    }
-    
-    .modern-category-title {
-        font-size: 1rem !important;
-    }
-}
-
-@media (max-width: 576px) {
-    .modern-category-item {
-        height: 70px !important;
-    }
-    
-    .category-bg-image {
-        width: 80px !important;
-        height: 70px !important;
+        padding: 8px !important;
     }
     
     .modern-category-title {
         font-size: 0.9rem !important;
     }
 }
+
+@media (max-width: 576px) {
+    .modern-category-grid {
+        grid-template-columns: repeat(2, 1fr) !important; /* Mobil: 2 sütun */
+        gap: 6px !important;
+        padding: 6px !important;
+    }
+    
+    .modern-category-item {
+        height: 80px !important;
+    }
+    
+    .category-bg-image {
+        width: 80px !important;
+        height: 80px !important;
+    }
+    
+    .modern-category-content {
+        padding: 6px !important;
+    }
+    
+    .modern-category-title {
+        font-size: 0.85rem !important;
+    }
+}
 ";
     }
+
+    // Default Product Grid Style
+    $css .= "
+/* Default Product Grid */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.product-card {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.15);
+    border-color: var(--theme-primary);
+}
+
+.product-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.product-info {
+    padding: 15px;
+}
+
+.product-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--theme-text);
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.product-description {
+    font-size: 0.9rem;
+    color: rgba(var(--theme-text), 0.7);
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.product-price {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--theme-primary);
+}
+
+@media (max-width: 768px) {
+    .products-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .product-image {
+        height: 180px;
+    }
+}
+";
 
     // Product layout specific CSS
     if(isset($theme['product_layout'])) {
@@ -367,29 +588,62 @@ body {
 
 @media (max-width: 768px) {
     .products-grid {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: repeat(2, 1fr) !important; /* Mobilde de 2 sütun */
         gap: 10px !important;
         padding: 10px;
     }
     
     .product-image {
-        height: 120px !important;
+        height: 100px !important;
     }
     
     .product-info {
-        padding: 12px !important;
+        padding: 10px !important;
     }
     
     .product-title {
-        font-size: 1rem !important;
+        font-size: 0.9rem !important;
     }
     
     .product-description {
-        font-size: 0.85rem !important;
+        font-size: 0.8rem !important;
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
     }
     
     .product-price {
-        font-size: 1.1rem !important;
+        font-size: 1rem !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .products-grid {
+        grid-template-columns: repeat(2, 1fr) !important; /* Küçük mobilde de 2 sütun */
+        gap: 8px !important;
+        padding: 8px;
+    }
+    
+    .product-image {
+        height: 90px !important;
+    }
+    
+    .product-info {
+        padding: 8px !important;
+    }
+    
+    .product-title {
+        font-size: 0.85rem !important;
+    }
+    
+    .product-description {
+        font-size: 0.75rem !important;
+        -webkit-line-clamp: 1 !important;
+    }
+    
+    .product-price {
+        font-size: 0.95rem !important;
     }
 }
 ";
@@ -560,29 +814,29 @@ body {
 
 @media (max-width: 768px) {
     .products-grid {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: repeat(2, 1fr) !important; /* Tablet: 2 sütun */
         gap: 10px !important;
         padding: 10px;
     }
     
     .product-card {
         display: flex !important;
-        flex-direction: row !important;
-        height: 100px !important;
+        flex-direction: column !important;
+        height: 180px !important;
     }
     
     .product-image {
-        width: 100px !important;
+        width: 100% !important;
         height: 100px !important;
     }
     
     .product-info {
-        padding: 10px !important;
+        padding: 8px !important;
     }
     
     .product-title {
-        font-size: 0.95rem !important;
-        -webkit-line-clamp: 1 !important;
+        font-size: 0.9rem !important;
+        -webkit-line-clamp: 2 !important;
     }
     
     .product-description {
@@ -844,6 +1098,276 @@ body {
 
 ::-webkit-scrollbar-thumb {
     background-color: var(--theme-primary) !important;
+}
+
+/* ============================================
+   SEPETE EKLE VE MİKTAR KONTROL CSS
+   ============================================ */
+
+/* Sipariş Kontrolleri */
+.order-controls {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+}
+
+/* Miktar Kontrol */
+.quantity-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+}
+
+.quantity-btn {
+    width: 30px !important;
+    height: 30px !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.3) !important;
+    background: white !important;
+    color: var(--theme-primary) !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    padding: 0 !important;
+}
+
+.quantity-btn:hover {
+    background: var(--theme-primary) !important;
+    color: white !important;
+    border-color: var(--theme-primary) !important;
+}
+
+.quantity-btn i {
+    font-size: 0.75rem !important;
+}
+
+.quantity-input {
+    width: 45px !important;
+    height: 30px !important;
+    text-align: center !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.3) !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    color: var(--theme-text) !important;
+    padding: 0 !important;
+}
+
+/* Sepete Ekle Butonu */
+.add-to-cart {
+    flex: 1 !important;
+    height: 30px !important;
+    background: var(--theme-primary) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    font-weight: 600 !important;
+    padding: 0 10px !important;
+    min-width: 40px !important;
+}
+
+.add-to-cart:hover {
+    background: var(--theme-secondary) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(var(--primary-rgb), 0.3) !important;
+}
+
+.add-to-cart i {
+    font-size: 0.9rem !important;
+}
+
+/* Mobil için iyileştirmeler */
+@media (max-width: 576px) {
+    .order-controls {
+        gap: 6px !important;
+    }
+    
+    .quantity-btn {
+        width: 28px !important;
+        height: 28px !important;
+    }
+    
+    .quantity-input {
+        width: 40px !important;
+        height: 28px !important;
+        font-size: 0.85rem !important;
+    }
+    
+    .add-to-cart {
+        height: 28px !important;
+        font-size: 0.85rem !important;
+    }
+}
+
+/* ============================================
+   GERİ BUTONU - DİNAMİK RENKLER
+   ============================================ */
+.back-button-container {
+    background-color: var(--theme-background) !important;
+    border-top: 1px solid rgba(var(--primary-rgb), 0.1) !important;
+}
+
+.btn-back {
+    background-color: var(--theme-primary) !important;
+    color: white !important;
+    border: 2px solid var(--theme-primary) !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-back:hover {
+    background-color: var(--theme-secondary) !important;
+    border-color: var(--theme-secondary) !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(var(--primary-rgb), 0.3) !important;
+}
+
+/* ============================================
+   KATEGORİ BAŞLIĞI - DİNAMİK RENKLER
+   ============================================ */
+.category-header {
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary)) !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    margin-bottom: 20px !important;
+    color: white !important;
+}
+
+.category-header h2 {
+    margin: 0 !important;
+    font-size: 1.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    color: white !important;
+}
+
+.category-header i {
+    margin-right: 10px !important;
+}
+
+.category-description {
+    margin-top: 5px !important;
+    font-size: 0.9rem !important;
+    color: rgba(255,255,255,0.95) !important;
+}
+
+/* ============================================
+   SEPET ÖĞELERİ
+   ============================================ */
+.cart-item {
+    padding: 15px 0 !important;
+    border-bottom: 1px solid rgba(var(--primary-rgb), 0.1) !important;
+}
+
+.cart-item:last-child {
+    border-bottom: none !important;
+}
+
+.cart-item-image {
+    width: 60px !important;
+    height: 60px !important;
+    object-fit: cover !important;
+    border-radius: 8px !important;
+    border: 2px solid rgba(var(--primary-rgb), 0.2) !important;
+}
+
+.cart-item .price {
+    font-weight: 600 !important;
+    color: var(--theme-primary) !important;
+}
+
+/* SEPET FLOATING BUTTON */
+.cart-floating-button {
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    width: 65px !important;
+    height: 65px !important;
+    border-radius: 50% !important;
+    background: var(--theme-primary) !important;
+    color: white !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 24px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4) !important;
+    transition: all 0.3s ease !important;
+    z-index: 1000 !important;
+}
+
+.cart-floating-button:hover {
+    background: var(--theme-secondary) !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.5) !important;
+}
+
+.cart-count {
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
+    background: var(--theme-accent) !important;
+    color: white !important;
+    font-size: 14px !important;
+    min-width: 25px !important;
+    height: 25px !important;
+    border-radius: 12.5px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 8px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+}
+
+/* ============================================
+   MENÜ ÖĞELER İ
+   ============================================ */
+.menu-item {
+    margin-bottom: 15px !important;
+    transition: all 0.3s ease !important;
+}
+
+.menu-item:hover {
+    transform: translateY(-2px) !important;
+}
+
+.menu-item-image {
+    width: 100% !important;
+    height: 200px !important;
+    overflow: hidden !important;
+    border-radius: 8px 8px 0 0 !important;
+    position: relative !important;
+}
+
+.menu-item-image img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    transition: transform 0.3s ease !important;
+}
+
+.menu-item:hover .menu-item-image img {
+    transform: scale(1.05) !important;
+}
+
+.menu-item-content {
+    padding: 15px !important;
+}
+
+/* KATEGORİ SEKSİYONU */
+.category-section {
+    padding: 0 !important;
+    margin-top: 30px !important;
 }
 ";
 

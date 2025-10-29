@@ -167,6 +167,25 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
     
 </head>
 <style>
+/* Gerçek Zamanlı Güncelleme Animasyonları */
+.card {
+    transition: all 0.3s ease;
+}
+
+.total-amount {
+    transition: all 0.2s ease;
+}
+
+.badge {
+    transition: all 0.3s ease;
+}
+
+/* Masa kartı güncellenirken subtle glow efekti */
+.table-card-updating {
+    box-shadow: 0 0 15px rgba(0,123,255,0.3);
+    transform: scale(1.01);
+}
+
 /* Modern Tab Menü Stilleri */
 #categoryTabs {
     border-bottom: 2px solid #e9ecef;
@@ -913,14 +932,18 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                             AND payment_id IS NULL
                         ) THEN 'occupied' ELSE 'empty' END as status,
                         COALESCE((
-                            SELECT SUM(total_amount) 
-                            FROM orders 
-                            WHERE table_id = ? 
-                            AND status NOT IN ('cancelled', 'completed')
-                            AND payment_id IS NULL
+                            SELECT SUM(oi.price * oi.quantity) 
+                            FROM order_items oi
+                            INNER JOIN orders o ON oi.order_id = o.id
+                            WHERE o.table_id = ? 
+                            AND o.status NOT IN ('cancelled', 'completed')
+                            AND o.payment_id IS NULL
+                            AND oi.payment_id IS NULL
                         ), 0) as total",
                     [$table['id'], $table['id']]
                 )->fetch();
+                
+                // Sadece ödenmemiş ürünlerin toplamı
             ?>
                 <div class="col-12 col-md-6 col-xl-4 table-card-wrapper" 
                      data-category-id="<?= $table['category_id'] ?>" 
@@ -944,14 +967,12 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                     <small class="text-muted mt-1">Kategori:</small>
                                     <div class="small text-primary">
                                         <i class="fas fa-layer-group me-1"></i><?= htmlspecialchars($table['category_name'] ?? 'Diğer') ?>
-                                    </div>
                                 </div>
-                                <?php if($tableInfo['status'] === 'occupied'): ?>
-                                    <div class="text-end">
+                                </div>
+                                <div class="text-end" style="<?= $tableInfo['status'] === 'empty' ? 'display: none;' : '' ?>">
                                         <small class="text-muted">Toplam Tutar:</small>
-                                        <div class="fw-bold text-warning"><?= number_format($tableInfo['total'], 2) ?> ₺</div>
+                                    <div class="fw-bold text-warning total-amount"><?= number_format($tableInfo['total'], 2) ?> ₺</div>
                                     </div>
-                                <?php endif; ?>
                             </div>
                             
                             <div class="d-grid gap-2">
@@ -1121,6 +1142,14 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                         <h5 class="mb-0 text-primary" id="paymentTotal"></h5>
                                     </div>
 
+                                    <!-- Kısmi Ödeme Butonu -->
+                                    <div class="mb-2">
+                                        <button type="button" class="btn btn-sm btn-outline-warning w-100" 
+                                                onclick="openPartialPaymentModal()" id="partialPaymentBtn">
+                                            <i class="fas fa-divide me-1"></i> Kısmi Ödeme
+                                        </button>
+                                    </div>
+
                                     <!-- Mevcut Ödeme Yöntemi Seçimi -->
                                     <div class="payment-methods mb-3" style="display: block">
                                         <div class="row g-2">
@@ -1189,6 +1218,77 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                         <?php endif; ?>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kısmi Ödeme Modalı -->
+<div class="modal fade" id="partialPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning bg-opacity-10">
+                <h5 class="modal-title"><i class="fas fa-divide me-2"></i>Kısmi Ödeme</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Yöntem Seçimi -->
+                <div class="btn-group w-100 mb-3" role="group">
+                    <input type="radio" class="btn-check" name="partial_type" id="typeProduct" value="product" checked>
+                    <label class="btn btn-outline-primary" for="typeProduct" onclick="switchPartialType('product')">
+                        <i class="fas fa-shopping-basket me-1"></i> Ürün Seçerek
+                    </label>
+                    <input type="radio" class="btn-check" name="partial_type" id="typeAmount" value="amount">
+                    <label class="btn btn-outline-info" for="typeAmount" onclick="switchPartialType('amount')">
+                        <i class="fas fa-lira-sign me-1"></i> Tutar Girerek
+                    </label>
+                </div>
+
+                <!-- Ürün Seçme Alanı -->
+                <div id="partialProductArea">
+                    <div class="alert alert-info alert-sm">
+                        <i class="fas fa-info-circle me-1"></i> Ödenen ürünler masadan düşürülecek
+                    </div>
+                    <div id="partialProductList" style="max-height: 300px; overflow-y: auto;"></div>
+                    <div class="mt-2 p-2 bg-light rounded">
+                        <div class="d-flex justify-content-between">
+                            <span>Seçili Tutar:</span>
+                            <strong id="partialProductTotal" class="text-primary">0.00 ₺</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tutar Girme Alanı -->
+                <div id="partialAmountArea" style="display: none;">
+                    <div class="alert alert-warning alert-sm">
+                        <i class="fas fa-info-circle me-1"></i> Sadece tutar düşürülecek, ürünler masada kalacak
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ödenecek Tutar</label>
+                        <div class="input-group input-group-lg">
+                            <input type="number" class="form-control text-center fw-bold" 
+                                   id="partialAmountValue" min="1" step="1" 
+                                   placeholder="0" oninput="updatePartialTotal()">
+                            <span class="input-group-text">₺</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="setQuickAmount(50)">50₺</button>
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="setQuickAmount(100)">100₺</button>
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="setQuickAmount(200)">200₺</button>
+                        <button type="button" class="btn btn-outline-primary flex-fill" onclick="setQuickPercent(50)">%50</button>
+                    </div>
+                    <div class="text-muted small">
+                        Maksimum: <span id="partialMaxAmount">0₺</span> | 
+                        Kalan: <span id="partialRemaining" class="text-success">0₺</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-warning" onclick="applyPartialPayment()">
+                    <i class="fas fa-check me-1"></i> Uygula
+                </button>
             </div>
         </div>
     </div>
@@ -1470,7 +1570,6 @@ window.openPaymentModal = function(tableId, tableNo) {
     
     currentTableId = tableId;
    
-    console.log('Opening modal for table:', currentTableId);
 
     // Masa bilgisini güncelle
     document.getElementById('paymentTableInfo').textContent = `${tableNo}`;
@@ -1495,7 +1594,6 @@ function addToPaymentOrder(productId, productName, productPrice) {
         Swal.fire('Yetkisiz İşlem', 'Sipariş ekleme yetkiniz bulunmuyor.', 'error');
         return;
     }
-    console.log('Adding Product:', { productId, productName, productPrice });
 
     if (!paymentItems[productId]) {
         paymentItems[productId] = {
@@ -1577,17 +1675,14 @@ function updateNewOrderItems() {
 
 // Masa siparişlerini yükle
 function loadTableOrders(tableId, retryCount = 0) {
-    console.log('Loading orders for table:', tableId);
 
     const container = document.getElementById('paymentOrderDetails');
     if (!container) {
-        console.error('Container not found, retry count:', retryCount);
         
         if (retryCount < 3) {
             setTimeout(() => loadTableOrders(tableId, retryCount + 1), 100);
             return;
         } else {
-            console.error('Container could not be found after 3 retries');
             return;
         }
     }
@@ -1604,7 +1699,6 @@ function loadTableOrders(tableId, retryCount = 0) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Received orders data:', data);
 
         if (data.success) {
             let html = '';
@@ -1613,6 +1707,7 @@ function loadTableOrders(tableId, retryCount = 0) {
             if (data.orders.length === 0) {
                 html = '<div class="alert alert-info">Henüz sipariş bulunmuyor.</div>';
             } else {
+                // Siparişleri listele ve toplam hesapla
                 data.orders.forEach(order => {
                     const itemTotal = parseFloat(order.total);
                     total += itemTotal;
@@ -1657,16 +1752,27 @@ function loadTableOrders(tableId, retryCount = 0) {
                 });
             }
 
+            // Kısmi ödeme uyarısı ekle
+            if (data.partial_payments_total && parseFloat(data.partial_payments_total) > 0) {
+                const partialAlert = `
+                    <div class="alert alert-warning alert-sm mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Kısmi Ödeme Alındı:</strong> ${formatPrice(data.partial_payments_total)}₺
+                        <br><small>Kalan tutar aşağıda gösterilmektedir.</small>
+                    </div>
+                `;
+                html = partialAlert + html;
+            }
+            
             container.innerHTML = html;
             document.getElementById('paymentTotal').textContent = formatPrice(total);
+            originalTotal = total; // Global değişkeni güncelle
             currentTotal = total;
-            console.log('Orders rendered successfully');
         } else {
             throw new Error(data.message || 'Siparişler yüklenirken bir hata oluştu');
         }
     })
     .catch(error => {
-        console.error('Error loading orders:', error);
         container.innerHTML = '<div class="alert alert-danger">Siparişler yüklenirken bir hata oluştu.</div>';
     });
 }
@@ -1703,8 +1809,6 @@ function saveNewItems() {
     }
 
     // Debug için
-    console.log('Current Table ID:', currentTableId);
-    console.log('Payment Items:', paymentItems);
 
     // Sipariş verilerini hazırla
     const formData = new FormData();
@@ -1728,7 +1832,6 @@ function saveNewItems() {
     })
     .then(async response => {
         const text = await response.text();
-        console.log('Server Response:', text); // Debug için
         return JSON.parse(text);
     })
     .then(data => {
@@ -1757,7 +1860,6 @@ function saveNewItems() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         Swal.fire('Hata!', error.message, 'error');
     });
 }
@@ -1834,11 +1936,20 @@ function processPayment() {
     const discountAmount = parseFloat(document.getElementById('discountAmount')?.textContent.replace(/[^0-9.]/g, '')) || 0;
     const finalTotal = parseFloat(document.getElementById('paymentTotal').textContent.replace(/[^0-9.]/g, ''));
 
+    // Kısmi ödeme kontrolü
+    const isPartial = partialPaymentData.enabled;
+    const partialInfo = isPartial ? {
+        type: partialPaymentData.type,
+        items: partialPaymentData.selectedItems,
+        amount: partialPaymentData.amount
+    } : null;
+
     // Ödeme onayı iste
     Swal.fire({
-        title: 'Ödeme Onayı',
+        title: isPartial ? '💰 Kısmi Ödeme Onayı' : 'Ödeme Onayı',
         html: `
             <div class="text-center">
+                ${isPartial ? '<div class="alert alert-warning mb-3"><i class="fas fa-info-circle me-2"></i><strong>Kısmi Ödeme</strong></div>' : ''}
                 <h4 class="mb-3">Ödeme Detayları</h4>
                 ${discountAmount > 0 ? `
                     <p class="mb-2">Ara Toplam: ${formatPrice(subtotal)} ₺</p>
@@ -1848,43 +1959,64 @@ function processPayment() {
                     </p>
                 ` : ''}
                 <p class="mb-3"><strong>Ödenecek Tutar: ${formatPrice(finalTotal)} ₺</strong></p>
+                ${isPartial ? `<p class="text-warning mb-2">Kalan: ${formatPrice(originalTotal - finalTotal)} ₺</p>` : ''}
                 <p class="mb-2">Ödeme Yöntemi: ${paymentMethod === 'cash' ? 'Nakit' : 'POS'}</p>
             </div>
         `,
-        icon: 'question',
+        icon: isPartial ? 'warning' : 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ödemeyi Tamamla',
+        confirmButtonText: isPartial ? 'Kısmi Ödeme Al' : 'Ödemeyi Tamamla',
         cancelButtonText: 'İptal',
-        confirmButtonColor: '#198754',
+        confirmButtonColor: isPartial ? '#ffc107' : '#198754',
         cancelButtonColor: '#dc3545'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Mevcut ödeme işlemi kodunu kullan
+            // Ödeme verilerini hazırla
+            const paymentData = {
+                table_id: currentTableId,
+                payment_method: paymentMethod,
+                total_amount: finalTotal,
+                subtotal: subtotal,
+                discount_type: discountType,
+                discount_value: discountValue,
+                discount_amount: discountAmount,
+                is_partial: isPartial,
+                partial_data: partialInfo
+            };
+            
             fetch('ajax/complete_payment.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    table_id: currentTableId,
-                    payment_method: paymentMethod,
-                    total_amount: finalTotal,
-                    subtotal: subtotal,
-                    discount_type: discountType,
-                    discount_value: discountValue,
-                    discount_amount: discountAmount
-                })
+                body: JSON.stringify(paymentData)
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    Swal.fire('Başarılı!', 'Ödeme başarıyla tamamlandı.', 'success')
-                    .then(() => {
+                    const successMsg = isPartial 
+                        ? `Kısmi ödeme alındı: ${formatPrice(finalTotal)} ₺<br>Kalan: ${formatPrice(data.remaining || 0)} ₺` 
+                        : 'Ödeme başarıyla tamamlandı!';
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı!',
+                        html: successMsg,
+                        timer: isPartial ? 3000 : 2000
+                    }).then(() => {
+                        partialPaymentData = {
+                            enabled: false,
+                            type: 'product',
+                            selectedItems: [],
+                            amount: 0,
+                            tableTotal: 0
+                        };
+                        
                         const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
                         if (modal) {
                             modal.hide();
                         }
-                        window.location.reload(); // Sadece bu satırı ekledik
+                        window.location.reload();
                     });
                 } else {
                     throw new Error(data.message);
@@ -2037,7 +2169,6 @@ function updateNewItemQuantity(productId, change) {
         Swal.fire('Yetkisiz İşlem', 'Sipariş güncelleme yetkiniz bulunmuyor.', 'error');
         return;
     }
-    console.log('Updating new item quantity:', { productId, change }); // Debug için
 
     if (paymentItems[productId]) {
         const newQuantity = Math.max(1, paymentItems[productId].quantity + change);
@@ -2059,7 +2190,6 @@ function removeNewItem(productId) {
         Swal.fire('Yetkisiz İşlem', 'Sipariş silme yetkiniz bulunmuyor.', 'error');
         return;
     }
-    console.log('Removing new item:', productId); // Debug için
 
     if (paymentItems[productId]) {
         delete paymentItems[productId];
@@ -2130,7 +2260,6 @@ function saveTable() {
 // QR kod oluştur
 function showQRCode(tableId) {
     if (typeof qrcode === 'undefined') {
-        console.error('QR Code kütüphanesi yüklenemedi!');
         return;
     }
     
@@ -2211,39 +2340,142 @@ function editTable(tableId) {
         return;
     }
 
+    // Önce mevcut masa bilgilerini al
+    fetch('api/get_table.php?id=' + tableId)
+    .then(response => response.json())
+    .then(tableData => {
+        if(!tableData.success) {
+            throw new Error(tableData.message || 'Masa bilgileri alınamadı');
+        }
+
+        const table = tableData.table;
+        
+        // Kategori seçeneklerini oluştur
+        let categoryOptions = '<option value="">Kategori Seç</option>';
+        <?php foreach($tableCategories as $cat): ?>
+        categoryOptions += `<option value="<?= $cat['id'] ?>" ${table.category_id == <?= $cat['id'] ?> ? 'selected' : ''}><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></option>`;
+        <?php endforeach; ?>
+
     Swal.fire({
-        title: 'Masa Adı/Numarası',
-        input: 'text',
-        inputLabel: 'Yeni masa adını veya numarasını giriniz',
-        inputPlaceholder: 'Örn: VIP Masa, Bahçe A1, Teras Premium, 15',
+            title: '🍽️ Masa Düzenle',
+            html: `
+                <div style="text-align: left;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-signature me-2"></i>Masa Adı/Numarası
+                        </label>
+                        <input type="text" id="edit-table-name" class="form-control" 
+                               value="${table.table_no}" 
+                               placeholder="Örn: VIP Masa, Bahçe A1, Teras Premium, 15">
+                        <div class="form-text">1-50 karakter arasında olmalıdır</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-tags me-2"></i>Kategori
+                        </label>
+                        <select id="edit-table-category" class="form-select">
+                            ${categoryOptions}
+                        </select>
+                        <div class="form-text">Masa kategorisini seçiniz (opsiyonel)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-users me-2"></i>Kapasite
+                        </label>
+                        <input type="number" id="edit-table-capacity" class="form-control" 
+                               value="${table.capacity || ''}" 
+                               min="1" max="50" 
+                               placeholder="Örn: 4">
+                        <div class="form-text">Maksimum kişi sayısı (1-50)</div>
+                    </div>
+                </div>
+            `,
+            width: '500px',
         showCancelButton: true,
-        confirmButtonText: 'Güncelle',
-        cancelButtonText: 'İptal'
+            confirmButtonText: '<i class="fas fa-save me-2"></i>Güncelle',
+            cancelButtonText: '<i class="fas fa-times me-2"></i>İptal',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            focusConfirm: false,
+            preConfirm: () => {
+                const tableName = document.getElementById('edit-table-name').value.trim();
+                const categoryId = document.getElementById('edit-table-category').value;
+                const capacity = document.getElementById('edit-table-capacity').value;
+
+                if (!tableName) {
+                    Swal.showValidationMessage('Masa adı gereklidir');
+                    return false;
+                }
+                
+                if (tableName.length < 1 || tableName.length > 50) {
+                    Swal.showValidationMessage('Masa adı 1-50 karakter arasında olmalıdır');
+                    return false;
+                }
+                
+                if (capacity && (capacity < 1 || capacity > 50)) {
+                    Swal.showValidationMessage('Kapasite 1-50 arasında olmalıdır');
+                    return false;
+                }
+
+                return {
+                    id: tableId,
+                    table_number: tableName,
+                    category_id: categoryId || null,
+                    capacity: capacity || null
+                };
+            }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+                // Loading göster
+                Swal.fire({
+                    title: 'Güncelleniyor...',
+                    allowEscapeKey: false,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
             fetch('api/update_table.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    id: tableId,
-                    table_number: result.value
-                })
+                    body: JSON.stringify(result.value)
             })
             .then(response => response.json())
             .then(data => {
                 if(data.success) {
-                    Swal.fire('Başarılı!', 'Masa güncellendi', 'success')
-                    .then(() => location.reload());
+                        Swal.fire({
+                            title: 'Başarılı!',
+                            text: 'Masa başarıyla güncellendi',
+                            icon: 'success',
+                            confirmButtonColor: '#28a745'
+                        }).then(() => location.reload());
                 } else {
                     throw new Error(data.message || 'Bir hata oluştu');
                 }
             })
             .catch(error => {
-                Swal.fire('Hata!', error.message, 'error');
-            });
-        }
+                    Swal.fire({
+                        title: 'Hata!', 
+                        text: error.message,
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545'
+                    });
+                });
+            }
+        });
+    })
+    .catch(error => {
+        Swal.fire({
+            title: 'Hata!', 
+            text: error.message || 'Masa bilgileri alınamadı',
+            icon: 'error',
+            confirmButtonColor: '#dc3545'
+        });
     });
 }
 
@@ -2472,7 +2704,6 @@ function loadSourceOrders(tableId) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Source orders:', data); // Debug için
         updateOrderList(data, 'source');
     })
     .catch(error => {
@@ -2492,7 +2723,6 @@ function loadTargetOrders(tableId) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Target orders:', data); // Debug için
         updateOrderList(data, 'target');
     })
     .catch(error => {
@@ -2755,13 +2985,6 @@ function calculateDiscount() {
     document.getElementById('paymentTotal').textContent = formatPrice(finalTotal) + ' ₺';
     document.getElementById('discountRow').style.display = 'flex';
 
-    console.log('İskonto Hesaplaması:', {
-        originalTotal,
-        type,
-        value,
-        discountAmount,
-        finalTotal
-    });
 }
 
 // Mevcut showPaymentModal fonksiyonunu güncelle
@@ -3183,32 +3406,21 @@ function showAllTables() {
 function showCategoryTables(categoryId) {
     const cards = document.querySelectorAll('.table-card-wrapper');
     
-    // Önce tüm kartları gizle
+    let visibleIndex = 0;
     cards.forEach(card => {
-        card.style.opacity = '0';
-        card.style.transform = 'scale(0.95)';
+        const cardCategoryId = card.dataset.categoryId;
+        
+        // Sadece seçili kategorideki masaları göster (dolu/boş fark etmez)
+        if (cardCategoryId == categoryId) {
+            card.style.display = 'block';
+            card.style.opacity = '1';
+            card.style.transform = 'scale(1)';
+            visibleIndex++;
+        } else {
+            // Diğer kategorilerin masalarını gizle
+            card.style.display = 'none';
+        }
     });
-    
-    setTimeout(() => {
-        let visibleIndex = 0;
-        cards.forEach(card => {
-            const cardCategoryId = card.dataset.categoryId;
-            if (cardCategoryId == categoryId) {
-                card.style.display = 'block';
-                // Sıralı animasyon ile göster
-                setTimeout(() => {
-                    card.style.opacity = '1';
-                    card.style.transform = 'scale(1)';
-                }, visibleIndex * 80);
-                visibleIndex++;
-            } else {
-                // Diğerlerini tamamen gizle
-                setTimeout(() => {
-                    card.style.display = 'none';
-                }, 200);
-            }
-        });
-    }, 150);
     
     // Tab'ları güncelle
     document.querySelectorAll('#categoryTabs .nav-link').forEach(tab => {
@@ -3216,6 +3428,448 @@ function showCategoryTables(categoryId) {
     });
     document.getElementById('category-' + categoryId + '-tab').classList.add('active');
 }
+
+// 🔄 GERÇEKZAMANLİ MASA DURUMU GÜNCELLEMESİ
+let updateInterval;
+let isUpdating = false;
+
+function updateTableStatuses() {
+    if (isUpdating) return;
+    isUpdating = true;
+    
+    
+    fetch('api/get_table_status.php', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            return response.json();
+        })
+        .then(data => {
+              if (data.success) {
+                  
+                  // DOLU MASALARI ÖZEL OLARAK LİSTELE
+                  const occupiedTables = data.tables.filter(t => t.status === 'occupied');
+                  occupiedTables.forEach(table => {
+                  });
+                  
+                  updateTableCards(data.tables);
+            } else {
+                if (data.debug) console.log('Debug info:', data.debug);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Fetch hatası:', error);
+        })
+        .finally(() => {
+            isUpdating = false;
+        });
+}
+
+function updateTableCards(tables) {
+    tables.forEach(table => {
+        const tableCard = document.querySelector(`[data-table-id="${table.id}"]`);
+        if (!tableCard) return;
+        
+        const card = tableCard.querySelector('.card');
+        const statusBadge = tableCard.querySelector('.badge');
+        const totalElement = tableCard.querySelector('.total-amount');
+        
+        if (!card) return;
+        
+        // Durum badge güncelle
+        if (statusBadge) {
+            if (table.status === 'occupied') {
+                statusBadge.className = 'badge bg-warning';
+                statusBadge.textContent = 'Dolu';
+                card.classList.add('border-warning');
+                card.classList.remove('border-success');
+            } else {
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = 'Boş';
+                card.classList.remove('border-warning');
+                card.classList.add('border-success');
+            }
+        }
+        
+        // Toplam tutar güncelle
+        const totalContainer = totalElement ? totalElement.parentElement : null;
+        
+        if (table.status === 'occupied' && table.total > 0) {
+            if (totalContainer) {
+                totalContainer.style.display = 'block';
+            }
+            
+            if (totalElement) {
+                const oldTotal = totalElement.textContent.trim();
+                const newTotal = table.formatted_total;
+                
+                totalElement.textContent = newTotal;
+                
+                // Değişim varsa animasyon
+                if (oldTotal !== newTotal && oldTotal !== '') {
+                    totalElement.style.transition = 'all 0.3s ease';
+                    totalElement.style.transform = 'scale(1.1)';
+                    totalElement.style.backgroundColor = '#28a745';
+                    totalElement.style.color = 'white';
+                    totalElement.style.borderRadius = '4px';
+                    totalElement.style.padding = '2px 6px';
+                    
+                    setTimeout(() => {
+                        totalElement.style.transform = 'scale(1)';
+                        totalElement.style.backgroundColor = '';
+                        totalElement.style.color = '';
+                        totalElement.style.borderRadius = '';
+                        totalElement.style.padding = '';
+                    }, 800);
+                }
+            }
+        } else {
+            // Boş masa - toplam tutarı gizle
+            if (totalContainer) {
+                totalContainer.style.display = 'none';
+                
+            }
+        }
+        
+        // Masa kartı güncelleme animasyonu kaldırıldı
+    });
+    
+    // KATEGORİ FİLTRESİNİ KORUYORUZ - Hiçbir şey yapmıyoruz
+    // Masa kartları zaten mevcut görünürlük durumlarını koruyor
+}
+
+// Sayfa görünür olduğunda güncellemeyi başlat
+function startRealTimeUpdates() {
+    // İlk güncelleme
+    updateTableStatuses();
+    
+    // 5 saniyede bir güncelle (test için)
+    updateInterval = setInterval(updateTableStatuses, 5000);
+    
+}
+
+// Sayfa gizlendiğinde güncellemeyi durdur
+function stopRealTimeUpdates() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
+}
+
+// Sayfa visibility API ile güncellemeyi kontrol et
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopRealTimeUpdates();
+    } else {
+        startRealTimeUpdates();
+    }
+});
+
+// Sayfa yüklendiğinde başlat
+document.addEventListener('DOMContentLoaded', function() {
+    // 3 saniye sonra başlat (sayfa tamamen yüklensin)
+    setTimeout(startRealTimeUpdates, 3000);
+});
+
+// Sayfa kapatılırken durdur
+window.addEventListener('beforeunload', stopRealTimeUpdates);
+
+// ========== KISMI ÖDEME SİSTEMİ ==========
+let partialPaymentData = {
+    enabled: false,
+    type: 'product',
+    selectedItems: [],
+    amount: 0,
+    tableTotal: 0
+};
+
+function openPartialPaymentModal() {
+    // Payment modal'dan toplam tutarı al
+    const paymentTotalText = document.getElementById('paymentTotal').textContent;
+    const tableTotal = parseFloat(paymentTotalText.replace(/[^0-9.]/g, '')) || 0;
+    
+    console.log('Kısmi ödeme açılıyor:', {
+        paymentTotalText: paymentTotalText,
+        tableTotal: tableTotal,
+        originalTotal: originalTotal
+    });
+    
+    // Global değişkeni güncelle
+    if (tableTotal > 0) {
+        originalTotal = tableTotal;
+        partialPaymentData.tableTotal = tableTotal;
+    } else {
+        // Fallback: originalTotal kullan
+        partialPaymentData.tableTotal = originalTotal;
+    }
+    
+    document.getElementById('partialMaxAmount').textContent = formatPrice(partialPaymentData.tableTotal) + '₺';
+    document.getElementById('partialRemaining').textContent = formatPrice(partialPaymentData.tableTotal) + '₺';
+    
+    loadPartialProducts();
+    const modal = new bootstrap.Modal(document.getElementById('partialPaymentModal'));
+    modal.show();
+}
+
+function switchPartialType(type) {
+    partialPaymentData.type = type;
+    document.getElementById('partialProductArea').style.display = type === 'product' ? 'block' : 'none';
+    document.getElementById('partialAmountArea').style.display = type === 'amount' ? 'block' : 'none';
+}
+
+function loadPartialProducts() {
+    const list = document.getElementById('partialProductList');
+    list.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div></div>';
+    
+    fetch('ajax/get_table_orders.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: currentTableId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.orders && data.orders.length > 0) {
+            displayPartialProducts(data.orders);
+        } else {
+            list.innerHTML = '<div class="alert alert-warning">Bu masada ürün yok</div>';
+        }
+    });
+}
+
+function displayPartialProducts(products) {
+    const list = document.getElementById('partialProductList');
+    let html = '';
+    products.forEach(product => {
+        const total = parseFloat(product.total);
+        const unitPrice = parseFloat(product.price);
+        const maxQty = parseInt(product.quantity);
+        html += `
+            <div class="border rounded p-2 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" value="${product.item_id}" 
+                           id="partial_${product.item_id}" data-price="${unitPrice}" data-max="${maxQty}"
+                           onchange="calculatePartialProductTotal()">
+                    <div class="flex-grow-1">
+                        <strong>${product.product_name}</strong><br>
+                        <small class="text-muted">${formatPrice(unitPrice)}₺ / adet</small>
+                        <span class="badge bg-secondary ms-1">Max: ${maxQty}</span>
+                    </div>
+                    <div class="input-group input-group-sm" style="width: 100px;">
+                        <button class="btn btn-outline-secondary" type="button" 
+                                onclick="changePartialQty(${product.item_id}, -1)" disabled
+                                id="minus_${product.item_id}">-</button>
+                        <input type="number" class="form-control text-center" 
+                               id="qty_${product.item_id}" value="1" min="1" max="${maxQty}" 
+                               onchange="updatePartialQty(${product.item_id})" disabled>
+                        <button class="btn btn-outline-secondary" type="button" 
+                                onclick="changePartialQty(${product.item_id}, 1)" disabled
+                                id="plus_${product.item_id}">+</button>
+                    </div>
+                    <strong class="text-primary" id="total_${product.item_id}" style="min-width: 70px;">${formatPrice(unitPrice)}₺</strong>
+                </div>
+            </div>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+function calculatePartialProductTotal() {
+    let total = 0;
+    partialPaymentData.selectedItems = [];
+    document.querySelectorAll('#partialProductList input[type="checkbox"]:checked').forEach(cb => {
+        const itemId = cb.value;
+        const qty = parseInt(document.getElementById('qty_' + itemId).value) || 1;
+        const price = parseFloat(cb.dataset.price);
+        const itemTotal = price * qty;
+        
+        total += itemTotal;
+        partialPaymentData.selectedItems.push({
+            id: itemId,
+            quantity: qty,
+            price: price
+        });
+        
+        // Checkbox işaretlendiğinde miktar butonlarını aktifleştir
+        document.getElementById('minus_' + itemId).disabled = false;
+        document.getElementById('qty_' + itemId).disabled = false;
+        document.getElementById('plus_' + itemId).disabled = false;
+    });
+    
+    // İşaretlenmeyenleri devre dışı bırak
+    document.querySelectorAll('#partialProductList input[type="checkbox"]:not(:checked)').forEach(cb => {
+        const itemId = cb.value;
+        document.getElementById('minus_' + itemId).disabled = true;
+        document.getElementById('qty_' + itemId).disabled = true;
+        document.getElementById('plus_' + itemId).disabled = true;
+        document.getElementById('qty_' + itemId).value = 1;
+        const price = parseFloat(cb.dataset.price);
+        document.getElementById('total_' + itemId).textContent = formatPrice(price) + '₺';
+    });
+    
+    document.getElementById('partialProductTotal').textContent = formatPrice(total) + ' ₺';
+}
+
+function changePartialQty(itemId, change) {
+    const input = document.getElementById('qty_' + itemId);
+    const max = parseInt(input.max);
+    let newQty = parseInt(input.value) + change;
+    
+    if (newQty < 1) newQty = 1;
+    if (newQty > max) newQty = max;
+    
+    input.value = newQty;
+    updatePartialQty(itemId);
+}
+
+function updatePartialQty(itemId) {
+    const checkbox = document.getElementById('partial_' + itemId);
+    const qtyInput = document.getElementById('qty_' + itemId);
+    const price = parseFloat(checkbox.dataset.price);
+    const max = parseInt(checkbox.dataset.max);
+    let qty = parseInt(qtyInput.value);
+    
+    // Validasyon
+    if (qty < 1) qty = 1;
+    if (qty > max) qty = max;
+    qtyInput.value = qty;
+    
+    // Toplam güncelle
+    const itemTotal = price * qty;
+    document.getElementById('total_' + itemId).textContent = formatPrice(itemTotal) + '₺';
+    
+    // Genel toplamı güncelle
+    calculatePartialProductTotal();
+}
+
+function setQuickAmount(amount) {
+    document.getElementById('partialAmountValue').value = amount;
+    updatePartialTotal();
+}
+
+function setQuickPercent(percent) {
+    const amount = Math.floor((partialPaymentData.tableTotal * percent) / 100);
+    document.getElementById('partialAmountValue').value = amount;
+    updatePartialTotal();
+}
+
+function updatePartialTotal() {
+    const amount = parseFloat(document.getElementById('partialAmountValue').value) || 0;
+    document.getElementById('partialRemaining').textContent = formatPrice(partialPaymentData.tableTotal - amount) + '₺';
+}
+
+function applyPartialPayment() {
+    if (partialPaymentData.type === 'product') {
+        if (partialPaymentData.selectedItems.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Uyarı',
+                text: 'Lütfen en az bir ürün seçin!'
+            });
+            return;
+        }
+        
+        // Seçili ürünlerin toplam tutarını hesapla (miktar x fiyat)
+        let total = 0;
+        partialPaymentData.selectedItems.forEach(item => {
+            total += item.price * item.quantity;
+        });
+        
+        // Toplam tutarla aynı veya fazla olamaz
+        if (total >= partialPaymentData.tableTotal) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Tüm Ürünler Seçildi!',
+                html: `
+                    <p class="mb-2">Seçtiğiniz ürünler masanın tamamını kapsıyor.</p>
+                    <hr>
+                    <div class="text-start">
+                        <p class="mb-1"><strong>Seçili Ürünler:</strong> <span class="text-danger">${formatPrice(total)}₺</span></p>
+                        <p class="mb-0"><strong>Masa Toplamı:</strong> <span class="text-primary">${formatPrice(partialPaymentData.tableTotal)}₺</span></p>
+                    </div>
+                    <hr>
+                    <small class="text-muted">Tam ödeme için normal "Ödemeyi Tamamla" butonunu kullanın veya daha az ürün seçin.</small>
+                `
+            });
+            return;
+        }
+        
+        partialPaymentData.amount = total;
+        partialPaymentData.enabled = true;
+        document.getElementById('paymentTotal').textContent = formatPrice(total) + ' ₺';
+        Swal.fire({
+            icon: 'success', 
+            title: '✅ Kısmi Ödeme Hazır', 
+            html: `
+                <div class="text-center">
+                    <h4 class="text-success mb-3">${formatPrice(total)} ₺</h4>
+                    <p class="mb-2">${partialPaymentData.selectedItems.length} ürün seçildi</p>
+                    <p class="mb-2">Kalan: <strong class="text-warning">${formatPrice(partialPaymentData.tableTotal - total)}₺</strong></p>
+                    <small class="text-muted">Ödeme yöntemini seçip "Ödemeyi Tamamla" butonuna basın.</small>
+                </div>
+            `, 
+            timer: 3000
+        });
+    } else {
+        const amount = parseFloat(document.getElementById('partialAmountValue').value);
+        const maxAmount = partialPaymentData.tableTotal;
+        
+        console.log('Tutar kontrolü:', {
+            amount: amount,
+            tableTotal: maxAmount,
+            isValid: amount > 0 && amount < maxAmount
+        });
+        
+        if (!amount || amount <= 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Uyarı',
+                text: 'Lütfen geçerli bir tutar girin!'
+            });
+            return;
+        }
+        
+        if (amount >= maxAmount) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Geçersiz Tutar!',
+                html: `
+                    <p class="mb-2">Kısmi ödeme tutarı toplam tutardan <strong>küçük</strong> olmalıdır!</p>
+                    <hr>
+                    <div class="text-start">
+                        <p class="mb-1"><strong>Girilen Tutar:</strong> <span class="text-danger">${formatPrice(amount)}₺</span></p>
+                        <p class="mb-1"><strong>Masa Toplamı:</strong> <span class="text-primary">${formatPrice(maxAmount)}₺</span></p>
+                        <p class="mb-0"><strong>Maksimum Kısmi Ödeme:</strong> <span class="text-success">${formatPrice(maxAmount - 0.01)}₺</span></p>
+                    </div>
+                    <hr>
+                    <small class="text-muted">Tam ödeme için normal "Ödemeyi Tamamla" butonunu kullanın.</small>
+                `
+            });
+            return;
+        }
+        
+        partialPaymentData.amount = amount;
+        partialPaymentData.enabled = true;
+        document.getElementById('paymentTotal').textContent = formatPrice(amount) + ' ₺';
+        Swal.fire({
+            icon: 'success', 
+            title: '✅ Kısmi Ödeme Hazır', 
+            html: `
+                <div class="text-center">
+                    <h4 class="text-success mb-3">${formatPrice(amount)} ₺</h4>
+                    <p class="mb-2">Kalan: <strong class="text-warning">${formatPrice(maxAmount - amount)}₺</strong></p>
+                    <small class="text-muted">Ödeme yöntemini seçip "Ödemeyi Tamamla" butonuna basın.</small>
+                </div>
+            `, 
+            timer: 3000
+        });
+    }
+    bootstrap.Modal.getInstance(document.getElementById('partialPaymentModal')).hide();
+}
+
 </script>
 
 <!-- QR Code kütüphanesi -->

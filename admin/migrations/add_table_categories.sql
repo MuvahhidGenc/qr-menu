@@ -16,8 +16,6 @@ CREATE TABLE IF NOT EXISTS `table_categories` (
 -- 2. Varsayılan kategorileri ekle
 INSERT IGNORE INTO `table_categories` (`id`, `name`, `description`, `sort_order`) VALUES
 (1, 'Salon', 'Ana salon masaları', 1),
-(2, 'Bahçe', 'Bahçe alanı masaları', 2),
-(3, 'Salon 2', 'İkinci salon masaları', 3);
 
 -- 3. Tables tablosuna category_id ekle (eğer yoksa)
 ALTER TABLE `tables` 

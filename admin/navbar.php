@@ -1079,7 +1079,7 @@
                     </li>
                     <?php endif; ?>
                
-                    <?php if (hasPermission('payments.view') /*&& hasPermission('payments.manage')*/): ?>
+                    <?php if (hasPermission('payments.view_completed')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="completed_payments.php">
                                 <i class="fas fa-money-bill-wave"></i>
@@ -1200,6 +1200,15 @@
                                     Sipariş Ayarları
                                 </a>
                             </li>
+                            <?php if (isSuperAdmin()): ?>
+                            <li class="nav-item">
+                                <a class="nav-link text-white" href="system_parameters.php">
+                                    <i class="fas fa-cogs text-danger"></i>
+                                    Sistem Parametreleri
+                                    <span class="badge bg-danger ms-2">ADMIN</span>
+                                </a>
+                            </li>
+                            <?php endif; ?>
                         </ul>
                     </div>
                 </li>

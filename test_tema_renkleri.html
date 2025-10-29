@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 TEMA RENK TESTİ</title>
+    <link href="admin/theme.css.php?theme=1&v=<?= time() ?>" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-box {
+            width: 200px;
+            height: 100px;
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            border-radius: 10px;
+        }
+        .primary { background: var(--theme-primary); }
+        .secondary { background: var(--theme-secondary); }
+        .accent { background: var(--theme-accent); }
+        .text-test { color: var(--theme-text); background: var(--theme-background); }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 TEMA RENK TESTİ</h1>
+    
+    <div class="info">
+        <h3>📋 Test Adımları:</h3>
+        <ol>
+            <li>Bu sayfayı tarayıcıda açın</li>
+            <li>Renkli kutular görüyorsanız → ✅ RENKLER ÇALIŞIYOR</li>
+            <li>Kutular gri/beyaz ise → ❌ RENKLER ÇALIŞMIYOR</li>
+            <li>F12 → Console → Hata var mı?</li>
+            <li>F12 → Network → theme.css.php yüklendi mi?</li>
+        </ol>
+    </div>
+    
+    <h2>Renk Kutuları:</h2>
+    <div style="display: flex; flex-wrap: wrap;">
+        <div class="test-box primary">PRIMARY<br>var(--theme-primary)</div>
+        <div class="test-box secondary">SECONDARY<br>var(--theme-secondary)</div>
+        <div class="test-box accent">ACCENT<br>var(--theme-accent)</div>
+        <div class="test-box text-test" style="color: var(--theme-text);">TEXT + BACKGROUND<br>var(--theme-text)<br>var(--theme-background)</div>
+    </div>
+    
+    <div class="info">
+        <h3>🔍 Console'da Çalıştırın:</h3>
+        <code>
+            getComputedStyle(document.documentElement).getPropertyValue('--theme-primary')
+        </code>
+    </div>
+    
+    <script>
+        // CSS değişkenlerini konsola yazdır
+        console.log('=== TEMA RENK DEĞİŞKENLERİ ===');
+        console.log('--theme-primary:', getComputedStyle(document.documentElement).getPropertyValue('--theme-primary'));
+        console.log('--theme-secondary:', getComputedStyle(document.documentElement).getPropertyValue('--theme-secondary'));
+        console.log('--theme-accent:', getComputedStyle(document.documentElement).getPropertyValue('--theme-accent'));
+        console.log('--theme-background:', getComputedStyle(document.documentElement).getPropertyValue('--theme-background'));
+        console.log('--theme-text:', getComputedStyle(document.documentElement).getPropertyValue('--theme-text'));
+        console.log('--primary-rgb:', getComputedStyle(document.documentElement).getPropertyValue('--primary-rgb'));
+    </script>
+</body>
+</html>
+

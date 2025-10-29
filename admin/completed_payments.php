@@ -8,14 +8,23 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Yetki kontrolleri - Görüntüleme yetkisi için payments.view_completed VEYA payments.view yetkisi yeterli olsun
-$canViewCompletedPayments = hasPermission('payments.view_completed') || hasPermission('payments.view');
+// Yetki kontrolleri - Sadece payments.view_completed yetkisi yeterli olsun
+$canViewCompletedPayments = hasPermission('payments.view_completed');
 $canCancelPayment = hasPermission('payments.cancel');
 $canReorderToTable = hasPermission('payments.reorder');
 
 // Sadece görüntüleme yetkisi kontrolü
 if (!$canViewCompletedPayments) {
-    header('Location: dashboard.php');
+    // Yetkisiz erişim için güvenlik logu
+    if (isset($_SESSION['user_id'])) {
+        error_log("Unauthorized access attempt to completed_payments.php by user ID: " . $_SESSION['user_id']);
+    }
+    
+    // 403 Forbidden header gönder
+    http_response_code(403);
+    
+    // Dashboard'a yönlendir
+    header('Location: dashboard.php?error=unauthorized');
     exit();
 }
 
@@ -30,7 +39,7 @@ foreach ($results as $row) {
     $printerSettings[$row['setting_key']] = $row['setting_value'];
 }
 
-// Tamamlanmış ödemeleri çek - düzeltilmiş sorgu
+// Tamamlanmış ödemeleri çek - optimize edilmiş sorgu
 $payments = $db->query("
     SELECT 
         p.id as payment_id,
@@ -47,7 +56,7 @@ $payments = $db->query("
         p.discount_amount,
         t.table_no,
         GROUP_CONCAT(
-            CONCAT(
+            DISTINCT CONCAT(
                 oi.quantity, 'x ',
                 pr.name,
                 '|',
@@ -56,8 +65,7 @@ $payments = $db->query("
         ) as order_details
     FROM payments p
     LEFT JOIN tables t ON p.table_id = t.id
-    LEFT JOIN orders o ON p.id = o.payment_id
-    LEFT JOIN order_items oi ON o.id = oi.order_id
+    LEFT JOIN order_items oi ON oi.payment_id = p.id
     LEFT JOIN products pr ON oi.product_id = pr.id
     GROUP BY p.id
     ORDER BY p.created_at DESC
@@ -1095,11 +1103,27 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                     $discount = floatval($payment['discount_amount'] ?? 0);
                     $paidAmount = $subtotal - $discount;
                 }
+                                
+                                // Kısmi ödeme kontrolü
+                                $isPartialPayment = false;
+                                if (!empty($payment['payment_note'])) {
+                                    $noteData = json_decode($payment['payment_note'], true);
+                                    if ($noteData && isset($noteData['type'])) {
+                                        $isPartialPayment = true;
+                                    }
+                                }
                                 ?>
-                                <span class="amount-badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                                    <?= number_format($paidAmount, 2) ?> ₺
-                                            </span>
-                                        </td>
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="amount-badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                        <?= number_format($paidAmount, 2) ?> ₺
+                                    </span>
+                                    <?php if ($isPartialPayment): ?>
+                                        <span class="badge bg-warning text-dark mt-1" style="font-size: 0.7rem;">
+                                            <i class="fas fa-divide"></i> Kısmi
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-<?= $payment['payment_method'] == 'cash' ? 'money-bill' : 'credit-card' ?> me-2 text-<?= $payment['payment_method'] == 'cash' ? 'success' : 'primary' ?>"></i>
@@ -1278,10 +1302,89 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                             </div>
                                         </div>
                                         
+                                        <!-- Kısmi Ödeme Bilgisi -->
+                                        <?php 
+                                        $partialPaymentInfo = null;
+                                        if (!empty($payment['payment_note'])) {
+                                            $partialPaymentInfo = json_decode($payment['payment_note'], true);
+                                        }
+                                        
+                                        if ($partialPaymentInfo && isset($partialPaymentInfo['type'])): 
+                                        ?>
+                                        <div class="col-12 mb-3">
+                                            <div class="alert alert-warning">
+                                                <h6 class="fw-bold mb-2">
+                                                    <i class="fas fa-divide me-2"></i>Kısmi Ödeme
+                                                </h6>
+                                                <?php if ($partialPaymentInfo['type'] === 'product'): ?>
+                                                    <p class="mb-2"><strong>Ödeme Tipi:</strong> Ürün Seçerek</p>
+                                                    <p class="mb-2"><strong>Ödenen Ürünler:</strong></p>
+                                                    <div class="ps-3">
+                                                        <?php 
+                                                        if (isset($partialPaymentInfo['items']) && is_array($partialPaymentInfo['items'])):
+                                                            // Ürün ID'lerinden ürün bilgilerini çek
+                                                            $itemIds = array_column($partialPaymentInfo['items'], 'id');
+                                                            if (!empty($itemIds)) {
+                                                                $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+                                                                $paidItems = $db->query(
+                                                                    "SELECT oi.id, p.name, oi.price
+                                                                     FROM order_items oi
+                                                                     INNER JOIN products p ON oi.product_id = p.id
+                                                                     WHERE oi.id IN ($placeholders)",
+                                                                    $itemIds
+                                                                )->fetchAll();
+                                                                
+                                                                // ID'ye göre map oluştur
+                                                                $itemMap = [];
+                                                                foreach ($paidItems as $item) {
+                                                                    $itemMap[$item['id']] = $item;
+                                                                }
+                                                                
+                                                                foreach ($partialPaymentInfo['items'] as $item):
+                                                                    $itemId = $item['id'];
+                                                                    $quantity = $item['quantity'];
+                                                                    $price = $item['price'];
+                                                                    $productName = isset($itemMap[$itemId]) ? $itemMap[$itemId]['name'] : 'Ürün (Silinmiş)';
+                                                        ?>
+                                                        <div class="d-flex justify-content-between mb-1">
+                                                            <span>
+                                                                <i class="fas fa-check-circle text-success me-1"></i>
+                                                                <?= htmlspecialchars($productName) ?>
+                                                            </span>
+                                                            <span class="text-muted">
+                                                                <?= $quantity ?> x <?= number_format($price, 2) ?>₺ = 
+                                                                <strong><?= number_format($quantity * $price, 2) ?>₺</strong>
+                                                            </span>
+                                                        </div>
+                                                        <?php 
+                                                                endforeach;
+                                                            }
+                                                        endif; 
+                                                        ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <p class="mb-0">
+                                                        <strong>Ödeme Tipi:</strong> Tutar Girerek<br>
+                                                        <strong>Ödenen Tutar:</strong> <?= number_format($partialPaymentInfo['amount'], 2) ?>₺<br>
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-info-circle me-1"></i>
+                                                            Ödeme tutarı tüm ürünlere orantılı olarak dağıtıldı
+                                                        </small>
+                                                    </p>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <?php endif; ?>
+
                                         <!-- Sipariş Detayları -->
                                         <div class="col-12 mb-3">
                                             <h6 class="fw-bold text-primary mb-3">
-                                                <i class="fas fa-utensils me-2"></i>Sipariş İçeriği
+                                                <i class="fas fa-utensils me-2"></i>
+                                                <?php if ($partialPaymentInfo && $partialPaymentInfo['type'] === 'product'): ?>
+                                                    Ödenen Ürünler
+                                                <?php else: ?>
+                                                    Sipariş İçeriği
+                                                <?php endif; ?>
                                             </h6>
                                             <div class="order-details-expanded">
                                                 <?php 
