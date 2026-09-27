@@ -146,9 +146,11 @@ include 'navbar.php';
                 <span class="badge bg-success fs-6"><i class="fas fa-check-circle me-1"></i>Sistem Aktif</span>
             <?php else: ?>
                 <span class="badge bg-secondary fs-6"><i class="fas fa-ban me-1"></i>Sistem Kapalı</span>
+                <?php if (isSuperAdmin() || hasPermission('settings.system_parameters')): ?>
                 <a href="system_parameters.php" class="btn btn-sm btn-primary ms-2">
                     <i class="fas fa-power-off me-1"></i>Parametreyi Aç
                 </a>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -166,7 +168,11 @@ include 'navbar.php';
             <i class="fas fa-exclamation-triangle me-2"></i>
             <strong>Web Adrese Sipariş kapalı.</strong> Bu sayfadaki ayarlar kaydedilse bile müşteri web sipariş
             sayfasına erişemeyecektir. Açmak için
+            <?php if (isSuperAdmin() || hasPermission('settings.system_parameters')): ?>
             <a href="system_parameters.php">Sistem Parametreleri</a> &rarr; <em>Web Adrese Sipariş Sistemi</em>.
+            <?php else: ?>
+            <em>Web Adrese Sipariş Sistemi</em> sistem parametresini bir yöneticinin açması gerekiyor.
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -334,9 +340,11 @@ include 'navbar.php';
                     Değişiklikler kaydettiğiniz anda müşteri sipariş sayfasına yansır.
                 </div>
                 <div class="d-flex gap-2">
+                    <?php if (isSuperAdmin() || hasPermission('settings.system_parameters')): ?>
                     <a href="system_parameters.php" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Geri
                     </a>
+                    <?php endif; ?>
                     <button type="submit" name="save_delivery_settings" class="btn btn-success" <?= $canEdit ? '' : 'disabled' ?>>
                         <i class="fas fa-save me-1"></i>Ayarları Kaydet
                     </button>

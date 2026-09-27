@@ -6,18 +6,17 @@ if (!isset($db)) {
     $db = new Database();
 }
 
-// Sistem parametrelerini çek
-$visibilitySettings = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('system_qr_tables_visible', 'system_qr_orders_visible', 'system_qr_kitchen_visible', 'system_qr_reservations_visible')")->fetchAll();
-$visibilityParams = [];
-foreach ($visibilitySettings as $setting) {
-    $visibilityParams[$setting['setting_key']] = $setting['setting_value'];
-}
+// Sistem parametrelerini TEK kaynaktan oku.
+// Önceden buradaki sorgu dashboard'dakinden ayrıydı; ikisi farklı karar
+// verdiğinde menü ile ana sayfa kopuyordu (masalar sidebar'da gizliyken
+// dashboard'da görünüyordu). Artık ikisi de dvFeatureFlags() kullanır.
+$featureFlags = dvFeatureFlags($db);
 
-// Varsayılan değerler
-$showTables = isset($visibilityParams['system_qr_tables_visible']) ? $visibilityParams['system_qr_tables_visible'] == '1' : true;
-$showOrders = isset($visibilityParams['system_qr_orders_visible']) ? $visibilityParams['system_qr_orders_visible'] == '1' : true;
-$showKitchen = isset($visibilityParams['system_qr_kitchen_visible']) ? $visibilityParams['system_qr_kitchen_visible'] == '1' : true;
-$showReservations = isset($visibilityParams['system_qr_reservations_visible']) ? $visibilityParams['system_qr_reservations_visible'] == '1' : true;
+// Geriye uyumluluk: bu değişkenleri kullanan diğer sayfalar var.
+$showTables       = $featureFlags['tables'];
+$showOrders       = $featureFlags['qrOrders'];
+$showKitchen      = $featureFlags['kitchen'];
+$showReservations = $featureFlags['reservations'];
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -1305,12 +1304,19 @@ $showReservations = isset($visibilityParams['system_qr_reservations_visible']) ?
                                 </a>
                             </li>
                             <?php endif; ?>
-                            <?php if (isSuperAdmin()): ?>
+                            <?php // Sistem Parametreleri varsayılan olarak yalnızca
+                            // Süper Admin'de görünür; rol yetkisi verilirse
+                            // başka kullanıcılarda da görünür. ?>
+                            <?php if (isSuperAdmin() || hasPermission('settings.system_parameters')): ?>
                             <li class="nav-item">
                                 <a class="nav-link text-white" href="system_parameters.php">
                                     <i class="fas fa-cogs text-danger"></i>
                                     Sistem Parametreleri
+                                    <?php if (!isSuperAdmin()): ?>
+                                    <span class="badge bg-secondary ms-2">YETKİLİ</span>
+                                    <?php else: ?>
                                     <span class="badge bg-danger ms-2">ADMIN</span>
+                                    <?php endif; ?>
                                 </a>
                             </li>
                             <?php endif; ?>

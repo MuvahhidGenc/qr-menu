@@ -46,7 +46,10 @@ rsort($backups);
 include 'navbar.php';
 ?>
 
-<div class="main-content">
+<!-- NOT: navbar.php kendi icinde "main-content" sinifli bir sarmalayici ACAR.
+     Ikinci bir sarmalayici acmak ic ice gecirip her .main-content kuralini
+     (margin-left:250px / margin-top:60px) iki kez uygulardi. Sayfa sonunda
+     navbar'in actigi sarmalayici kapatilir. -->
 <div class="card">
    <div class="card-header d-flex justify-content-between align-items-center">
        <h5 class="mb-0">Yedeklemeler</h5>
@@ -88,8 +91,12 @@ include 'navbar.php';
                    <?php endforeach; ?>
                </tbody>
            </table>
-       </div>
    </div>
+ </div>
+
+<!-- navbar.php'in actigi "main-content" sarmalayicisi burada kapatilir. -->
+</div>
+
 </div>
 
 <?php

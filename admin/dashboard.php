@@ -15,19 +15,14 @@ if (!hasPermission('dashboard.view')) {
 
 $db = new Database();
 
-// Debug için session durumunu logla
-error_log("Dashboard.php - Session Data: " . print_r($_SESSION, true));
-
 // Oturum kontrolü
 if (!isLoggedIn()) {
-    error_log("Dashboard.php - User not logged in, redirecting to login.php");
     header('Location: login.php');
     exit();
 }
 
 // Yetki kontrolü - süper admin veya admin ise devam et
 if (!isAdmin() && !isSuperAdmin()) {
-    error_log("Dashboard.php - User does not have required permissions");
     header('Location: login.php');
     exit();
 }
@@ -35,11 +30,37 @@ if (!isAdmin() && !isSuperAdmin()) {
 // Session'ı yenile
 $_SESSION['last_activity'] = time();
 
-// Kapsamlı istatistikler
-$total_categories = $db->query("SELECT COUNT(*) as count FROM categories")->fetch()['count'];
-$total_products = $db->query("SELECT COUNT(*) as count FROM products")->fetch()['count'];
-$total_views = $db->query("SELECT SUM(view_count) as total FROM products")->fetch()['total'] ?? 0;
-$total_tables = $db->query("SELECT COUNT(*) as count FROM tables WHERE status = 'active'")->fetch()['count'];
+// ---------------------------------------------------------------------------
+// AKTİF SİSTEM BAYRAKLARI
+//
+// Dashboard yalnızca AÇIK olan sistemlerin verisini göstermelidir. Bayraklar
+// dvFeatureFlags() ile tek yerden okunur; navbar.php da aynı fonksiyonu
+// kullandığı için menü ile ana sayfa birbirinden kopamaz.
+//
+// Kapalı bir sistemin istatistiği sorgulanmaz (AND 1 = 0) ve kartı render
+// edilmez. Böylece "web sipariş kapalıyken web sipariş bilgisi" gibi
+// anlamsız durumlar oluşmaz.
+// ---------------------------------------------------------------------------
+$flags = dvFeatureFlags($db);
+$orderScopeSql = dvOrderScopeSql($flags);   // ['AND o.order_type IN (?,?)', params]
+$orderScopeParams = $orderScopeSql[1];
+$orderScopeLabel = dvOrderScopeLabel($flags);
+$anyOrderSystem = $flags['orders'];
+
+// Katalog istatistikleri (sistemlerden bağımsız, her zaman geçerli)
+$total_categories = (int)$db->query("SELECT COUNT(*) as count FROM categories")->fetch()['count'];
+$total_products   = (int)$db->query("SELECT COUNT(*) as count FROM products")->fetch()['count'];
+
+// Görüntülenme sayacı müşteri QR menüsünden gelir; QR menü kapalıysa
+// sayaç anlamsızlaşır, bu yüzden yalnızca QR menü açıkken gösterilir.
+$total_views = $flags['qrMenu']
+    ? (int)($db->query("SELECT COALESCE(SUM(view_count), 0) as total FROM products")->fetch()['total'] ?? 0)
+    : null;
+
+// Masa sayacı yalnızca masalar modülü açıkken anlamlıdır.
+$total_tables = $flags['tables']
+    ? (int)$db->query("SELECT COUNT(*) as count FROM tables WHERE status = 'active'")->fetch()['count']
+    : null;
 
 // Yetki kontrolleri
 $canViewReports = hasPermission('reports.view');
@@ -49,29 +70,162 @@ $canViewTables = hasPermission('tables.view');
 $canManageProducts = hasPermission('products.manage');
 $canManageCategories = hasPermission('categories.manage');
 
-// Sipariş istatistikleri
-$todayOrders = $db->query("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = CURDATE()")->fetch()['count'];
-$todayRevenue = $db->query("SELECT COALESCE(SUM(p.total_amount), 0) as total FROM orders o LEFT JOIN payments p ON o.payment_id = p.id WHERE DATE(o.created_at) = CURDATE() AND p.status = 'completed'")->fetch()['total'];
-$activeOrders = $db->query("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('completed', 'cancelled')")->fetch()['count'];
-$monthlyRevenue = $db->query("SELECT COALESCE(SUM(p.total_amount), 0) as total FROM orders o LEFT JOIN payments p ON o.payment_id = p.id WHERE MONTH(o.created_at) = MONTH(CURDATE()) AND YEAR(o.created_at) = YEAR(CURDATE()) AND p.status = 'completed'")->fetch()['total'];
+// ---------------------------------------------------------------------------
+// SATIŞ PANELİ (kanonik ciro katmanı)
+// ---------------------------------------------------------------------------
+// Ciro hesabı artık includes/sales.php içinde tanımlıdır. Dashboard'daki eski
+// sorgular `FROM orders LEFT JOIN payments` üzerinden çalışıyordu; bu yaklaşım
+// iki hata yapıyordu:
+//   1) POS satışları orders tablosuna yazılmadığı için HİÇ görünmüyordu.
+//   2) orders.total_amount, bağlı payments.total_amount'in kopyası olduğu için
+//      ikisi birlikte sorgulandığında ciro iki kez sayılıyordu.
+// Kanal ayrımı `table_id` üzerinden yapılır (kısmi masa tahsilatları da doğru
+// sınıflanır) ve her kanal tam olarak bir kez sayılır.
+require_once '../includes/sales.php';
 
-// En popüler ürünler (güvenli sorgu)
-try {
-    $popularProducts = $db->query("SELECT p.name, COUNT(oi.id) as order_count FROM products p LEFT JOIN order_items oi ON p.id = oi.product_id LEFT JOIN orders o ON oi.order_id = o.id WHERE o.created_at >= CURDATE() - INTERVAL 7 DAY GROUP BY p.id, p.name ORDER BY order_count DESC LIMIT 5")->fetchAll();
-} catch (Exception $e) {
-    // Fallback: Tüm ürünler
-    $popularProducts = $db->query("SELECT p.name, COUNT(oi.id) as order_count FROM products p LEFT JOIN order_items oi ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY order_count DESC LIMIT 5")->fetchAll();
+// Kanal seçimi: beyaz listeye karşı uygunlanır, kapalı sistemler elenir.
+$activeChannels = sales_active_channels($flags);
+[$reqChannels] = sales_filter_channels($_GET['ch'] ?? null);
+$panelChannels = array_values(array_intersect($reqChannels, array_keys(array_filter($activeChannels))));
+
+// Tarih aralığı
+$periodPresets = sales_date_presets();
+$periodReq = (string)($_GET['period'] ?? '');
+// Hem hazır dönemler hem de YYYY-MM-DD..YYYY-MM-DD biçiminde özel aralık
+// kabul edilir; diğer her şey '30d'ye düşer (beyaz liste).
+$isCustomPeriod = (bool)preg_match('/^\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/', $periodReq);
+$period = isset($periodPresets[$periodReq]) ? $periodReq : ($isCustomPeriod ? $periodReq : '30d');
+$customFrom = trim((string)($_GET['from'] ?? ''));
+$customTo   = trim((string)($_GET['to'] ?? ''));
+// Tarih girdileri YYYY-MM-DD biciminde olmali; aksi halde bos birakilir
+// (sales_date_range zaten gecersiz bicimi reddeder ama burada acikca
+//  reddedip kullaniciyi varsayilana dondurmuyoruz).
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $customFrom)) $customFrom = '';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $customTo))   $customTo = '';
+$useCustom  = $isCustomPeriod || (bool)($customFrom || $customTo);
+if (!$isCustomPeriod && ($customFrom || $customTo)) {
+    // from/to alanlari varsa tarih alanlari gecerli olmali
+    $f = $customFrom !== '' ? $customFrom : '2000-01-01';
+    $t = $customTo !== '' ? $customTo : date('Y-m-d');
+    $period = $f . '..' . $t;
+}
+[$panelFrom, $panelTo] = sales_date_range($period);
+
+$panel = [
+    'summary'  => ['channels' => [], 'totals' => ['sale_count' => 0, 'revenue' => 0.0, 'gross' => 0.0,
+        'discount' => 0.0, 'collected' => 0.0, 'avg_basket' => 0.0]],
+    'methods'  => [],
+    'daily'    => [],
+    'top'      => [],
+    'open'     => [],
+    'warnings' => [],
+];
+$showSalesPanel = $canViewReports && $panelChannels;
+
+if ($showSalesPanel) {
+    $panel = sales_dashboard_data($db, [
+        'channels' => $panelChannels,
+        'from'     => $panelFrom,
+        'to'       => $panelTo,
+        'days'     => 30,
+        'limit'    => 6,
+    ]);
 }
 
-// Son siparişler
-$recentOrders = $db->query("SELECT o.id, o.total_amount, o.status, o.created_at, t.table_no FROM orders o LEFT JOIN tables t ON o.table_id = t.id ORDER BY o.created_at DESC LIMIT 6")->fetchAll();
+$panelTotals   = $panel['summary']['totals'];
+$panelChannelsData = $panel['summary']['channels'];
+$panelLabel    = $useCustom
+    ? ($customFrom ?: (explode('..', $period)[0] ?? '')) . ' – '
+      . ($customTo ?: (explode('..', $period)[1] ?? 'Bugün'))
+    : ($periodPresets[$period] ?? 'Son 30 Gün');
 
-// Günlük satış trendi (güvenli sorgu)
-try {
-    $salesTrend = $db->query("SELECT DATE(o.created_at) as date, COUNT(o.id) as orders, COALESCE(SUM(p.total_amount), 0) as revenue FROM orders o LEFT JOIN payments p ON o.payment_id = p.id WHERE o.created_at >= CURDATE() - INTERVAL 7 DAY AND p.status = 'completed' GROUP BY DATE(o.created_at) ORDER BY date DESC")->fetchAll();
-} catch (Exception $e) {
-    // Fallback: Son 7 kayıt
-    $salesTrend = $db->query("SELECT DATE(o.created_at) as date, COUNT(o.id) as orders, COALESCE(SUM(p.total_amount), 0) as revenue FROM orders o LEFT JOIN payments p ON o.payment_id = p.id WHERE p.status = 'completed' GROUP BY DATE(o.created_at) ORDER BY date DESC LIMIT 7")->fetchAll();
+// Sipariş istatistikleri - yalnızca aktif sipariş sistemlerinden
+$todayOrders = 0;
+$todayRevenue = 0;
+$activeOrders = 0;
+$monthlyRevenue = 0;
+$popularProducts = [];
+$salesTrend = [];
+$recentOrders = [];
+
+if ($anyOrderSystem) {
+    // $sp = sipariş kaynak filtresi, $spp = parametreleri
+    $sp = $orderScopeSql[0];
+    $spp = $orderScopeParams;
+
+    $todayOrders = (int)$db->query(
+        "SELECT COUNT(*) as count FROM orders o WHERE DATE(o.created_at) = CURDATE() $sp",
+        $spp
+    )->fetch()['count'];
+
+    $activeOrders = (int)$db->query(
+        "SELECT COUNT(*) as count FROM orders o
+          WHERE o.status NOT IN ('completed', 'cancelled') $sp",
+        $spp
+    )->fetch()['count'];
+
+    // En popüler ürünler: satış paneli açıksa kanonik ürün kırılımı kullanılır
+    // (eski sorgu yalnız orders üzerinden gittiği için POS satışlarını görmezdi).
+    if ($showSalesPanel) {
+        $popularProducts = array_map(function ($r) {
+            return ['name' => $r['name'], 'order_count' => (int)$r['qty']];
+        }, $panel['top']);
+    } else {
+        try {
+            $popularProducts = $db->query(
+                "SELECT p.name, COUNT(oi.id) as order_count
+                   FROM products p
+                   JOIN order_items oi ON p.id = oi.product_id
+                   JOIN orders o ON oi.order_id = o.id
+                  WHERE o.created_at >= CURDATE() - INTERVAL 7 DAY $sp
+               GROUP BY p.id, p.name
+               ORDER BY order_count DESC
+               LIMIT 5",
+                $spp
+            )->fetchAll();
+        } catch (Exception $e) {
+            $popularProducts = [];
+        }
+    }
+
+    // Son siparişler - kaynak etiketi de eklenir, böylece hangi sisteme
+    // ait oldukları belli olur.
+    $recentOrders = $db->query(
+        "SELECT o.id, o.total_amount, o.status, o.created_at, o.order_type,
+                t.table_no, o.customer_name, o.customer_surname, o.delivery_district
+           FROM orders o
+           LEFT JOIN tables t ON o.table_id = t.id
+          WHERE 1 = 1 $sp
+          ORDER BY o.created_at DESC
+          LIMIT 6",
+        $spp
+    )->fetchAll();
+}
+
+// Günlük gelir ve aylık gelir KANONİK katmandan gelir.
+// Önceden `orders LEFT JOIN payments` ile hesaplanıyordu; bu sorgu POS
+// cirosunu tamamen atlıyor ve bağlı siparişlerde ciroyu iki kez sayıyordu.
+if ($showSalesPanel) {
+    $todayRevenue = sales_summary($db, [
+        'channels' => $panelChannels,
+        'from'     => date('Y-m-d 00:00:00'),
+        'to'       => date('Y-m-d 23:59:59'),
+    ])['totals']['revenue'];
+
+    $monthlyRevenue = sales_summary($db, [
+        'channels' => $panelChannels,
+        'from'     => date('Y-m-01 00:00:00'),
+        'to'       => date('Y-m-t 23:59:59'),
+    ])['totals']['revenue'];
+}
+
+// Günlük satış trendi - kanonik katmandan, seçili kanallar ve dönem için
+if ($showSalesPanel) {
+    $salesTrend = array_map(function ($r) {
+        return ['date' => $r['date'], 'orders' => $r['count'], 'revenue' => $r['revenue']];
+    }, $panel['daily']);
+} elseif ($anyOrderSystem) {
+    $salesTrend = [];
 }
 
 // Son eklenen ürünler
@@ -451,6 +605,10 @@ function formatTurkishDate($date, $includeTime = false) {
 </head>
 <body>
 <?php include 'navbar.php'; ?>
+<?php // NOT: Modül görünürlüğü artık dvFeatureFlags() -> $flags üzerinden tek
+      // yerden okunur; navbar'ın $showTables gibi değişkenlerine burada
+      // gerek yoktur (eskiden burada "??" ile true'ya zorlanıyordu ve
+      // masalar kapalıyken bile panelde görünmesine yol açabiliyordu). ?>
 
 <div class="dashboard-container">
     <!-- Welcome Section -->
@@ -499,20 +657,53 @@ function formatTurkishDate($date, $includeTime = false) {
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($canViewOrders): ?>
-                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
-                        <a href="orders.php" class="text-decoration-none">
+                    <?php // Her kart, kendi sistemi AÇIKKEN ve kullanıcı yetkiliyken
+                    // görünür. Kapalı sistemlere ait hiçbir kart render edilmez.
+                    // Böylece menü yalnızca aktif olan sistemleri listeler. ?>
+
+                    <?php // Masa siparişleri (QR ile sipariş)
+                    if ($flags['tableOrders'] && $canViewOrders): ?>                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                        <a href="orders.php?source=table" class="text-decoration-none">
                             <div class="quick-menu-item">
                                 <div class="quick-icon warning">
-                                    <i class="fas fa-shopping-cart"></i>
+                                    <i class="fas fa-qrcode"></i>
                                 </div>
-                                <div class="quick-label">Siparişler</div>
+                                <div class="quick-label">Masa Siparişleri</div>
                             </div>
                         </a>
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($canViewTables): ?>
+                    <?php // Web adrese sipariş
+                    if ($flags['webOrders'] && $canViewOrders): ?>
+                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                        <a href="orders.php?source=delivery" class="text-decoration-none">
+                            <div class="quick-menu-item">
+                                <div class="quick-icon primary">
+                                    <i class="fas fa-motorcycle"></i>
+                                </div>
+                                <div class="quick-label">Web Siparişleri</div>
+                            </div>
+                        </a>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php // Peşin satış (POS)
+                    if ($flags['posSales'] && $canViewTables): ?>
+                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                        <a href="pos_sales.php" class="text-decoration-none">
+                            <div class="quick-menu-item">
+                                <div class="quick-icon success">
+                                    <i class="fas fa-cash-register"></i>
+                                </div>
+                                <div class="quick-label">Peşin Satış</div>
+                            </div>
+                        </a>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php // Masa yönetimi
+                    if ($flags['tables'] && $canViewTables): ?>
                     <div class="col-lg-2 col-md-3 col-sm-4 col-6">
                         <a href="tables.php" class="text-decoration-none">
                             <div class="quick-menu-item">
@@ -549,32 +740,67 @@ function formatTurkishDate($date, $includeTime = false) {
                         </a>
                     </div>
                 </div>
+                <?php // orders tablosunu dolduran sistem (masa siparişi / web siparişi)
+                // açık değilse sipariş istatistikleri anlamsızlaşır. Peşin satış
+                // (POS) ayrı bir kanal olduğu için bu istatistiklere girmez.
+                if (!$anyOrderSystem): ?>
+                <div class="alert alert-info mt-3 mb-0 py-2 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <?php if ($flags['posSales']): ?>
+                        Peşin satış açık ancak <strong>masa ve web sipariş sistemlerinin
+                        ikisi de kapalı</strong>. Sipariş istatistikleri için Sistem
+                        Parametreleri &rarr; Sipariş Sistemleri bölümünden bunlardan
+                        en az birini etkinleştirin.
+                    <?php else: ?>
+                        Şu anda <strong>hiçbir sipariş sistemi açık değil</strong>.
+                        Sipariş istatistikleri panelde gösterilmez. Sistem Parametreleri
+                        &rarr; Sipariş Sistemleri bölümünden masa ve/veya web siparişini
+                        etkinleştirebilirsiniz.
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
     <!-- Ana İstatistik Kartları -->
-    <?php 
-    // Gösterilecek kart sayısına göre column class'ı ayarla
-    $visibleCards = 2; // Günlük Sipariş + Aktif Siparişler
-    if ($canViewReports) $visibleCards += 2; // Günlük Gelir + Aylık Gelir
-    $colClass = $visibleCards == 2 ? 'col-lg-6 col-md-6' : ($visibleCards == 3 ? 'col-lg-4 col-md-6' : 'col-lg-3 col-md-6');
+    <?php
+    // Sipariş kartları iki koşulla render edilir: en az bir sipariş sistemi AÇIK
+    // olmalı VE kullanıcı orders.view iznine sahip olmalıdır. Önceden kartlar
+    // yalnızca sistem bayrağına bakıyordu; orders.view yetkisi olmayan kullanıcı
+    // sipariş adetlerini görebiliyordu. Önceden sabit "+12% dünden" gibi gerçek
+    // veriden hesaplanmayan değerler gösteriliyordu; onların yerine kartın hangi
+    // sistemi kapsadığı yazılır.
+    $showOrderStats = $canViewOrders && $anyOrderSystem;
+    // Ciro KARTLARI yalnız tutar gösterir -> reports.view yeterlidir. Böylece
+    // yalnız POS açıkken de ciro görünür (eski kod ciroyu masaya bağlıydı).
+    $showRevenueStats = $canViewReports && ($showSalesPanel || $showOrderStats);
+    // Ciro GRAFİĞİ ayrıca "Sipariş Sayısı" serisi taşır; bu bir ADET verisi
+    // olduğu için orders.view olmadan gösterilemez. Test E bunu doğruluyor.
+    $showTrendChart = $showRevenueStats && $showOrderStats;
+    $visibleCards = ($showOrderStats ? 2 : 0) + ($showRevenueStats ? 2 : 0);
+    $colClass = $visibleCards === 0 ? 'col-lg-12 col-md-12'
+        : ($visibleCards === 2 ? 'col-lg-6 col-md-6'
+        : ($visibleCards === 3 ? 'col-lg-4 col-md-6' : 'col-lg-3 col-md-6'));
     ?>
+    <?php if ($showOrderStats || $showRevenueStats): ?>
     <div class="row">
+        <?php if ($showOrderStats): ?>
         <div class="<?= $colClass ?> mb-4">
             <div class="stat-card primary animate-slide-up">
                 <div class="stat-icon">
                     <i class="fas fa-shopping-cart"></i>
                 </div>
-                <div class="stat-number"><?= $todayOrders ?></div>
+                <div class="stat-number"><?= number_format($todayOrders, 0, ',', '.') ?></div>
                 <div class="stat-label">Bugünkü Siparişler</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up me-1"></i>+12% dünden
+                <div class="stat-change">
+                    <i class="fas fa-filter me-1"></i><?= htmlspecialchars($orderScopeLabel) ?>
                 </div>
             </div>
         </div>
-        
-        <?php if ($canViewReports): ?>
+        <?php endif; ?>
+
+        <?php if ($showRevenueStats): ?>
         <div class="<?= $colClass ?> mb-4">
             <div class="stat-card success animate-slide-up">
                 <div class="stat-icon">
@@ -582,27 +808,29 @@ function formatTurkishDate($date, $includeTime = false) {
                 </div>
                 <div class="stat-number"><?= number_format($todayRevenue, 0, ',', '.') ?>₺</div>
                 <div class="stat-label">Günlük Gelir</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up me-1"></i>+8% dünden
+                <div class="stat-change">
+                    <i class="fas fa-filter me-1"></i><?= htmlspecialchars($orderScopeLabel) ?>
                 </div>
             </div>
-                        </div>
+        </div>
         <?php endif; ?>
 
+        <?php if ($showOrderStats): ?>
         <div class="<?= $colClass ?> mb-4">
             <div class="stat-card warning animate-slide-up">
                 <div class="stat-icon">
                     <i class="fas fa-clock"></i>
-                    </div>
-                <div class="stat-number"><?= $activeOrders ?></div>
+                </div>
+                <div class="stat-number"><?= number_format($activeOrders, 0, ',', '.') ?></div>
                 <div class="stat-label">Aktif Siparişler</div>
                 <div class="stat-change">
                     <i class="fas fa-clock me-1"></i>Canlı
                 </div>
             </div>
         </div>
-        
-        <?php if ($canViewReports): ?>
+        <?php endif; ?>
+
+        <?php if ($showRevenueStats): ?>
         <div class="<?= $colClass ?> mb-4">
             <div class="stat-card info animate-slide-up">
                 <div class="stat-icon">
@@ -610,60 +838,320 @@ function formatTurkishDate($date, $includeTime = false) {
                 </div>
                 <div class="stat-number"><?= number_format($monthlyRevenue, 0, ',', '.') ?>₺</div>
                 <div class="stat-label">Aylık Gelir</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up me-1"></i>+15% geçen aydan
+                <div class="stat-change">
+                    <i class="fas fa-filter me-1"></i><?= htmlspecialchars($orderScopeLabel) ?>
                 </div>
             </div>
         </div>
         <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- ===================== SATIŞLAR PANELİ =====================
+         Masa / POS / Web kanalları ayrı ayrı gösterilir, toplam ciro ise
+         kanonik katmandan (includes/sales.php) gelir. Kanal ve tarih
+         filtreleri GET ile taşınır; kanal anahtarları beyaz listeye
+         karşı kontrol edilir ve kapalı sistemler her zaman elenir.
+    -->
+    <?php if ($showSalesPanel): ?>
+    <div class="chart-card animate-slide-up mb-4">
+        <div class="chart-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h3 class="chart-title mb-0">
+                <i class="fas fa-chart-pie me-2 text-primary"></i>Satışlar ve Ciro
+            </h3>
+
+            <!-- Filtre çubuğu -->
+            <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+                <!-- Kanal anahtarları tüm kanallarda sabit; kapalı olanlar devre dışı -->
+                <?php foreach (sales_channels() as $ck => $cm): ?>
+                    <?php $isOn = in_array($ck, $panelChannels, true); ?>
+                    <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="checkbox"
+                               name="ch[]" value="<?= htmlspecialchars($ck) ?>"
+                               id="ch_<?= htmlspecialchars($ck) ?>"
+                               <?= $isOn ? 'checked' : '' ?>
+                               <?= $activeChannels[$ck] ? '' : 'disabled' ?>
+                               <?= $activeChannels[$ck] ? '' : 'title="Bu sistem kapalı"' ?>>
+                        <label class="form-check-label small" for="ch_<?= htmlspecialchars($ck) ?>"
+                               style="cursor:pointer">
+                            <i class="fas <?= htmlspecialchars($cm['icon']) ?> me-1"
+                               style="color:<?= htmlspecialchars($cm['color']) ?>"></i>
+                            <?= htmlspecialchars($cm['label']) ?>
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+
+                <select name="period" class="form-select form-select-sm" style="width:auto"
+                        onchange="this.form.submit()" aria-label="Tarih aralığı">
+                    <?php foreach ($periodPresets as $pk => $pl): ?>
+                        <option value="<?= htmlspecialchars($pk) ?>"
+                            <?= (!$useCustom && $period === $pk) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($pl) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <input type="date" name="from" class="form-control form-control-sm" style="width:auto"
+                       value="<?= htmlspecialchars($customFrom) ?>" aria-label="Başlangıç tarihi">
+                <input type="date" name="to" class="form-control form-control-sm" style="width:auto"
+                       value="<?= htmlspecialchars($customTo) ?>" aria-label="Bitiş tarihi">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-filter me-1"></i>Uygula
+                </button>
+            </form>
+        </div>
+
+        <div class="chart-body">
+            <!-- Veri kalitesi uyarıları -->
+            <?php if ($panel['warnings']): ?>
+                <?php foreach ($panel['warnings'] as $w): ?>
+                    <div class="alert alert-<?= htmlspecialchars($w['level']) ?> py-2 px-3 small"
+                         role="alert">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <?= htmlspecialchars($w['message']) ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <!-- Toplam ciro bandı -->
+            <div class="row g-3 mb-3">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 p-3 rounded"
+                         style="background:linear-gradient(135deg,#0d6efd,#6f42c1);color:#fff">
+                        <div>
+                            <div class="small text-uppercase" style="opacity:.85;letter-spacing:.5px">
+                                Toplam Ciro
+                            </div>
+                            <div class="fs-2 fw-bold" id="panelRevenue">
+                                <?= number_format($panelTotals['revenue'], 2, ',', '.') ?> ₺
+                            </div>
+                            <div class="small" style="opacity:.85">
+                                <i class="fas fa-calendar me-1"></i><?= htmlspecialchars($panelLabel) ?>
+                                &middot; <?= htmlspecialchars(implode(' + ', array_map(
+                                    fn($k) => $panelChannelsData[$k]['label'], $panelChannels
+                                ))) ?>
+                            </div>
                         </div>
+                        <div class="d-flex gap-4 flex-wrap">
+                            <div>
+                                <div class="small" style="opacity:.85">Tahsilat</div>
+                                <div class="fs-5 fw-semibold">
+                                    <?= number_format($panelTotals['collected'], 2, ',', '.') ?> ₺
+                                </div>
+                            </div>
+                            <?php if ($canViewOrders): ?>
+                            <div>
+                                <div class="small" style="opacity:.85">İşlem</div>
+                                <div class="fs-5 fw-semibold">
+                                    <?= number_format($panelTotals['sale_count'], 0, ',', '.') ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                            <div>
+                                <div class="small" style="opacity:.85">Ortalama Sepet</div>
+                                <div class="fs-5 fw-semibold">
+                                    <?= number_format($panelTotals['avg_basket'], 2, ',', '.') ?> ₺
+                                </div>
+                            </div>
+                            <?php if ($panelTotals['discount'] > 0): ?>
+                            <div>
+                                <div class="small" style="opacity:.85">İndirim</div>
+                                <div class="fs-5 fw-semibold">
+                                    <?= number_format($panelTotals['discount'], 2, ',', '.') ?> ₺
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanal kartları -->
+                <?php foreach ($panelChannels as $ck): ?>
+                <div class="col-12 col-md-4">
+                    <div class="p-3 rounded h-100" style="border:1px solid #e9ecef;border-top:3px solid <?= htmlspecialchars($panelChannelsData[$ck]['color']) ?>">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-semibold">
+                                    <i class="fas <?= htmlspecialchars($panelChannelsData[$ck]['icon']) ?> me-1"
+                                       style="color:<?= htmlspecialchars($panelChannelsData[$ck]['color']) ?>"></i>
+                                    <?= htmlspecialchars($panelChannelsData[$ck]['label']) ?>
+                                </div>
+                                <div class="small text-muted">
+                                    <?php if ($canViewOrders): ?>
+                                        <?= (int)$panelChannelsData[$ck]['sale_count'] ?> satış
+                                    <?php else: ?>
+                                        ciro payı
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fs-4 fw-bold">
+                                    <?= number_format($panelChannelsData[$ck]['revenue'], 2, ',', '.') ?> ₺
+                                </div>
+                                <div class="small text-muted">
+                                    sepet <?= number_format($panelChannelsData[$ck]['avg_basket'], 2, ',', '.') ?> ₺
+                                </div>
+                            </div>
+                        </div>
+                        <div class="progress mt-2" style="height:6px" role="progressbar"
+                             aria-label="<?= htmlspecialchars($panelChannelsData[$ck]['label']) ?> ciro payı"
+                             aria-valuenow="<?= $panelTotals['revenue'] > 0
+                                 ? round($panelChannelsData[$ck]['revenue'] / $panelTotals['revenue'] * 100) : 0 ?>"
+                             aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar" style="width:<?= $panelTotals['revenue'] > 0
+                                ? round($panelChannelsData[$ck]['revenue'] / $panelTotals['revenue'] * 100) : 0 ?>%;
+                                background:<?= htmlspecialchars($panelChannelsData[$ck]['color']) ?>"></div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Ödeme yöntemi kırılımı + açık siparişler -->
+            <div class="row g-3">
+                <div class="col-12 col-lg-5">
+                    <h6 class="fw-semibold mb-2"><i class="fas fa-credit-card me-2 text-muted"></i>Ödeme Yöntemi</h6>
+                    <?php if (!$panel['methods']): ?>
+                        <p class="text-muted small mb-0">Bu dönemde ödeme kaydı yok.</p>
+                    <?php else: ?>
+                        <ul class="list-unstyled mb-0">
+                            <?php foreach ($panel['methods'] as $m):
+                                $pct = $panelTotals['revenue'] > 0
+                                    ? round($m['total'] / $panelTotals['revenue'] * 100) : 0; ?>
+                            <li class="mb-2">
+                                <div class="d-flex justify-content-between small">
+                                    <span>
+                                        <i class="bi <?= $m['method'] === 'cash' ? 'bi-cash-coin'
+                                            : ($m['method'] === 'card' ? 'bi-credit-card' : 'bi-wallet') ?> me-1"></i>
+                                        <?= htmlspecialchars($m['label']) ?>
+                                        <?php if ($canViewOrders): ?>
+                                            <span class="text-muted">(<?= (int)$m['count'] ?>)</span>
+                                        <?php endif; ?>
+                                    </span>
+                                    <span class="fw-semibold">
+                                        <?= number_format($m['total'], 2, ',', '.') ?> ₺
+                                        <span class="text-muted">%<?= $pct ?></span>
+                                    </span>
+                                </div>
+                                <div class="progress" style="height:6px" role="progressbar"
+                                     aria-label="<?= htmlspecialchars($m['label']) ?> payı"
+                                     aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar bg-secondary" style="width:<?= $pct ?>%"></div>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+
+                <div class="col-12 col-lg-7">
+                    <h6 class="fw-semibold mb-2">
+                        <i class="fas fa-hourglass-half me-2 text-muted"></i>Tahsil Edilmemiş Siparişler
+                    </h6>
+                    <?php if (!$panel['open']): ?>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-check-circle text-success me-1"></i>
+                            Açık bakiye yok — tüm siparişler tahsil edildi.
+                        </p>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr class="text-muted small">
+                                        <th>Masa</th>
+                                        <th>Sipariş</th>
+                                        <th class="text-end">Tutar</th>
+                                        <th class="text-end">Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($panel['open'] as $o): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars((string)($o['table_no'] ?? '-')) ?></td>
+                                        <td class="small text-muted">
+                                            <?= htmlspecialchars(substr((string)($o['created_at'] ?? ''), 0, 16)) ?>
+                                        </td>
+                                        <td class="text-end fw-semibold">
+                                            <?= number_format((float)$o['total_amount'], 2, ',', '.') ?> ₺
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="badge bg-warning text-dark">
+                                                <?= htmlspecialchars((string)$o['status']) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- İkinci Seviye İstatistikler -->
+    <?php
+    // Katalog kartları her zaman; masa kartı yalnızca masalar açıkken,
+    // görüntülenme kartı yalnızca müşteri QR menüsü açıkken.
+    $catalogCards = 2
+        + ($flags['tables'] ? 1 : 0)
+        + ($total_views !== null ? 1 : 0);
+    $catalogCol = $catalogCards >= 4 ? 'col-lg-3 col-md-6' : 'col-lg-4 col-md-6';
+    ?>
     <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="<?= $catalogCol ?> mb-4">
             <div class="stat-card danger animate-slide-up">
                 <div class="stat-icon">
                         <i class="fas fa-utensils"></i>
                     </div>
-                <div class="stat-number"><?= $total_products ?></div>
+                <div class="stat-number"><?= number_format($total_products, 0, ',', '.') ?></div>
                 <div class="stat-label">Toplam Ürün</div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="<?= $catalogCol ?> mb-4">
             <div class="stat-card primary animate-slide-up">
                 <div class="stat-icon">
                     <i class="fas fa-list"></i>
                 </div>
-                <div class="stat-number"><?= $total_categories ?></div>
+                <div class="stat-number"><?= number_format($total_categories, 0, ',', '.') ?></div>
                 <div class="stat-label">Kategori Sayısı</div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-4">
+        <?php if ($flags['tables']): ?>
+        <div class="<?= $catalogCol ?> mb-4">
             <div class="stat-card success animate-slide-up">
                 <div class="stat-icon">
                     <i class="fas fa-chair"></i>
                 </div>
-                <div class="stat-number"><?= $total_tables ?></div>
+                <div class="stat-number"><?= number_format($total_tables, 0, ',', '.') ?></div>
                 <div class="stat-label">Aktif Masa</div>
             </div>
         </div>
+        <?php endif; ?>
 
-        <div class="col-lg-3 col-md-6 mb-4">
+        <?php if ($total_views !== null): ?>
+        <div class="<?= $catalogCol ?> mb-4">
             <div class="stat-card warning animate-slide-up">
                 <div class="stat-icon">
                     <i class="fas fa-eye"></i>
                 </div>
-                <div class="stat-number"><?= number_format($total_views) ?></div>
+                <div class="stat-number"><?= number_format($total_views, 0, ',', '.') ?></div>
                 <div class="stat-label">Toplam Görüntülenme</div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
 
     <!-- Grafikler ve Detaylar -->
-    <?php if ($canViewReports): ?>
+    <?php // Satış trendi ve popüler ürünler sipariş verisinden türer;
+    // sipariş sistemlerinin hiçbiri açık değilse grafikler gösterilmez.
+    // Grafik "Sipariş Sayısı" serisi de içerdiği için orders.view gerekir. ?>
+    <?php if ($showTrendChart): ?>
     <div class="row">
         <!-- Satış Trendi Grafiği -->
         <div class="col-lg-8 mb-4">
@@ -671,8 +1159,9 @@ function formatTurkishDate($date, $includeTime = false) {
                 <div class="chart-header">
                     <h3 class="chart-title">
                         <i class="fas fa-chart-line me-2 text-primary"></i>
-                        Son 7 Günlük Satış Trendi
+                        Günlük Ciro Trendi
                     </h3>
+                    <small class="text-muted"><?= htmlspecialchars($showSalesPanel ? $panelLabel : $orderScopeLabel) ?></small>
                 </div>
                 <div style="position: relative; height: 300px;">
                     <canvas id="salesChart"></canvas>
@@ -698,37 +1187,68 @@ function formatTurkishDate($date, $includeTime = false) {
     <?php endif; ?>
 
     <!-- Alt Bölüm -->
+    <?php // "Son Siparişler" ve "Son Eklenen Ürünler" yan yana durabilsin diye
+    // her biri ancak kendi sistemi/ yetkisi açıkken render edilir. ?>
+    <?php
+    $showRecentOrders = $canViewOrders && $anyOrderSystem;
+    $showRecentProducts = $canViewProducts;
+    $bottomCards = ($showRecentOrders ? 1 : 0) + ($showRecentProducts ? 1 : 0);
+    $bottomCol = $bottomCards >= 2 ? 'col-lg-6' : 'col-12';
+    ?>
+    <?php if ($showRecentOrders || $showRecentProducts): ?>
     <div class="row">
-        <?php if ($canViewOrders): ?>
+        <?php if ($showRecentOrders): ?>
         <!-- Son Siparişler -->
-        <div class="<?= ($canViewProducts) ? 'col-lg-6' : 'col-12' ?> mb-4">
+        <div class="<?= $bottomCol ?> mb-4">
             <div class="chart-card animate-slide-up">
                 <div class="chart-header">
                     <h3 class="chart-title">
                         <i class="fas fa-clock me-2 text-warning"></i>
                         Son Siparişler
                     </h3>
+                    <small class="text-muted"><?= htmlspecialchars($orderScopeLabel) ?></small>
                 </div>
                 <div class="list-group list-group-flush">
+                    <?php if (empty($recentOrders)): ?>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <div>Bu sistem için henüz sipariş yok.</div>
+                        </div>
+                    <?php endif; ?>
                     <?php foreach($recentOrders as $order): ?>
                     <div class="activity-card order">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                                 <h6 class="mb-1">
-                                    <i class="fas fa-shopping-bag me-2"></i>
-                                    Sipariş #<?= $order['id'] ?>
+                                    <i class="fas <?= $order['order_type'] === 'delivery' ? 'fa-motorcycle' : 'fa-qrcode' ?> me-2"></i>
+                                    Sipariş #<?= (int)$order['id'] ?>
+                                    <span class="badge bg-light text-dark ms-1">
+                                        <?= $order['order_type'] === 'delivery' ? 'Web' : 'Masa' ?>
+                                    </span>
                                 </h6>
                                 <small class="text-muted">
-                                    <?= htmlspecialchars($order['table_no']) ?> - 
-                                    <?= formatTurkishDate($order['created_at'], true) ?>
+                                    <?php // Masa bilgisi yalnızca masalar modülü açıkken ve
+                                    // sipariş bir masa siparişiyken gösterilir; web
+                                    // siparişlerinde müşteri/ilçe bilgisi tercih edilir.
+                                    if ($order['order_type'] === 'delivery') {
+                                        $who = trim((string)($order['customer_name'] ?? ''));
+                                        if ($who === '') $who = 'Web müşteri';
+                                        $dist = trim((string)($order['delivery_district'] ?? ''));
+                                        echo htmlspecialchars($who) . ($dist !== '' ? ' / ' . htmlspecialchars($dist) : '');
+                                    } elseif ($flags['tables'] && !empty($order['table_no'])) {
+                                        echo 'Masa ' . htmlspecialchars((string)$order['table_no']);
+                                    } else {
+                                        echo 'Masa siparişi';
+                                    }
+                                    echo ' - ' . formatTurkishDate($order['created_at'], true); ?>
                                 </small>
                             </div>
                             <div class="text-end">
                                 <div class="fw-bold text-success">
-                                    <?= number_format($order['total_amount'], 2) ?>₺
+                                    <?= number_format((float)$order['total_amount'], 2) ?>₺
                                 </div>
                                 <span class="modern-badge <?= $order['status'] == 'completed' ? 'success' : 'warning' ?>">
-                                    <?= ucfirst($order['status']) ?>
+                                    <?= deliveryStatusLabel($order['status']) ?>
                                 </span>
                             </div>
                         </div>
@@ -739,9 +1259,9 @@ function formatTurkishDate($date, $includeTime = false) {
         </div>
         <?php endif; ?>
 
-        <?php if ($canViewProducts): ?>
+        <?php if ($showRecentProducts): ?>
     <!-- Son Eklenen Ürünler -->
-        <div class="<?= ($canViewOrders) ? 'col-lg-6' : 'col-12' ?> mb-4">
+        <div class="<?= $bottomCol ?> mb-4">
             <div class="modern-table animate-slide-up">
                 <div class="chart-header" style="padding: 25px 25px 0 25px;">
                     <h3 class="chart-title">
@@ -764,11 +1284,17 @@ function formatTurkishDate($date, $includeTime = false) {
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <img src="../uploads/<?= $product['image'] ?>" 
+                                    <?php if (!empty($product['image'])): ?>
+                                        <img src="../uploads/<?= htmlspecialchars($product['image']) ?>"
                                              class="product-img me-3" alt="<?= htmlspecialchars($product['name']) ?>">
+                                    <?php else: ?>
+                                        <div class="product-img me-3 d-flex align-items-center justify-content-center bg-secondary text-white rounded">
+                                            <?= mb_substr($product['name'] ?? '?', 0, 1) ?>
+                                        </div>
+                                    <?php endif; ?>
                                         <div>
                                             <div class="fw-bold"><?= htmlspecialchars($product['name']) ?></div>
-                                            <small class="text-muted">ID: <?= $product['id'] ?></small>
+                                            <small class="text-muted">ID: <?= (int)$product['id'] ?></small>
                                         </div>
                                     </div>
                                 </td>
@@ -779,7 +1305,7 @@ function formatTurkishDate($date, $includeTime = false) {
                                 </td>
                                 <td>
                                     <div class="fw-bold text-primary">
-                                        <?= number_format($product['price'], 2) ?>₺
+                                        <?= number_format((float)$product['price'], 2) ?>₺
                                 </div>
                             </td>
                                 <td>
@@ -793,23 +1319,28 @@ function formatTurkishDate($date, $includeTime = false) {
                 </table>
             </div>
         </div>
-        </div>
         <?php endif; ?>
     </div>
+    <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-<?php if ($canViewReports): ?>
+<?php // Grafik JS'i, yukarıdaki canvas ile birebir aynı koşulda üretilir.
+      // Koşullar ayrışırsa getContext(null) üzerinden JS hatası verir.
+if ($showTrendChart): ?>
 // Satış Trendi Grafiği
+// Tarih dizgisi yerel saate cevrilmez: new Date('YYYY-MM-DD') UTC kabul edip
+// Türkiye'de bir gün geri gösterirdi. Bu yüzden metin parçalanır.
 const salesData = <?= json_encode($salesTrend) ?>;
+const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const salesLabels = salesData.map(item => {
-    const date = new Date(item.date);
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return date.getDate().toString().padStart(2, '0') + ' ' + months[date.getMonth()];
-}).reverse();
-const salesValues = salesData.map(item => parseFloat(item.revenue)).reverse();
-const orderCounts = salesData.map(item => parseInt(item.orders)).reverse();
+    const parts = String(item.date).slice(0, 10).split('-');
+    const m = parseInt(parts[1], 10) - 1;
+    return parts[2] + ' ' + (months[m] || '');
+});
+const salesValues = salesData.map(item => parseFloat(item.revenue));
+const orderCounts = salesData.map(item => parseInt(item.orders));
 
 const salesCtx = document.getElementById('salesChart').getContext('2d');
 new Chart(salesCtx, {
@@ -828,7 +1359,11 @@ new Chart(salesCtx, {
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
             pointRadius: 6
-        }, {
+        }<?php // "Sipariş Sayısı" bir ADET verisidir; orders.view olmadan
+        // gösterilemez. reports.view yalnız tutar (ciro) bilgisini açar.
+        // Bu yüzden canvas reports.view ile açılır ama sayım serisi
+        // orders.view'e bağlıdır. ?>
+        <?php if ($showOrderStats): ?>, {
             label: 'Sipariş Sayısı',
             data: orderCounts,
             borderColor: 'rgba(240, 147, 251, 1)',
@@ -841,7 +1376,8 @@ new Chart(salesCtx, {
             pointBorderWidth: 2,
             pointRadius: 4,
             yAxisID: 'y1'
-        }]
+        }<?php endif; ?>
+        ]
     },
     options: {
         responsive: true,
@@ -890,7 +1426,7 @@ new Chart(salesCtx, {
             },
             y1: {
                 type: 'linear',
-                display: true,
+                display: <?= $showOrderStats ? 'true' : 'false' ?>,
                 position: 'right',
                 beginAtZero: true,
                 grid: { drawOnChartArea: false },

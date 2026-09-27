@@ -208,7 +208,7 @@ function resolveOrdersSource($requested, $tableQrOn, $webOrderOn) {
 }
 
 /**
- * Yönetim paneli sipariş menüsü için hangi öğelerin görüneceğini belirler.
+ * Yönetim panelindeki sipariş menüsü için hangi öğelerin görüneceğini belirler.
  *
  * @param bool $tableQrOn
  * @param bool $webOrderOn
@@ -219,6 +219,89 @@ function visibleOrdersMenus($tableQrOn, $webOrderOn) {
         'table'    => (bool)$tableQrOn,
         'delivery' => (bool)$webOrderOn,
     ];
+}
+
+/**
+ * Sistemde hangi modüllerin AÇIK olduğunu tek yerden döner.
+ *
+ * Neden gerekli? Panelde aynı karar birden çok yerde veriliyordu:
+ * navbar kendi sorgusunu çalıştırıyordu, dashboard ayrı sorgular
+ * çalıştırıyordu. Bu durumda menü ile ana sayfa birbirinden kopabiliyor
+ * (ör. sidebar masaları gizlerken dashboard "Aktif Masa" kartını
+ * göstermeye devam ediyordu).
+ *
+ * Artık HEM navbar HEM dashboard bu fonksiyondan beslenir; ayarlar
+ * değiştiğinde iki yüzey aynı anda güncellenir.
+ *
+ * @param Database $db
+ * @return array
+ */
+function dvFeatureFlags($db) {
+    $s = getSystemSettings($db);
+    $on = function ($key) use ($s) {
+        return isset($s[$key]) && (string)$s[$key] === '1';
+    };
+
+    $tables      = $on('system_qr_tables_visible');
+    $tableOrders = $on('system_table_qr_order_enabled');
+    $webOrders   = $on('system_delivery_order_enabled');
+    $posSales    = $on('system_barcode_sales_enabled');
+
+    // Sipariş kaynakları yalnızca aktif sistemlerden oluşur.
+    $orderTypes = [];
+    if ($tableOrders) $orderTypes[] = 'table';
+    if ($webOrders)   $orderTypes[] = 'delivery';
+
+    return [
+        // Modüller
+        'tables'       => $tables,        // Masa yönetimi / masalar sayfası
+        'tableOrders'  => $tableOrders,   // QR ile masa siparişi
+        'webOrders'    => $webOrders,     // Web adrese sipariş
+        'posSales'     => $posSales,      // Peşin satış (POS)
+        'stock'        => $on('system_stock_tracking'),
+        'stockPage'    => $on('system_stock_management_visible'),
+        'reservations' => $on('system_reservation_enabled'),
+        'kitchen'      => $on('system_qr_kitchen_visible'),
+        'qrMenu'       => $on('system_qr_menu_enabled'),
+        // Müşteri QR menüsündeki "Siparişler" bölümü (web siparişten AYRI anahtar)
+        'qrOrders'     => $on('system_qr_orders_visible'),
+        'orders'       => (bool)$orderTypes,          // sipariş sistemlerinden en az biri açık
+        'orderTypes'   => $orderTypes,                // ['table'], ['delivery'] veya ikisi
+    ];
+}
+
+/**
+ * Aktif sipariş sistemlerine göre SQL filtre parçası üretir.
+ *
+ * Pasif sistemlerdeki siparişler (örn. web sipariş kapalıyken eski adres
+ * siparişleri) istatistiklere SIZDIRILMAZ; aksi halde panel "aktif olan
+ * sistem üzerinden" çalışmaz.
+ *
+ * @param array $flags dvFeatureFlags() çıktısı
+ * @return array [string $sql, array $params]  ($sql 'AND (...)' biçimindedir)
+ */
+function dvOrderScopeSql(array $flags) {
+    $types = $flags['orderTypes'] ?? [];
+    if (empty($types)) {
+        // Aktif sipariş sistemi yok: hiçbir sipariş eşleşmesin.
+        return ['AND 1 = 0', []];
+    }
+    $place = implode(',', array_fill(0, count($types), '?'));
+    return ['AND o.order_type IN (' . $place . ')', array_values($types)];
+}
+
+/**
+ * Aktif sipariş sistemlerinin okunabilir adı (dashboard kart etiketleri için)
+ *
+ * @param array $flags dvFeatureFlags() çıktısı
+ * @return string
+ */
+function dvOrderScopeLabel(array $flags) {
+    $types = $flags['orderTypes'] ?? [];
+    if ($types === ['table'])    return 'Masa siparişleri';
+    if ($types === ['delivery']) return 'Web siparişleri';
+    if (count($types) === 2)     return 'Masa + Web siparişleri';
+    return 'Sipariş yok';
 }
 
 /**
@@ -361,6 +444,44 @@ function normalizePhone($phone) {
         $digits = '0' . substr($digits, 2);
     }
     return substr($digits, 0, 15);
+}
+
+/**
+ * Yönetim panelinde telefon numarasıyla arama yaparken eşleşme yardımcısı.
+ *
+ * Neden gerekli? Kullanıcı numarayı birçok biçimde yazar:
+ *   "05551110001", "0555 111 00 01", "0555-111-00-01", "5551110001",
+ *   "+90 555 111 00 01", "905551110001"
+ * Bunların HEPSİ aynı siparişi bulmalıdır. Ham metin karşılaştırması
+ * ("5551110001" araması) kayıtlı "05551110001" değerini kaçırırdı.
+ *
+ * Yaklaşım: sorgudan ve kayıttan YALNIZCA rakam alınır, rakamlar
+ * normalizePhone() ile aynı biçime getirilir ve karşılaştırılır. Böylece
+ * boşluk, tire, +90 ve baştaki 0 farkları ortadan kalkar.
+ *
+ * @param string $query    Kullanıcının yazdığı metin
+ * @param string $stored   Kayıttaki telefon
+ * @return bool
+ */
+function dvPhoneSearchMatch($query, $stored) {
+    $qDigits = preg_replace('/\D/', '', (string)$query);
+    if ($qDigits === '' || mb_strlen($qDigits) < 3) {
+        return false;   // çok kısa: eşleşme üretmesin (kaza sonuçları)
+    }
+
+    $storedDigits = normalizePhone($stored);
+    if ($storedDigits === '') {
+        return false;
+    }
+
+    // Sorguyu iki biçimde dene: ham rakamlar ve normalize edilmiş hâli.
+    $candidates = [$qDigits, normalizePhone($qDigits)];
+    foreach ($candidates as $cand) {
+        if ($cand !== '' && mb_strpos($storedDigits, $cand) !== false) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

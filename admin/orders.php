@@ -26,10 +26,39 @@ foreach ($results as $row) {
 $restaurantName = $printerSettings['restaurant_name'] ?? 'Restaurant';
 
 // Filtreleme parametreleri
-$filter_type = $_GET['filter_type'] ?? 'active';
-$status = $_GET['status'] ?? 'all';
-$table_id = $_GET['table'] ?? 'all';
-$date = $_GET['date'] ?? date('Y-m-d');
+//
+// GÜVENLİK: $_GET değerleri dizi olabilir (?q[]=a, ?status[]=x). PHP 8'de
+// trim()/mb_substr() dizi üzerinde TypeError fırlatır ve sayfa 500 döner.
+// Bu yüzden HER filtre parametresi is_string() kontrolünden geçirilir ve
+// beyaz listeye (whitelist) karşı sabit bir değere düşürülür.
+$ordersGetParam = static function (string $key, string $default = ''): string {
+    if (!array_key_exists($key, $_GET) || !is_string($_GET[$key])) {
+        return $default;
+    }
+    return trim($_GET[$key]);
+};
+
+$filter_type = $ordersGetParam('filter_type', 'active');
+$status      = $ordersGetParam('status', 'all');
+$table_id    = $ordersGetParam('table', 'all');
+// Not: date boş string de OLABILIR (tüm tarihler); yalnızca HİZ param
+// yoksa bugünün tarihine düşülür.
+$date = $ordersGetParam('date', date('Y-m-d'));
+
+// filter_type beyaz listesi: bilinmeyen bir değer "filtre yok" anlamına
+// gelirdi ve tüm durumları karışık gösterecekti.
+if (!in_array($filter_type, ['active', 'completed', 'cancelled'], true)) {
+    $filter_type = 'active';
+}
+
+// Metin araması (ad / soyad / telefon / adres / sipariş no / masa no).
+// Arama kapsamı boşsa tüm alanlarda aranır.
+// NOT: arama PHP'de yapılır (hazırlanmış SQL YOK) ve includes/delivery.php
+// içindeki dvSearchFold() kullanılır; böylece 'I/ı/İ/i' eşleşmesi müşteri
+// tarafındaki canlı aramayla BİREBİR aynıdır. MySQL'de utf8mb4_general_ci
+// collation'ı noktasız ı'yı doğru eşleştirmediği için SQL LIKE kullanılmaz.
+$q       = mb_substr($ordersGetParam('q'), 0, 60);
+$q_field = $ordersGetParam('qfield');
 // Sipariş kaynağı (masa / web adres)
 // NOT: Menüde iki ayrı öğe vardır (Masa Siparişleri / Web Siparişleri) ve her
 // biri kaynağı URL ile sabitleyerek gelir. Parametre gelmezse hangi modun
@@ -82,6 +111,12 @@ $orderTypes = [
     'cancelled' => 'İptal Edilen Siparişler'
 ];
 
+// status beyaz listesi (yukarıdaki $orderStatuses tanımlandıktan SONRA).
+// Bilinmeyen bir durum değeri tüm durumları karışık gösterecekti.
+if (!array_key_exists($status, $orderStatuses)) {
+    $status = 'all';
+}
+
 // Sipariş kaynağı (masa / web adres) yukarıda kaynak duyarlı tanımlandı.
 
 // Sorgu oluştur
@@ -119,7 +154,11 @@ if($status != 'all' && $filter_type === 'active') {
     $params[] = $status;
 }
 
-if($table_id != 'all') {
+// Masa filtresi YALNIZCA masa siparişleri için geçerlidir.
+// Adres siparişlerinde table_id anlamsızdır; önceden ?table=3 gelse bile
+// UYGULANMAMALIDIR (aksi halde web siparişleri masa id'sine göre yanlış
+// filtrelenirdi).
+if ($table_id != 'all' && $table_id !== '' && $source !== 'delivery') {
     $query .= " AND o.table_id = ?";
     $params[] = $table_id;
 }
@@ -132,7 +171,156 @@ if($date) {
 $query .= " ORDER BY o.created_at DESC";
 
 $orders = $db->query($query, $params)->fetchAll();
-$tables = $db->query("SELECT * FROM tables")->fetchAll();
+// Masa listesi yalnızca masa filtresinin GERÇEKTEN render edileceği
+// kaynaklarda çekilir (delivery modunda bu select hiç basılmıyor).
+$tables = $source === 'delivery' ? [] : $db->query("SELECT * FROM tables")->fetchAll();
+
+// ---------------------------------------------------------------------------
+// Metin araması (PHP tarafında, Türkçe duyarlı)
+// ---------------------------------------------------------------------------
+// Arama kapsamına göre denenecek alanlar. 'all' hepsini birleştirir.
+// Kapsam değeri beyaz listeyen geçmezse 'all' gibi davranılır.
+$searchScopes = [
+    'all'      => 'Tüm Alanlar',
+    'name'     => 'Ad',
+    'surname'  => 'Soyad',
+    'phone'    => 'Telefon',
+    'code'     => 'Sipariş No',
+    'address'  => 'Adres',
+    'table'    => 'Masa No',
+];
+if (!isset($searchScopes[$q_field])) {
+    $q_field = 'all';
+}
+
+$orderSearchFields = static function ($order, $field) {
+    switch ($field) {
+        case 'name':
+            return [(string)($order['customer_name'] ?? '')];
+        case 'surname':
+            return [(string)($order['customer_surname'] ?? '')];
+        case 'phone':
+            return [(string)($order['customer_phone'] ?? '')];
+        case 'code':
+            return [
+                (string)($order['order_code'] ?? ''),
+                (string)($order['id'] ?? ''),
+            ];
+        case 'address':
+            return [
+                formatDeliveryAddress($order),
+                (string)($order['delivery_address'] ?? ''),
+                (string)($order['delivery_neighborhood'] ?? ''),
+                (string)($order['delivery_district'] ?? ''),
+                (string)($order['delivery_city'] ?? ''),
+            ];
+        case 'table':
+            return [(string)($order['table_no'] ?? '')];
+        case 'all':
+        default:
+            return [
+                (string)($order['customer_name'] ?? ''),
+                (string)($order['customer_surname'] ?? ''),
+                (string)($order['customer_phone'] ?? ''),
+                (string)($order['order_code'] ?? ''),
+                (string)($order['id'] ?? ''),
+                formatDeliveryAddress($order),
+                (string)($order['delivery_address'] ?? ''),
+                (string)($order['delivery_neighborhood'] ?? ''),
+                (string)($order['delivery_district'] ?? ''),
+                (string)($order['delivery_city'] ?? ''),
+                (string)($order['table_no'] ?? ''),
+            ];
+    }
+};
+
+/**
+ * Canlı (butonsuz) istemci filtresi için satır başına hazır arama metni.
+ *
+ * Neden gerekiyor? Arama kutusu artık "Ara" butonu olmadan YAZARAK çalışır;
+ * yani her tuş vuruşunda sunucuya gitmek yerine tablodaki satırlar istemcide
+ * süzülür. Bunun için sunucu, satırları basarken aranacak metni de hazırlar.
+ *
+ * Değerler sunucuda dvSearchFold() ile katlanır; istemci de sorgu metnini
+ * BİREBİR aynı fonksiyonla katlar. Böylece 'I/ı/İ/i' ve 'ş/S' farkları
+ * kaybolur ve iki taraf aynı sonucu üretir. Telefon kapsamı ayrıdır: rakam
+ * normalize edilir (dvPhoneSearchMatch ile aynı mantık).
+ *
+ * @param callable $orderSearchFields
+ * @param array    $order
+ * @return array Kapsam => arama metni
+ */
+$orderRowSearchData = static function ($order) use ($orderSearchFields) {
+    $out = [];
+    foreach (['all', 'name', 'surname', 'code', 'address', 'table'] as $scope) {
+        $parts = [];
+        foreach ($orderSearchFields($order, $scope) as $value) {
+            $folded = dvSearchFold((string)$value);
+            if ($folded !== '') {
+                $parts[] = $folded;
+            }
+        }
+        $out[$scope] = implode(' ', $parts);
+    }
+    // Telefon: dvPhoneSearchMatch() icinde KAYIT de normalizePhone()'dan gecer
+    // ("+90 555..." / "0'siz 555..." tek biçime iner). Burada da AYNI normalize
+    // edilmiş biçimi basmazsak istemci süzmesi sunucudan ayriliyor:
+    // sorgu "05551110001" iken sunucu "+90 555 111 0001" kaydini bulur, ham
+    // "905551110001" niteliğini arayan JS bulamaz.
+    $out['phone'] = normalizePhone((string)($order['customer_phone'] ?? ''));
+    return $out;
+};
+
+$searchTerm     = dvSearchFold($q);
+$searchNeedle   = $searchTerm !== '' ? $searchTerm : null;
+$searchTermList = $searchNeedle !== null ? dvSearchTerms($q) : [];
+
+// Telefon kapsamı ÖZEL işlenir: rakam normalize edilerek karşılaştırılır,
+// böylece "5551110001", "0555 111 00 01", "+90 555..." hepsi eşleşir.
+$isPhoneScope = ($q !== '' && $q_field === 'phone');
+
+$totalBefore = count($orders);
+
+// Sunucu tarafı süzme artık satırları DİZİDEN ÇIKARMAZ; eşleşmeyen satırlar
+// yalnızca `hidden` olur. Böylece:
+//   - JS kapalıyken ekran sunucu sonucuyla birebir aynı görünür,
+//   - JS açıkken istemci TÜM satırları canlı süzebilir; arama kutusu
+//     temizlendiğinde liste eski haline TAM olarak döner (sunucuya dönmeden).
+$rowHidden = [];   // order id => bool
+if ($searchNeedle !== null) {
+    $orderMatchesSearch = static function ($order) use ($orderSearchFields, $q_field, $searchTerm, $searchTermList, $isPhoneScope, $q) {
+        if ($isPhoneScope) {
+            return dvPhoneSearchMatch($q, (string)($order['customer_phone'] ?? ''));
+        }
+
+        $haystacks = [];
+        foreach ($orderSearchFields($order, $q_field) as $value) {
+            $folded = dvSearchFold((string)$value);
+            if ($folded !== '') {
+                $haystacks[] = $folded;
+            }
+        }
+        $blob = implode(' ', $haystacks);
+
+        // Çok kelimelik arama: TÜM terimler geçmeli (VE mantığı).
+        if ($searchTermList) {
+            foreach ($searchTermList as $t) {
+                if (mb_strpos($blob, $t) === false) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return mb_strpos($blob, $searchTerm) !== false;
+    };
+
+    foreach ($orders as $order) {
+        $rowHidden[(int)$order['id']] = !$orderMatchesSearch($order);
+    }
+}
+$searchResultCount = $searchNeedle !== null
+    ? count(array_filter($rowHidden, static function ($hidden) { return !$hidden; }))
+    : count($orders);
 ?>
 
 <!-- CSS kısmına ekle -->
@@ -409,9 +597,13 @@ select:disabled {
                         </select>
                     </div>
                     
-                    <!-- Masa Filtresi -->
-                    <div class="col-md-2">
-                        <select class="form-select" id="tableFilter" <?= $source === 'delivery' ? 'disabled' : '' ?>>
+                    <!-- Masa Filtresi: YALNIZCA masa siparişlerinde anlamlıdır.
+                         Adres siparişlerinde DOM'a HİÇ YAZILMAZ (sadece gizlemek
+                         yerine hiç oluşturmak; hem yanıltıcı bir kontrolü önler
+                         hem de $tables sorgusunun gereksiz çalışmasını engeller). -->
+                    <?php if ($source !== 'delivery'): ?>
+                    <div class="col-md-2" id="tableFilterWrap">
+                        <select class="form-select" id="tableFilter">
                             <option value="all">Tüm Masalar</option>
                             <?php foreach($tables as $table): ?>
                                 <option value="<?= $table['id'] ?>" <?= $table_id == $table['id'] ? 'selected' : '' ?>>
@@ -420,6 +612,7 @@ select:disabled {
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <?php endif; ?>
                     
                     <!-- Tarih Filtresi -->
                     <div class="col-md-2">
@@ -433,6 +626,78 @@ select:disabled {
                         </button>
                     </div>
                 </div>
+
+                <!-- Metin araması: ad, soyad, telefon, adres, sipariş no, masa no.
+                     Kapsam seçimi ile tek alana daraltılabilir.
+                     NOT: "Ara" butonu YOKTUR. Yazılan her karakter tabloyu
+                     anında süzer (admin/orders.php -> initLiveSearch); sunucuya
+                     yalnızca URL paylaşılabilir olsun diye replaceState ile
+                     gidilir. Sunucu tarafı arama JS'siz erişim ve derin
+                     bağlantı (?q=...) için korunmuştur. -->
+                <div class="row g-3 mt-1">
+                    <div class="col-md-3">
+                        <select class="form-select" id="qField">
+                            <?php foreach($searchScopes as $key => $label): ?>
+                                <?php if ($key === 'table' && $source === 'delivery') { continue; } ?>
+                                <option value="<?= $key ?>" <?= $q_field === $key ? 'selected' : '' ?>>
+                                    <?= $label ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="search" class="form-control" id="qFilter" name="q"
+                                   value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>"
+                                   maxlength="60"
+                                   placeholder="<?= $source === 'delivery'
+                                       ? 'Ad, soyad, telefon veya adres ile ara...'
+                                       : 'Sipariş no veya masa no ile ara...' ?>"
+                                   autocomplete="off" aria-describedby="qResultBar">
+                            <button class="btn btn-outline-secondary" type="button"
+                                    id="qClear" title="Aramayı temizle" aria-label="Aramayı temizle">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arama sonucu sayacı.
+                     Sunucu ilk durumu basar; JS açıkken initLiveSearch() metni,
+                     görünürlüğü ve "temizle" bağlantısının adresini günceller. -->
+                <div id="qResultBar"
+                     class="alert alert-<?= $searchNeedle !== null ? ($searchResultCount > 0 ? 'info' : 'warning') : 'light' ?> py-2 mb-0 mt-3"
+                     style="<?= $searchNeedle !== null ? '' : 'display:none' ?>">
+                    <i class="fas fa-filter"></i>
+                    <strong><?= $q_field === 'all' ? 'Tüm alanlarda' : $searchScopes[$q_field] ?></strong>
+                    &quot;<span id="qResultTerm"><?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?></span>&quot; için
+                    <strong id="qResultCount"><?= $searchResultCount ?></strong> sipariş bulundu
+                    <span class="text-muted" id="qResultTotalWrap"
+                          <?= ($searchNeedle !== null && $searchResultCount !== $totalBefore) ? '' : 'style="display:none"' ?>>
+                        (toplam <span id="qResultTotal"><?= $totalBefore ?></span> kayıttan)
+                    </span>
+                    <?php if ($date !== ''): ?>
+                        <br>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar-day"></i>
+                            Yalnızca <strong><?= htmlspecialchars($date, ENT_QUOTES, 'UTF-8') ?></strong>
+                            tarihli siparişler taranıyor.
+                            <a href="?<?= htmlspecialchars(http_build_query([
+                                  'filter_type' => $filter_type, 'source' => $source,
+                                  'status' => $status, 'date' => '',
+                                  'table'  => $source === 'delivery' ? 'all' : $table_id,
+                              ]), ENT_QUOTES, 'UTF-8') ?>" class="alert-link">
+                                Tüm tarihlerde ara
+                            </a>
+                        </small>
+                    <?php endif; ?>
+                    <a id="qClearLink" href="?<?= htmlspecialchars(http_build_query([
+                          'filter_type' => $filter_type, 'source' => $source,
+                          'status' => $status, 'date' => $date,
+                          'table'  => $source === 'delivery' ? 'all' : $table_id,
+                      ]), ENT_QUOTES, 'UTF-8') ?>" class="alert-link">Aramayı temizle</a>
+                </div>
             </div>
 
             <!-- Siparişler Tablosu -->
@@ -441,7 +706,13 @@ select:disabled {
                         <thead>
                             <tr>
                                 <th>Sipariş No</th>
-                                <th>Müşteri / Masa</th>
+                                <th>
+                                    <?php if ($source === 'delivery'): ?>
+                                        Müşteri
+                                    <?php else: ?>
+                                        Müşteri / Masa
+                                    <?php endif; ?>
+                                </th>
                                 <th>Tutar</th>
                                 <th>Durum</th>
                                 <th>
@@ -454,11 +725,25 @@ select:disabled {
                                 <th>İşlemler</th>
                             </tr>
                         </thead>
-                    <tbody class="filter-type-<?= $filter_type ?>">
+                    <tbody class="filter-type-<?= $filter_type ?>" id="ordersRows">
                         <?php if(empty($orders)): ?>
                             <tr>
                                 <td colspan="6" class="text-center">
-                                    <?= $filter_type === 'active' ? 'Aktif sipariş bulunmuyor.' : ($filter_type === 'completed' ? 'Tamamlanan sipariş bulunmuyor.' : 'İptal edilen sipariş bulunmuyor.') ?>
+                                    <?php if ($searchNeedle !== null): ?>
+                                        <i class="fas fa-search"></i>
+                                        &quot;<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>&quot;
+                                        için eşleşen sipariş bulunmuyor.
+                                        <br>
+                                        <a href="?<?= htmlspecialchars(http_build_query([
+                                              'filter_type' => $filter_type, 'source' => $source,
+                                              'status' => $status, 'date' => $date,
+                                              'table'  => $source === 'delivery' ? 'all' : $table_id,
+                                          ]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary mt-2">
+                                            <i class="fas fa-times"></i> Aramayı temizle
+                                        </a>
+                                    <?php else: ?>
+                                        <?= $filter_type === 'active' ? 'Aktif sipariş bulunmuyor.' : ($filter_type === 'completed' ? 'Tamamlanan sipariş bulunmuyor.' : 'İptal edilen sipariş bulunmuyor.') ?>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -480,8 +765,21 @@ select:disabled {
                                         $rowClass = 'order-waiting';
                                     }
                                 }
+
+                                // Canlı (butonsuz) arama için satır verisi.
+                                // Sunucu metni dvSearchFold() ile KATLAMIŞ olarak
+                                // basar; istemci sorguyu aynı biçimde katlayıp
+                                // bu özniteliklerde arar. Sunucu eşleşmeyen
+                                // satırları silmez, yalnızca gizler.
+                                $qAttrs = '';
+                                foreach ($orderRowSearchData($order) as $qScope => $qValue) {
+                                    $qAttrs .= ' data-dv-q-' . $qScope . '="'
+                                        . htmlspecialchars($qValue, ENT_QUOTES, 'UTF-8') . '"';
+                                }
+                                $rowHiddenFlag = !empty($rowHidden[(int)$order['id']]);
                             ?>
-                                <tr class="<?= $rowClass ?>">
+                                <tr class="<?= $rowClass ?>"<?= $qAttrs ?>
+                                    <?php if ($rowHiddenFlag): ?>style="display:none"<?php endif; ?>>
                                     <td>
                                         #<?= $order['id'] ?>
                                         <?php if($isDelivery): ?>
@@ -591,6 +889,18 @@ select:disabled {
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
+                        <!-- Canlı aramanın "sonuç yok" satırı.
+                             Sunucu yalnızca arama aktifken ve HİÇBİR satır
+                             eşleşmediğinde görünür basar; JS açıkken
+                             initLiveSearch() görünürlüğünü ve metni yönetir.
+                             (Sunucu hâli JS'siz erişim içindir.) -->
+                        <tr id="qNoMatchRow" style="<?= ($searchNeedle !== null && $searchResultCount === 0) ? '' : 'display:none' ?>">
+                            <td colspan="6" class="text-center" id="qNoMatchText">
+                                <i class="fas fa-search"></i>
+                                &quot;<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>&quot;
+                                için eşleşen sipariş bulunmuyor.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -1025,21 +1335,303 @@ function applyFilters() {
     const filterType = document.getElementById('filterType').value;
     const source = document.getElementById('sourceFilter').value;
     const status = document.getElementById('statusFilter').value;
+    const tableWrap = document.getElementById('tableFilterWrap');
     const tableFilter = document.getElementById('tableFilter');
-    // Adres siparişlerinde masa filtresi geçersizdir
-    const tableId = (source === 'delivery') ? 'all' : tableFilter.value;
+    // Adres siparişlerinde masa filtresi gizlenir ve URL'ye hiç yazılmaz.
+    const tableId = (source === 'delivery' || !tableWrap || tableWrap.style.display === 'none')
+        ? 'all' : tableFilter.value;
     const date = document.getElementById('dateFilter').value;
-    
-    window.location.href = `orders.php?filter_type=${filterType}&source=${source}&status=${status}&table=${tableId}&date=${date}`;
+    const q = document.getElementById('qFilter').value.trim();
+    const qField = document.getElementById('qField').value;
+
+    const params = new URLSearchParams({
+        filter_type: filterType,
+        source: source,
+        status: status,
+        table: tableId,
+        date: date
+    });
+    if (q !== '') {
+        params.set('q', q);
+        params.set('qfield', qField);
+    }
+    window.location.href = 'orders.php?' + params.toString();
 }
 
-// Kaynak filtresi değişince masa filtresini devre dışı bırak
+// Kaynak filtresi değişince masa filtresi DOM'dan kaldırılır/geri eklenmez.
+// (Sayfa yeniden yüklenir; JS yalnızca anlık geri bildirim verir.)
+// Adres siparişlerinde masa seçeneği hiç basılmadığı için burada yalnızca
+// yer tutucu konum ve kapsam seçeneği güncellenir.
 document.getElementById('sourceFilter').addEventListener('change', function() {
+    const tableWrap = document.getElementById('tableFilterWrap');
     const tableFilter = document.getElementById('tableFilter');
     const isDelivery = this.value === 'delivery';
-    tableFilter.disabled = isDelivery;
-    if (isDelivery) tableFilter.value = 'all';
+    if (tableWrap) {
+        tableWrap.style.display = isDelivery ? 'none' : '';
+    }
+    if (tableFilter) {
+        tableFilter.disabled = isDelivery;
+        if (isDelivery) tableFilter.value = 'all';
+    }
+
+    // Arama kapsamı seçeneğini de güncelle: adres siparişlerinde "Masa No"
+    // anlamsızdır.
+    const qField = document.getElementById('qField');
+    const tableOpt = qField.querySelector('option[value="table"]');
+    if (tableOpt) {
+        if (isDelivery) {
+            if (qField.value === 'table') qField.value = 'all';
+            tableOpt.remove();
+        } else if (!tableOpt.parentNode) {
+            qField.appendChild(tableOpt);
+        }
+    }
+    const q = document.getElementById('qFilter');
+    q.placeholder = isDelivery
+        ? 'Ad, soyad, telefon veya adres ile ara...'
+        : 'Sipariş no veya masa no ile ara...';
 });
+
+// NOT: "Ara" butonu ve Enter ile tam sayfa yenileme KALDIRILDI. Metin
+// araması aşağıdaki canlı filtre (init) tarafından yazarken uygulanır;
+// #qClear de orada bağlanır. applyFilters() yalnızca "Filtrele" butonu
+// ve diğer (durum/tarih/masa) filtreler için sunucuya gider; arama
+// kutusundaki değeri de URL'ye taşıyarak korur.
+
+/**
+ * CANLI ARAMA — "Ara" butonu YOKTUR
+ * ------------------------------------------------------------------
+ * Yazılan her karakter tablo satırlarını istemcide süzer. Sunucuya hiç
+ * gidilmez; yalnızca URL replaceState ile güncellenir (paylaşılabilirlik).
+ *
+ * Doğruluk kuralı: satırlar sunucuda dvSearchFold() ile KATLANMIŞ metin
+ * taşır (data-dv-q-*). Buradaki fold() ve termsOf() PHP karşılıklarıyla
+ * BİREBİR aynıdır; telefon kapsamında normalizePhone() mantığı da öyle.
+ * Bu yüzden "IRMAK" yazmak "irmak" kaydını bulur.
+ *
+ * JS kapalıysa sunucu tarafı arama devreye girer: eşleşmeyen satırlar
+ * `hidden` basılır, sonuç sayacı ve boş-durum mesajı sunucudan gelir.
+ */
+(function () {
+    const input   = document.getElementById('qFilter');
+    const field   = document.getElementById('qField');
+    const tbody   = document.getElementById('ordersRows');
+    // Arayüz eksikse (ör. başka bir filtre görünümü) sessizce çık.
+    if (!input || !field || !tbody) return;
+
+    const rows = Array.prototype.slice.call(
+        tbody.querySelectorAll('tr[data-dv-q-all]')
+    );
+    const totalRows   = rows.length;
+    const noMatchRow  = document.getElementById('qNoMatchRow');
+    const noMatchText = document.getElementById('qNoMatchText');
+    const bar          = document.getElementById('qResultBar');
+    const outCount     = document.getElementById('qResultCount');
+    const outTerm      = document.getElementById('qResultTerm');
+    const outTotalWrap = document.getElementById('qResultTotalWrap');
+    const outTotal     = document.getElementById('qResultTotal');
+    const clearLink    = document.getElementById('qClearLink');
+    const clearBtn     = document.getElementById('qClear');
+
+    const escapeHtml = function (s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+
+    // ---- dvSearchFold() ile aynı katlama (TEK GEÇİŞ) ------------------
+    // ÖNEMLİ: PHP de harita dışındaki karakterleri sadece küçültür ve
+    // KATLAMA GERİ UYGULANMAZ ('Ñ' PHP'de 'ñ' olur). İki tarafta da ikinci
+    // geçiş yapılmamalı, yoksa "ñ" -> "n" farkı oluşur.
+    const FOLD = {
+        'ı':'i','İ':'i','I':'i','i':'i',
+        'ş':'s','Ş':'s','S':'s','s':'s',
+        'ğ':'g','Ğ':'g','G':'g','g':'g',
+        'ü':'u','Ü':'u','U':'u','u':'u',
+        'ö':'o','Ö':'o','O':'o','o':'o',
+        'ç':'c','Ç':'c','C':'c','c':'c',
+        'à':'a','A':'a','a':'a',
+        'è':'e','E':'e','e':'e',
+        'ñ':'n','N':'n','n':'n',
+        'ř':'r','R':'r','r':'r',
+        'y':'y','Y':'y','z':'z','Z':'z',
+        'b':'b','B':'b','d':'d','D':'d',
+        'f':'f','F':'f','h':'h','H':'h',
+        'j':'j','J':'j','k':'k','K':'k',
+        'l':'l','L':'l','m':'m','M':'m',
+        'p':'p','P':'p','q':'q','Q':'q',
+        't':'t','T':'t','v':'v','V':'v',
+        'w':'w','W':'w','x':'x','X':'x'
+    };
+    const fold = function (s) {
+        return Array.from(String(s == null ? '' : s)).map(function (ch) {
+            return Object.prototype.hasOwnProperty.call(FOLD, ch)
+                ? FOLD[ch]
+                : ch.toLowerCase();
+        }).join('');
+    };
+
+    // ---- dvSearchTerms() ile aynı kelime bölme (VE mantığı) ----------
+    const termsOf = function (s) {
+        const parts = fold(s).trim().split(/\s+/).filter(function (p) { return p !== ''; });
+        const out = [];
+        for (let i = 0; i < parts.length && out.length < 6; i++) {
+            const p = parts[i].replace(/[%_]/g, '');
+            if (p !== '' && out.indexOf(p) === -1) out.push(p);
+        }
+        return out;
+    };
+
+    // ---- normalizePhone() ile aynı rakam normalizasyonu ---------------
+    const digits = function (s) { return String(s == null ? '' : s).replace(/\D/g, ''); };
+    const normPhone = function (s) {
+        let d = digits(s);
+        if (d === '') return '';
+        if (d.length === 10 && d[0] === '5') d = '0' + d;
+        if (d.length === 12 && d.indexOf('90') === 0) d = '0' + d.slice(2);
+        return d.slice(0, 15);
+    };
+
+    const scopeOf = function () {
+        const v = String(field.value || 'all');
+        return /^(all|name|surname|phone|code|address|table)$/.test(v) ? v : 'all';
+    };
+
+    const matchRow = function (row, raw, terms, scope) {
+        if (scope === 'phone') {
+            // dvPhoneSearchMatch ile aynı: en az 3 rakam, iki aday denenir.
+            const qd = digits(raw);
+            if (qd.length < 3) return false;
+            const stored = row.getAttribute('data-dv-q-phone') || '';
+            if (stored === '') return false;
+            const candidates = [qd, normPhone(qd)];
+            for (let i = 0; i < candidates.length; i++) {
+                if (candidates[i] !== '' && stored.indexOf(candidates[i]) !== -1) return true;
+            }
+            return false;
+        }
+        const hay = row.getAttribute('data-dv-q-' + scope);
+        if (hay == null) return false;
+        for (let i = 0; i < terms.length; i++) {
+            if (hay.indexOf(terms[i]) === -1) return false;   // VE
+        }
+        return true;
+    };
+
+    // Kutu boşken TÜM satırlar görünür olmalı. Sunucunun `hidden`
+    // işaretleri de temizlenir; aksi halde "?q=..." ile gelinip kutu
+    // temizlendiğinde liste eksik kalırdı.
+    const showAll = function () {
+        rows.forEach(function (r) { r.style.display = ''; });
+    };
+
+    const buildParams = function (raw) {
+        const params = new URLSearchParams(window.location.search || '');
+        if (raw === '') {
+            params.delete('q');
+            params.delete('qfield');
+        } else {
+            params.set('q', raw);
+            params.set('qfield', field.value);
+        }
+        return params;
+    };
+
+    const apply = function () {
+        const raw = input.value;
+        const trimmed = raw.trim();
+        const terms = termsOf(raw);
+        const scope = scopeOf();
+
+        // Kutu boşsa filtre yok: TÜM satırlar görünür olur. (Telefon
+        // kapsamında kutuya harf yazılırsa filtre "etkisiz" sayılmaz —
+        // dvPhoneSearchMatch() de <3 rakamda false döndüğü için sonuç 0'dır;
+        // burada yalnızca gerçekten boş kutu sıfırlar.)
+        if (terms.length === 0) {
+            showAll();
+            if (noMatchRow) noMatchRow.style.display = 'none';
+            if (bar) bar.style.display = 'none';
+            const p = buildParams('');
+            const qs = p.toString();
+            if (window.history && window.history.replaceState) {
+                try {
+                    window.history.replaceState({}, '', qs ? ('orders.php?' + qs) : 'orders.php');
+                } catch (e) { /* bazı tarayıcılar reddeder */ }
+            }
+            if (clearLink) {
+                clearLink.setAttribute('href', qs ? 'orders.php?' + qs : 'orders.php');
+            }
+            return;
+        }
+
+        let shown = 0;
+        for (let i = 0; i < rows.length; i++) {
+            const hit = matchRow(rows[i], raw, terms, scope);
+            rows[i].style.display = hit ? '' : 'none';
+            if (hit) shown++;
+        }
+
+        if (bar) {
+            bar.style.display = '';
+            bar.classList.remove('alert-info', 'alert-warning');
+            bar.classList.add(shown > 0 ? 'alert-info' : 'alert-warning');
+        }
+        if (outCount) outCount.textContent = String(shown);
+        if (outTerm) outTerm.textContent = trimmed;
+        if (outTotalWrap) {
+            outTotalWrap.style.display = (shown !== totalRows) ? '' : 'none';
+        }
+        if (outTotal) outTotal.textContent = String(totalRows);
+
+        // Sonuç yoksa mesaj satırı gösterilir — ancak satır varsa. Aksi
+        // halde sunucunun "hiç sipariş yok" mesajıyla çakışırdı.
+        if (noMatchRow) {
+            noMatchRow.style.display = (shown === 0 && totalRows > 0) ? '' : 'none';
+            if (noMatchText && shown === 0) {
+                noMatchText.innerHTML = '<i class="fas fa-search"></i> &quot;'
+                    + escapeHtml(trimmed) + '&quot; için eşleşen sipariş bulunmuyor.';
+            }
+        }
+
+        const p = buildParams(trimmed);
+        const qs = p.toString();
+        if (window.history && window.history.replaceState) {
+            try {
+                window.history.replaceState({}, '', qs ? ('orders.php?' + qs) : 'orders.php');
+            } catch (e) { /* bazı tarayıcılar reddeder */ }
+        }
+        if (clearLink) {
+            clearLink.setAttribute('href', 'orders.php' + (qs ? '?' + qs : ''));
+        }
+    };
+
+    let debounce = null;
+    input.addEventListener('input', function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(apply, 180);
+    });
+    // Enter artık bir şey yapmaz: sonuçlar zaten canlı. Sayfa yenilenmesin.
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(debounce);
+            apply();
+        }
+    });
+    // Kapsam değişimi de anında yeniden süzer.
+    field.addEventListener('change', function () {
+        clearTimeout(debounce);
+        apply();
+    });
+    // Temizle düğmesi: kutu boşaltılır, filtre ANINDA uygulanır.
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            clearTimeout(debounce);
+            apply();
+            input.focus();
+        });
+    }
+})();
 
 // Filtre değişikliklerini dinle
 document.getElementById('filterType').addEventListener('change', function() {

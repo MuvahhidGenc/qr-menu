@@ -145,15 +145,6 @@ include __DIR__ . '/includes/customer-header.php';
         </div>
     </div>
 
-    <!-- Sipariş sorgulama -->
-    <div class="container mt-3">
-        <a href="siparis-takip.php" class="dv-track-link">
-            <i class="fas fa-search"></i>
-            <span>Siparişimi Sorgula / Takip Et</span>
-            <i class="fas fa-chevron-right ms-auto"></i>
-        </a>
-    </div>
-
     <?php if (!$hours['open']): ?>
         <div class="container mt-3">
             <div class="dv-alert dv-alert-warning">
@@ -179,20 +170,24 @@ include __DIR__ . '/includes/customer-header.php';
         <?php endif; ?>
     </form>
 
-    <?php if (!$isSearching): ?>
-        <!-- Kategori sekmeleri -->
-        <div class="dv-cat-bar">
-            <a class="dv-cat-chip <?= $categoryId === 0 ? 'active' : '' ?>" href="siparis.php">
-                <i class="fas fa-th me-1"></i>Tümü
+    <!-- Kategori sekmeleri.
+         NOT: Eskiden yalnızca arama yapılmadığında sunucu tarafından basılıyordu.
+         Arama temizlendiğinde (AJAX, sayfa yenilmeden) sekmeler geri GELMİYORDU.
+         Bu yüzden her zaman basılır; arama sırasında gizlenir ve delivery.js
+         tarafından geri açılır (DV.setCategoryBar). -->
+    <div class="dv-cat-bar" id="dvCatBar" <?= $isSearching ? 'style="display:none"' : '' ?>>
+        <a class="dv-cat-chip <?= $categoryId === 0 ? 'active' : '' ?>"
+           data-dv-category="0" href="siparis.php">
+            <i class="fas fa-th me-1"></i>Tümü
+        </a>
+        <?php foreach ($categories as $cat): ?>
+            <a class="dv-cat-chip <?= $categoryId === (int)$cat['id'] ? 'active' : '' ?>"
+               data-dv-category="<?= (int)$cat['id'] ?>"
+               href="siparis.php?category=<?= (int)$cat['id'] ?>">
+                <?= htmlspecialchars($cat['name']) ?>
             </a>
-            <?php foreach ($categories as $cat): ?>
-                <a class="dv-cat-chip <?= $categoryId === (int)$cat['id'] ? 'active' : '' ?>"
-                   href="siparis.php?category=<?= (int)$cat['id'] ?>">
-                    <?= htmlspecialchars($cat['name']) ?>
-                </a>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+        <?php endforeach; ?>
+    </div>
 
     <div class="container py-3">
 
@@ -218,6 +213,17 @@ include __DIR__ . '/includes/customer-header.php';
         </div><!-- /#dvSearchResults -->
 
     </div>
+
+    <!-- Sipariş sorgulama / takip düğmesi.
+         Eskiden üstte TAM GENİŞLİKTE bir bloktu ve mobilde çok yer kaplıyordu.
+         Artık sabit (FAB) bir düğme: sağ altta, alt sepet çubuğunun ÜSTÜNDE
+         durur, çubuğun "Siparişi Tamamla" düğmesini KAPATMAZ.
+         Konum: assets/css/delivery.css -> .dv-track-fab (bottom değeri
+         --dv-cartbar-space değişkeninden gelir, çubukla birlikte kayar). -->
+    <a href="siparis-takip.php" class="dv-track-fab" aria-label="Siparişimi sorgula ve takip et"
+       title="Siparişimi Sorgula / Takip Et">
+        <i class="fas fa-search"></i>
+    </a>
 
     <!-- Alt sepet çubuğu -->
     <div class="dv-cart-bar">

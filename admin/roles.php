@@ -100,7 +100,8 @@ $allPermissions = [
         'title' => 'Ayarlar',
         'permissions' => [
             'view' => 'Görüntüleme',
-            'edit' => 'Düzenleme'
+            'edit' => 'Düzenleme',
+            'system_parameters' => 'Sistem Parametreleri'
         ]
     ],
     'reports' => [

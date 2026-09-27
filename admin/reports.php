@@ -22,23 +22,35 @@ if (!hasPermission('reports.view')) {
 $db = new Database();
 
 // Filtreler - Saat destekli
-$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d\T00:00', strtotime('-30 days'));
-$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d\T23:59');
-$report_type = isset($_GET['report_type']) ? $_GET['report_type'] : 'all';
-$export_format = isset($_GET['export']) ? $_GET['export'] : null;
+// Önceden bu değerler doğrulamasız alınıp hem sorguya hem de
+// <input value="..."> özniteliğine kaçışsız basılıyordu (?start_date="><script>)
+// ve 'all' dışındaki her şey report_type olarak kabul ediliyordu.
+$start_date = (string)($_GET['start_date'] ?? date('Y-m-d\T00:00', strtotime('-30 days')));
+$end_date   = (string)($_GET['end_date']   ?? date('Y-m-d\T23:59'));
+// datetime-local: YYYY-MM-DDTHH:MM
+if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $start_date)) {
+    $start_date = date('Y-m-d\T00:00', strtotime('-30 days'));
+}
+if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $end_date)) {
+    $end_date = date('Y-m-d\T23:59');
+}
+if ($start_date > $end_date) { [$start_date, $end_date] = [$end_date, $start_date]; }
+
+$allowed_report_types = ['all', 'sales', 'discount', 'cancellation', 'cancelled_items',
+                         'staff', 'tables', 'products', 'orders', 'orders_all',
+                         'pending_orders', 'completed_orders', 'cancelled_orders',
+                         'getOrderDetails'];
+$report_type = (string)($_GET['report_type'] ?? 'all');
+if (!in_array($report_type, $allowed_report_types, true)) $report_type = 'all';
+
+$allowed_exports = ['csv', 'excel', 'pdf', null];
+$export_format = $_GET['export'] ?? null;
+if (!in_array($export_format, $allowed_exports, true)) $export_format = null;
 
 // Ödeme yöntemi metni için yardımcı fonksiyon
 function getPaymentMethodText($method) {
-    switch($method) {
-        case 'cash':
-            return 'Nakit';
-        case 'credit_card':
-            return 'Kredi Kartı';
-        case 'debit_card':
-            return 'Banka Kartı';
-        default:
-            return $method;
-    }
+    require_once '../includes/sales.php';
+    return sales_method_label(sales_method_group($method));
 }
 
 // Genel İstatistikler
@@ -57,6 +69,26 @@ $general_stats = $db->query("
     WHERE o.created_at BETWEEN ? AND ?",
     [$start_date, $end_date]
 )->fetch();
+
+// ---------------------------------------------------------------------------
+// Kanonik ciro katmanı
+// ---------------------------------------------------------------------------
+// `general_stats.total_revenue` yalnız `orders JOIN payments` üzerinden
+// hesaplandığı için iki kanalı da kaçırıyordu:
+//   - POS satışları (payments.table_id IS NULL) hiç JOIN olmuyor,
+//   - teslimat/web siparişlerinin ödemeye bağlanmış olması şartı yok.
+// Yani bu sayfa dashboard'dan FARKLI bir ciro gösteriyordu. Başlık
+// rakamları artık kanonik katmandan gelir; kırılım da kanal bazında
+// gösterilir, böylece toplam ile parçaların toplamı eşitlenir.
+require_once '../includes/sales.php';
+$salesRange = [
+    'channels' => sales_channel_keys(),
+    'from'     => $start_date,
+    'to'       => $end_date,
+];
+$salesTotals   = sales_summary($db, $salesRange)['totals'];
+$salesChannels = sales_summary($db, $salesRange)['channels'];
+$salesOpen     = sales_open_orders($db, $salesRange);
 
 // İndirim ve Gelir İstatistikleri
 $discount_revenue_stats = $db->query("
@@ -377,14 +409,14 @@ include 'navbar.php';
                         <label class="form-label">
                             <i class="fas fa-calendar-alt me-1"></i>Başlangıç Tarihi ve Saati
                         </label>
-                        <input type="datetime-local" name="start_date" class="form-control" value="<?= $start_date ?>">
+                        <input type="datetime-local" name="start_date" class="form-control" value="<?= htmlspecialchars($start_date, ENT_QUOTES, 'UTF-8') ?>">
                         <small class="form-text text-muted">Tarih ve saat seçiniz</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">
                             <i class="fas fa-calendar-alt me-1"></i>Bitiş Tarihi ve Saati
                         </label>
-                        <input type="datetime-local" name="end_date" class="form-control" value="<?= $end_date ?>">
+                        <input type="datetime-local" name="end_date" class="form-control" value="<?= htmlspecialchars($end_date, ENT_QUOTES, 'UTF-8') ?>">
                         <small class="form-text text-muted">Tarih ve saat seçiniz</small>
                     </div>
                     <div class="col-md-2">
@@ -434,9 +466,9 @@ include 'navbar.php';
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="card-subtitle mb-2">Net Gelir</h6>
-                                <h3 class="card-title mb-0"><?= number_format($discount_revenue_stats['actual_revenue'], 2) ?> ₺</h3>
+                                <h3 class="card-title mb-0"><?= number_format($salesTotals['revenue'], 2, ',', '.') ?> ₺</h3>
                                 <a href="#" class="text-white" data-bs-toggle="modal" data-bs-target="#ordersModal">
-                                    Gerçek Ödenen
+                                    Kanal kırılımı
                                 </a>
                             </div>
                             <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -477,15 +509,15 @@ include 'navbar.php';
                 </div>
             </div>
             
-            <!-- Tamamlanan Siparişler Kartı -->
+            <!-- Tamamlanan Siparişler Kartı (kanonik ciro) -->
             <div class="col-lg-2 col-md-4 col-sm-6">
                 <div class="card bg-primary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="card-subtitle mb-2">Tamamlanan</h6>
-                                <h3 class="card-title mb-0"><?= number_format($general_stats['completed_orders']) ?></h3>
-                                <small><?= number_format($general_stats['completed_revenue'], 2) ?> ₺</small>
+                                <h3 class="card-title mb-0"><?= number_format($salesTotals['sale_count'], 0, ',', '.') ?></h3>
+                                <small><?= number_format($salesTotals['revenue'], 2, ',', '.') ?> ₺</small>
                             </div>
                             <i class="fas fa-check-circle fa-2x"></i>
                         </div>
@@ -881,7 +913,10 @@ include 'navbar.php';
                 <div class="modal-body">
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#completed">Tamamlanan</a>
+                            <a class="nav-link active" data-bs-toggle="tab" href="#channels">Kanal Kırılımı</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#completed">Tamamlanan</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" data-bs-toggle="tab" href="#cancelled">İptal Edilen</a>
@@ -891,7 +926,55 @@ include 'navbar.php';
                         </li>
                     </ul>
                     <div class="tab-content">
-                        <div class="tab-pane fade show active" id="completed">
+                        <!--
+                            Kanal kırılımı kanonik katmandan gelir. Önceden burada
+                            yalnız `orders JOIN payments` listesi vardı ve POS
+                            satışları hiç görünmüyordu; üstelik toplam ciro
+                            kartı ile bu listenin toplamı birbirini tutmuyordu.
+                        -->
+                        <div class="tab-pane fade show active" id="channels">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Kanal</th>
+                                        <th class="text-end">İşlem</th>
+                                        <th class="text-end">Ciro</th>
+                                        <th class="text-end">Tahsilat</th>
+                                        <th class="text-end">Ort. Sepet</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $chRevenueSum = 0.0; $chCountSum = 0;
+                                    foreach ($salesChannels as $ck => $cv):
+                                        $chRevenueSum += (float)$cv['revenue'];
+                                        $chCountSum   += (int)$cv['sale_count'];
+                                    ?>
+                                    <tr>
+                                        <td><i class="fas <?= htmlspecialchars($cv['icon'], ENT_QUOTES, 'UTF-8') ?> me-2"></i><?= htmlspecialchars($cv['label'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-end"><?= number_format((int)$cv['sale_count'], 0, ',', '.') ?></td>
+                                        <td class="text-end"><?= number_format((float)$cv['revenue'], 2, ',', '.') ?> ₺</td>
+                                        <td class="text-end"><?= number_format((float)$cv['collected'], 2, ',', '.') ?> ₺</td>
+                                        <td class="text-end"><?= number_format((float)$cv['avg_basket'], 2, ',', '.') ?> ₺</td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th>Toplam</th>
+                                        <th class="text-end"><?= number_format($chCountSum, 0, ',', '.') ?></th>
+                                        <th class="text-end"><?= number_format($chRevenueSum, 2, ',', '.') ?> ₺</th>
+                                        <th class="text-end"><?= number_format((float)$salesTotals['collected'], 2, ',', '.') ?> ₺</th>
+                                        <th class="text-end"><?= number_format((float)$salesTotals['avg_basket'], 2, ',', '.') ?> ₺</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            <p class="text-muted small mb-0">
+                                Ciro = tamamlanan tahsilatlar (masa + POS) + tamamlanan teslimat siparişleri.
+                                İptal edilen işlemler ve henüz tahsil edilmemiş siparişler dahil edilmez.
+                            </p>
+                        </div>
+                        <div class="tab-pane fade" id="completed">
                             <div class="table-responsive">
                                 <table class="table" id="completedOrdersTable">
                                     <thead>
@@ -907,7 +990,7 @@ include 'navbar.php';
                                         <?php foreach($completed_orders as $order): ?>
                                         <tr>
                                             <td>#<?= $order['id'] ?></td>
-                                            <td>Masa <?= $order['table_no'] ?></td>
+                                            <td>Masa <?= htmlspecialchars((string)$order['table_no'], ENT_QUOTES, 'UTF-8') ?></td>
                                             <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
                                             <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
                                             <td>
@@ -937,7 +1020,7 @@ include 'navbar.php';
                                         <?php foreach($cancelled_orders as $order): ?>
                                         <tr>
                                             <td>#<?= $order['id'] ?></td>
-                                            <td>Masa <?= $order['table_no'] ?></td>
+                                            <td>Masa <?= htmlspecialchars((string)$order['table_no'], ENT_QUOTES, 'UTF-8') ?></td>
                                             <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
                                             <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
                                             <td>
@@ -967,7 +1050,7 @@ include 'navbar.php';
                                         <?php foreach($active_orders as $order): ?>
                                         <tr>
                                             <td>#<?= $order['id'] ?></td>
-                                            <td>Masa <?= $order['table_no'] ?></td>
+                                            <td>Masa <?= htmlspecialchars((string)$order['table_no'], ENT_QUOTES, 'UTF-8') ?></td>
                                             <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
                                             <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
                                             <td>

@@ -157,6 +157,28 @@ const DV = {
     }
 };
 
+// --------------------------------------------------------------------------
+// AKTİF KATEGORİ (initSearch ve initCategories arasında PAYLAŞILIR)
+// --------------------------------------------------------------------------
+// Neden paylaşılıyor? Kategori AJAX ile değiştirilince (sayfa yenilenmeden)
+// arama da YENİ kategoriye göre yapılmalıdır. Arama kendi içinde ayrı bir
+// kopyasını tutuyor olsaydı, kategori değiştikten sonra yapılan arama eski
+// kategorinin ürünlerini getirirdi.
+DV._category = '0';
+try {
+    DV._category = (new URLSearchParams(window.location.search || '')).get('category') || '0';
+} catch (e) { /* URLSearchParams yoksa ana menü varsayılanı */ }
+
+/**
+ * Kategori sekmeleri çubuğunu gösterir/gizler.
+ * Arama sırasında gizlenir; arama temizlenince geri gelir.
+ * Sunucu ilk yüklemede doğru durumu basar, sonrası JS'in işidir.
+ */
+DV.setCategoryBar = function (visible) {
+    const bar = document.getElementById('dvCatBar');
+    if (bar) bar.style.display = visible ? '' : 'none';
+};
+
 document.addEventListener('DOMContentLoaded', function () {
     DV.refreshCartBar();
 
@@ -228,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     DV.initSearch();
+    DV.initCategories();
 });
 
 /**
@@ -296,12 +319,9 @@ DV.initSearch = function () {
     const canFetch = !!(window.fetch && results);
     // Kutu boşaltılıp menüye dönüldüğünde hangi kategoride olduğumuzu
     // korumak için gerekir (aksi halde kategori ekranından ana menüye atlanır).
-    // URLSearchParams yoksa (çok eski tarayıcı) ana menüye dönülür.
-    let currentCategory = '0';
-    try {
-        currentCategory = (new URLSearchParams(window.location.search || ''))
-            .get('category') || '0';
-    } catch (e) { /* ana menü varsayılanı */ }
+    // Kategori AJAX ile değiştirilebildiği için SABİT BİR KOPYADA TUTULMAZ;
+    // ortak durumdan (DV._category) okunur.
+    const getCategory = function () { return DV._category || '0'; };
     let debounce = null;
     let inflight = null;        // AbortController: eski istek iptal edilir
     let seq = 0;                // Yanıt sırası: yarış koşulunda eski yanıt ezilir
@@ -336,9 +356,16 @@ DV.initSearch = function () {
     // ---- URL'yi arama terimiyle eşitle (sayfa YENİLENMEZ) ----
     // replaceState: geri tuşu arama geçmişinde gezinmez, ama URL
     // paylaşılabilir kalır ve sayfa yenilense de arama korunur.
+    // NOT: Kategori bilgisi düşürülmez. Yalnızca "Tümü" (0) seçiliyken
+    // category parametresi hiç yazılmaz, aksi halde URL şişerdi.
     const syncUrl = function (term) {
         if (!window.history || !window.history.replaceState) return;
-        const url = term ? 'siparis.php?q=' + encodeURIComponent(term) : 'siparis.php';
+        const cat = getCategory();
+        let url = 'siparis.php';
+        const qs = [];
+        if (term) { qs.push('q=' + encodeURIComponent(term)); }
+        if (cat) { qs.push('category=' + encodeURIComponent(cat)); }
+        if (qs.length) { url += '?' + qs.join('&'); }
         try { window.history.replaceState({ dvSearch: term }, '', url); }
         catch (e) { /* bazı tarayıcılar file://'de reddeder */ }
     };
@@ -358,7 +385,12 @@ DV.initSearch = function () {
         // Kutu boşaltıldığında sunucu menü listesini döndürsün; böylece
         // "tüm ürünler"e dönüş de sayfa yenilemeden olur.
         if (!term) { body.append('reset', '1'); }
-        if (currentCategory) { body.append('category_id', currentCategory); }
+        // Kategori her zaman gönderilir: kutu bir kategorinin içinde
+        // boşaltılırsa sunucu O KATEGORİNİN listesini döndürsün, ana menüyü
+        // değil. Kategori AJAX ile değişmiş olabileceği için istek anında
+        // ortak durumdan okunur.
+        const cat = getCategory();
+        if (cat && cat !== '0') { body.append('category_id', cat); }
         if (csrf) body.append('csrf_token', csrf);
 
         fetch(endpoint, {
@@ -380,6 +412,9 @@ DV.initSearch = function () {
                 syncUrl(res.term);
                 lastTerm = res.term;
                 form.classList.remove('dv-searching');
+                // Arama sırasında sekmeler gizlenir; arama temizlenince
+                // (res.term boş) tekrar görünür olmalı.
+                DV.setCategoryBar(!res.term);
                 if (typeof DV.refreshCartBar === 'function') DV.refreshCartBar();
             })
             .catch(function (err) {
@@ -433,4 +468,159 @@ DV.initSearch = function () {
         input.setAttribute('data-server-results', '1');
         lastTerm = input.value.trim();
     }
+};
+
+/**
+ * KATEGORİ GEÇİŞİ (sayfa yenilenmeden)
+ *
+ *  - Kategori sekmeleri (.dv-cat-chip), kategori kartları (.dv-cat-card) ve
+ *    "Kategoriler" geri bağlantısı (data-dv-category="0") normal <a> elemanlarıdır.
+ *    Bu fonksiyon onların tıklamasını yakalar, preventDefault() ile sayfa
+ *    yenilemesini engeller ve aynı endpoint'i (ajax/delivery/search.php)
+ *    "reset=1&category_id=N" ile sorgular.
+ *  - Sunucu, siparis.php ile BİREBİR aynı HTML'yi döner
+ *    (dvRenderMenuListing) ve yanıt doğrudan #dvSearchResults'a yazılır.
+ *    Böylece kategori ekranı ile kategori kartı ekranı arasındaki geçiş
+ *    de tutarlıdır.
+ *  - ÖNBELLEK: kategori HTML'i sayfa ömründe değişmez. Bir kez alınan
+ *    kategori ikinci kez tıklandığında sunucuya GİDİLMEZ, anında gösterilir.
+ *    (ajax/delivery/search.php hız sınırı 60 istek/120 sn; hızlı kategori
+ *    tıklamalarında sunucuyu yormamak için gereklidir.)
+ *  - fetch desteklenmiyorsa veya istek başarısız olursa klasik bağlantıya
+ *    düşülür: kategori yine de görünür, sadece sayfa yenilenir.
+ *  - Olay DELEGASYONU kullanılır (document seviyesinde): sonuçlar innerHTML
+ *    ile değiştiği için doğrudan bağlanan dinleyiciler yeni gelen kategori
+ *    kartlarına ulaşamazdı.
+ */
+DV.initCategories = function () {
+    const results = document.getElementById('dvSearchResults');
+    if (!results) return;
+
+    const endpoint = (window.DV_SEARCH_URL || 'ajax/delivery/search.php');
+    const csrf = window.DV_CSRF_TOKEN || '';
+    const canFetch = !!(window.fetch && results);
+
+    const searchForm = document.getElementById('dvSearchForm');
+    const searchInput = document.getElementById('dvSearchInput');
+
+    const cache = {};               // kategoriId -> HTML
+    let inflight = null;            // AbortController
+    let seq = 0;                    // yanıt sırası
+
+    const chips = function () {
+        return Array.prototype.slice.call(
+            document.querySelectorAll('.dv-cat-chip[data-dv-category]')
+        );
+    };
+
+    const markActive = function (id) {
+        chips().forEach(function (c) {
+            c.classList.toggle(
+                'active',
+                c.getAttribute('data-dv-category') === String(id)
+            );
+        });
+    };
+
+    const syncCategoryUrl = function (id) {
+        if (!window.history || !window.history.replaceState) return;
+        const url = (id && id !== '0')
+            ? 'siparis.php?category=' + encodeURIComponent(id)
+            : 'siparis.php';
+        try { window.history.replaceState({ dvCategory: id }, '', url); }
+        catch (e) { /* file://'de reddedilebilir */ }
+    };
+
+    const render = function (id, html) {
+        results.innerHTML = html;
+        markActive(id);
+        syncCategoryUrl(id);
+        // Arama kutusu boşaltılır: arama modundan çıkıyoruz. (Kategori
+        // sekmeleri arama sırasında gizli olduğu için bu normalde zaten
+        // boştur; yine de sunucu modundan AJAX'a geçişte tutarlılık için.)
+        if (searchInput && searchInput.value !== '') {
+            searchInput.value = '';
+            searchInput.removeAttribute('data-server-results');
+        }
+        DV.setCategoryBar(true);
+        if (typeof DV.refreshCartBar === 'function') DV.refreshCartBar();
+    };
+
+    /**
+     * @param {string} id   kategori id'si ('0' = ana menü)
+     * @param {HTMLAnchorElement|null} link tıklanan bağlantı (fallback için)
+     * @returns {boolean} true ise gezinme JS ile ele alındı (preventDefault),
+     *                    false ise klasik gezinme yapılmalı.
+     */
+    const load = function (id, link) {
+        if (!canFetch) { return false; }
+        const key = String(id);
+        if (Object.prototype.hasOwnProperty.call(cache, key)) {
+            render(key, cache[key]);
+            return true;
+        }
+
+        // Aktif kategoriyi TIKLAMA ANINDA guncelle, yanit gelmesini bekleme.
+        // Arama kutusuna yanit gelmeden yazilirsa arama da yeni kategoriye
+        // gore calissin; aksi halde eski kategoriye giderdi (yaris durumu).
+        DV._category = key;
+
+        const mySeq = ++seq;
+        if (inflight) { try { inflight.abort(); } catch (e) {} }
+        inflight = (window.AbortController ? new AbortController() : null);
+        if (searchForm) searchForm.classList.add('dv-searching');
+
+        const body = new URLSearchParams();
+        body.append('reset', '1');
+        body.append('category_id', key);
+        if (csrf) body.append('csrf_token', csrf);
+
+        fetch(endpoint, {
+            method: 'POST',
+            body: body,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: inflight ? inflight.signal : undefined
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (res) {
+                if (mySeq !== seq) return;    // daha yeni tıklama var
+                if (!res || !res.success) {
+                    throw new Error((res && res.message) || 'Kategori yüklenemedi');
+                }
+                cache[key] = res.html;
+                render(key, res.html);
+                if (searchForm) searchForm.classList.remove('dv-searching');
+            })
+            .catch(function (err) {
+                if (mySeq !== seq) return;
+                if (err && err.name === 'AbortError') return;
+                if (searchForm) searchForm.classList.remove('dv-searching');
+                // Sunucuya ulaşılamadıysa klasik bağlantıya düş: kategori
+                // yine de açılır, yalnızca sayfa yenilenir.
+                if (link && link.href) { window.location.href = link.href; }
+            });
+
+        return true;
+    };
+
+    document.addEventListener('click', function (e) {
+        const t = e.target;
+        const link = (t && t.closest) ? t.closest('[data-dv-category]') : null;
+        if (!link) return;
+        // Ctrl/Cmd/Shift tıklaması ve orta tuş -> tarayıcı normal davranır
+        // (yeni sekme / yeni pencere), dokunulmaz.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (typeof e.button === 'number' && e.button !== 0) return;
+        const id = link.getAttribute('data-dv-category');
+        if (id === null || id === '') return;
+        if (load(id, link)) { e.preventDefault(); }
+        // canFetch yoksa load false döner: preventDefault ÇAĞRILMAZ ve
+        // tarayıcı href'e kendisi gider.
+    });
+
+    // İlk yüklemede kategori 0'ın HTML'i zaten sunucu tarafından basıldığı
+    // için ön belleğe alınmaz; ilk tıklamada sunucudan gelir.
 };

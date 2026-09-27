@@ -2,8 +2,10 @@
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
-// Sadece Süper Admin erişebilir
-if (!isSuperAdmin()) {
+// Varsayılan olarak yalnızca Süper Admin erişebilir.
+// Gerekirse roller ekranından "Ayarlar > Sistem Parametreleri" izni
+// verilerek erişim başka kullanıcılara da verilebilir (admin/roles.php).
+if (!isSuperAdmin() && !hasPermission('settings.system_parameters')) {
     header('Location: dashboard.php?error=unauthorized');
     exit();
 }
@@ -572,7 +574,7 @@ $qrMenuUrlPreview = $scheme . '://' . $host . $appPath . '/index.php?table=1';
                         <strong>Masa QR adresi:</strong>
                         <code id="qrMenuUrlPreview" class="text-break"><?= htmlspecialchars($qrMenuUrlPreview, ENT_QUOTES, 'UTF-8') ?></code>
                         <button type="button" class="btn btn-sm btn-outline-secondary ms-2"
-                                onclick="copyText('<?= htmlspecialchars($qrMenuUrlPreview, ENT_QUOTES, 'JavaScript') ?>', this)">
+                                onclick="copyText(<?= htmlspecialchars(json_encode($qrMenuUrlPreview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>, this)">
                             <i class="fas fa-copy"></i> Kopyala
                         </button>
                     </div>
@@ -730,7 +732,7 @@ $qrMenuUrlPreview = $scheme . '://' . $host . $appPath . '/index.php?table=1';
                             <input type="text" class="form-control form-control-sm mb-2"
                                    value="<?= htmlspecialchars($deliveryLink) ?>" readonly onclick="this.select()">
                             <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    onclick="copyText('<?= htmlspecialchars($deliveryLink, ENT_QUOTES, 'JavaScript') ?>', this)">
+                                    onclick="copyText(<?= htmlspecialchars(json_encode($deliveryLink, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>, this)">
                                 <i class="fas fa-copy me-1"></i>Bağlantıyı Kopyala
                             </button>
                             <small class="text-muted d-block mt-2">

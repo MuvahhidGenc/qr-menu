@@ -73,6 +73,31 @@ $payments = $db->query("
 
 // Restoran adını settings tablosundan al
 $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'restaurant_name'")->fetch()['setting_value'];
+
+/**
+ * HTML kaçışı.
+ *
+ * Bu sayfada `t.table_no` ve `p.discount_value` gibi alanlar hem normal
+ * HTML özniteliğine hem de `onclick="f(1, 2, '<?= ... ?>')" gibi tek
+ * tırnaklı JS string literal'ına basılıyordu. `table_no` kullanıcı
+ * tarafından düzenlenebilen bir metin alanı olduğu için
+ * `');alert(1);//` gibi bir değer script'e kaçabiliyordu (stored XSS).
+ * ENT_QUOTES olmadan htmlspecialchars() tek tırnakı kaçırmaz.
+ */
+function e($value): string
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * onclick içine gömülecek JS argümanı güvenli literal üretir.
+ * json_encode + ENT_QUOTES sayesinde tek tırnak, çift tırnak ve ters
+ * bölü karakterleri bağlamı terk edemez.
+ */
+function jsArg($value): string
+{
+    return e(json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE));
+}
 ?>
 
 <!DOCTYPE html>
@@ -1004,8 +1029,8 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                     <div class="stat-icon info">
                         <i class="fas fa-lira-sign"></i>
                     </div>
-                    <div class="stat-number"><?= number_format($totalRevenue, 0, ',', '.') ?>₺</div>
-                    <div class="stat-label">Toplam Gelir</div>
+                    <div class="stat-number"><?= number_format($totalRevenue, 2, ',', '.') ?>₺</div>
+                    <div class="stat-label" title="Bu sayfa yalnızca tahsilat kayıtlarını listeler: masa + POS kanalları. Teslimat/web cirosu bu toplama dahil değildir; kanonik ciro için dashboard veya finansal raporu kullanın.">Tahsil Edilen (Masa + POS)</div>
                 </div>
             </div>
         </div>
@@ -1082,7 +1107,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                         echo '<div class="stat-icon primary" style="width: 35px; height: 35px; font-size: 0.8rem; margin-right: 10px;">
                                                 <i class="fas fa-chair"></i>
                                               </div>
-                                              <span class="fw-bold">' . ($payment['table_no'] ?: '-') . '</span>';
+                                              <span class="fw-bold">' . e($payment['table_no'] ?: '-') . '</span>';
                                     }
                                     ?>
                                 </div>
@@ -1099,7 +1124,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                                 </span>
                                     <br>
                                     <small class="text-muted">
-                                        (<?= $payment['discount_type'] == 'percent' ? '%'.$payment['discount_value'] : number_format(floatval($payment['discount_value']), 2).' ₺' ?>)
+                                        (<?= $payment['discount_type'] == 'percent' ? '%' . e($payment['discount_value']) : e(number_format(floatval($payment['discount_value']), 2, ',', '.')) . ' ₺' ?>)
                                     </small>
                                             <?php else: ?>
                                     <span class="text-muted">-</span>
@@ -1173,7 +1198,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                 </div>
                             </td>
                                         <td>
-                                            <span class="status-badge status-<?= $payment['status'] ?>">
+                                            <span class="status-badge status-<?= e($payment['status']) ?>">
                                     <i class="fas fa-<?= $payment['status'] == 'completed' ? 'check' : 'times' ?>"></i>
                                                 <?= $payment['status'] == 'completed' ? 'Tamamlandı' : 'İptal Edildi' ?>
                                             </span>
@@ -1191,7 +1216,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                         <i class="fas fa-print"></i>
                                     </button>
                                             <?php if ($payment['status'] == 'cancelled' && $canReorderToTable): ?>
-                                        <button class="action-btn reorder" onclick="reorderToTable(<?= $payment['payment_id'] ?>, <?= $payment['table_id'] ?>, '<?= $payment['table_no'] ?>')" title="Masaya Tekrar Ekle">
+                                        <button class="action-btn reorder" onclick="reorderToTable(<?= (int)$payment['payment_id'] ?>, <?= $payment['table_id'] !== null ? (int)$payment['table_id'] : 'null' ?>, <?= jsArg($payment['table_no']) ?>)" title="Masaya Tekrar Ekle">
                                                     <i class="fas fa-redo"></i>
                                                 </button>
                                             <?php endif; ?>
@@ -1247,7 +1272,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                     $paidAmount = $subtotal - $discount;
                 }
                         ?>
-                        <div class="payment-card payment-item" data-status="<?= $payment['status'] ?>" data-table="<?= $payment['table_no'] ?>" data-date="<?= date('Y-m-d', strtotime($payment['created_at'])) ?>" data-amount="<?= number_format($paidAmount, 2) ?>">
+                        <div class="payment-card payment-item" data-status="<?= e($payment['status']) ?>" data-table="<?= e($payment['table_no']) ?>" data-date="<?= e(date('Y-m-d', strtotime($payment['created_at']))) ?>" data-amount="<?= e(number_format($paidAmount, 2, ',', '.')) ?>">
                             <div class="payment-header" onclick="togglePaymentDetails(<?= $index ?>)">
                                 <div class="row align-items-center">
                                     <div class="col-8">
@@ -1267,7 +1292,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                                       <small class="text-muted">Kasa ' . $kasaNo . '</small>';
                                             } else {
                                                 echo '<i class="fas fa-chair me-2 text-success"></i>
-                                                      <small class="text-muted">' . ($payment['table_no'] ?: '-') . '</small>';
+                                                      <small class="text-muted">' . e($payment['table_no'] ?: '-') . '</small>';
                                             }
                                             ?>
                                             <span class="amount-badge ms-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 0.8rem;">
@@ -1277,7 +1302,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                     </div>
                                     <div class="col-4 text-end">
                                         <div class="payment-status">
-                                            <span class="status-badge status-<?= $payment['status'] ?>">
+                                            <span class="status-badge status-<?= e($payment['status']) ?>">
                                                 <i class="fas fa-<?= $payment['status'] == 'completed' ? 'check' : 'times' ?>"></i>
                                                 <?= $payment['status'] == 'completed' ? 'Tamamlandı' : 'İptal' ?>
                                             </span>
@@ -1305,7 +1330,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                                     <span class="label">İskonto:</span>
                                                     <span class="value">
                                                         -<?= number_format(floatval($payment['discount_amount']), 2) ?> ₺
-                                                        (<?= $payment['discount_type'] == 'percent' ? '%'.$payment['discount_value'] : number_format(floatval($payment['discount_value']), 2).' ₺' ?>)
+                                                        (<?= $payment['discount_type'] == 'percent' ? '%' . e($payment['discount_value']) : e(number_format(floatval($payment['discount_value']), 2, ',', '.')) . ' ₺' ?>)
                                                     </span>
                                                 </div>
                                                 <?php endif; ?>
@@ -1450,7 +1475,7 @@ $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_k
                                                     <i class="fas fa-print"></i>
                                                 </button>
                                                 <?php if ($payment['status'] == 'cancelled' && $canReorderToTable): ?>
-                                                    <button class="action-btn reorder" onclick="reorderToTable(<?= $payment['payment_id'] ?>, <?= $payment['table_id'] ?>, '<?= $payment['table_no'] ?>')" title="Masaya Tekrar Ekle">
+                                                    <button class="action-btn reorder" onclick="reorderToTable(<?= (int)$payment['payment_id'] ?>, <?= $payment['table_id'] !== null ? (int)$payment['table_id'] : 'null' ?>, <?= jsArg($payment['table_no']) ?>)" title="Masaya Tekrar Ekle">
                                                         <i class="fas fa-redo"></i>
                                                     </button>
                                                 <?php endif; ?>

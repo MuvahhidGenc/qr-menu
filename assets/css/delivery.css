@@ -3,10 +3,22 @@
    Renkler tema değişkenlerinden (--theme-primary) okunur.
    ========================================================================== */
 
+:root {
+    /* Alt sepet çubuğu (.dv-cart-bar) için ayrılan düşey boşluk.
+       TEK KAYNAK: hem .dv-page'in alt dolgusu hem de sipariş sorgulama
+       FAB'ının (.dv-track-fab) bottom değeri bunu kullanır. Böylece çubuğun
+       yüksekliği değiştiğinde iki yerelle de güncellenmiş olur ve FAB
+       çubuğun üstüne/üste biner. */
+    --dv-cartbar-space: 88px;
+    --dv-fab-size: 52px;
+}
+
 .dv-page {
     min-height: 100vh;
     background: #f5f6f8;
-    padding-bottom: 96px;
+    /* Alt boşluk: sepet çubuğu + FAB yüksekliği. İçeriğin son satırı da
+       çubuğun ve düğmenin ÜSTÜNDE kalmasın diye pay bırakılır. */
+    padding-bottom: calc(var(--dv-cartbar-space) + var(--dv-fab-size) + 16px);
 }
 
 /* --- Üst kısım / mağaza bilgisi --- */
@@ -696,39 +708,60 @@
 
 .dv-empty i { font-size: 3rem; color: #dee2e6; display: block; margin-bottom: 12px; }
 
-/* Sipariş sorgulama bağlantısı (menü sayfası) */
-.dv-track-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fff;
-    border: 1px solid #eceef1;
-    border-radius: 12px;
-    padding: 13px 15px;
-    color: #3c4655;
-    font-size: .9rem;
-    font-weight: 500;
-    text-decoration: none;
-    box-shadow: 0 1px 3px rgba(16, 24, 40, .04);
-    transition: border-color .2s, box-shadow .2s;
-}
+/* --------------------------------------------------------------------------
+   Sipariş sorgulama / takip düğmesi (FAB)
+   --------------------------------------------------------------------------
+   Önceden menü sayfasının ÜSTÜNDE tam genişlikte bir bloktu (.dv-track-link)
+   ve mobilde çok yer kaplıyordu. Artık sabit, dairesel ve küçük bir düğme.
 
-.dv-track-link:hover {
-    border-color: var(--theme-primary, #3a94ee);
-    color: var(--theme-primary, #3a94ee);
-    box-shadow: 0 3px 10px rgba(16, 24, 40, .07);
-}
-
-.dv-track-link > i:first-child {
-    width: 34px;
-    height: 34px;
+   Konum kuralı: düğme, alt sepet çubuğunun (.dv-cart-bar, z-index:950)
+   ÜZERİNDE durur; çubuğun "Siparişi Tamamla" düğmesini KAPATMAZ. Boşluk
+   --dv-cartbar-space değişkeninden okunur (dosyanın başında tanımlı), böylece
+   çubuk yüksekliği değişse de FAB onu takip eder.
+   -------------------------------------------------------------------------- */
+.dv-track-fab {
+    position: fixed;
+    right: 16px;
+    /* Sepet çubuğunun ÜSTÜ: bottom değeri çubuk yüksekliğini aşar, böylece
+       düğme çubuğun üstünde durur ve ona dokunmaz. */
+    bottom: calc(var(--dv-cartbar-space) + 12px);
+    /* Sepet çubuğundan (z-index:950) yüksek: düğme çubuğun üstünde kalır
+       ama çubuğun düğmesini TIKLAMAYI ENGELLEMEZ (yalnızca kendi 52px
+       alanında etkilidir). Toast (z-index:2000) ise bunun da üstünde
+       kalır — kullanıcı bir bildirim alırken FAB'ın altında kalması doğru. */
+    z-index: 1000;
+    width: var(--dv-fab-size);
+    height: var(--dv-fab-size);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 9px;
-    background: rgba(var(--theme-rgb, 58, 148, 238), .1);
-    color: var(--theme-primary, #3a94ee);
-    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--theme-primary, #3a94ee);
+    color: #fff;
+    font-size: 1.05rem;
+    text-decoration: none;
+    box-shadow: 0 6px 18px rgba(var(--theme-rgb, 58, 148, 238), .38);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s;
+}
+
+.dv-track-fab:hover,
+.dv-track-fab:focus-visible {
+    background: var(--theme-primary, #3a94ee);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(var(--theme-rgb, 58, 148, 238), .48);
+}
+
+.dv-track-fab:active { transform: translateY(0) scale(.96); }
+
+.dv-track-fab:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* iOS kenar çubuğu / çentik olan cihazlarda düğme ekran kenarına yapışmasın */
+@supports (padding: max(0px)) {
+    .dv-track-fab { right: max(16px, env(safe-area-inset-right)); }
 }
 
 /* Toast */

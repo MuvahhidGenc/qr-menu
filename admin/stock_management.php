@@ -76,7 +76,7 @@ $out_of_stock = $db->query("
     <title><?= $pageTitle ?> - QR Menü</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .stat-card {
             border-radius: 15px;
@@ -344,7 +344,13 @@ $out_of_stock = $db->query("
 
 <?php include 'navbar.php'; ?>
 
-<div class="main-content">
+<!-- NOT: navbar.php kendi icinde "main-content" sinifli bir sarmalayici ACAR
+     ve kapatmayi sayfanin devamina birakir. Burada ikinci bir sarmalayici
+     acmak ic ice gecirdi; her .main-content kurali margin-left:250px ve
+     margin-top:60px uyguladigi icin icerik 500px sola ve 120px asagi
+     kayiyordu (250px'si sidebar, kalan 250px bos alan idi).
+     Bu yuzden burada sarmalayici div kullanilmaz; sayfa sonunda navbar'in
+     actigi sarmalayici kapatilir. -->
     <!-- Header -->
     <div class="page-header">
         <h1>
@@ -450,15 +456,17 @@ $out_of_stock = $db->query("
                                 <tr>
                                     <td>
                                         <?php if ($movement['image']): ?>
-                                            <img src="../<?= htmlspecialchars($movement['image']) ?>" class="product-thumb" alt="">
+                                            <img src="../uploads/<?= htmlspecialchars($movement['image']) ?>" class="product-thumb" alt="">
                                         <?php else: ?>
                                             <div class="product-thumb" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                                <?= mb_substr($movement['product_name'], 0, 1) ?>
+                                                <?= mb_substr($movement['product_name'] ?? '?', 0, 1) ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="fw-bold" style="font-size: 14px;"><?= htmlspecialchars($movement['product_name']) ?></div>
+                                        <?php // LEFT JOIN: urun sonradan silinmisse ad NULL gelir.
+                                        // htmlspecialchars(null) PHP 8.1'de Deprecated uyarisi veriyordu. ?>
+                                        <div class="fw-bold" style="font-size: 14px;"><?= htmlspecialchars($movement['product_name'] ?? 'Silinmiş Ürün') ?></div>
                                         <?php if ($movement['barcode']): ?>
                                             <small class="text-muted">
                                                 <i class="fas fa-barcode"></i> <?= htmlspecialchars($movement['barcode']) ?>
@@ -547,7 +555,7 @@ $out_of_stock = $db->query("
                                 <tr>
                                     <td>
                                         <?php if ($product['image']): ?>
-                                            <img src="../<?= htmlspecialchars($product['image']) ?>" class="product-thumb" alt="">
+                                            <img src="../uploads/<?= htmlspecialchars($product['image']) ?>" class="product-thumb" alt="">
                                         <?php else: ?>
                                             <div class="product-thumb" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
                                                 <?= mb_substr($product['name'], 0, 1) ?>
@@ -624,7 +632,7 @@ $out_of_stock = $db->query("
                                 <tr>
                                     <td>
                                         <?php if ($product['image']): ?>
-                                            <img src="../<?= htmlspecialchars($product['image']) ?>" class="product-thumb" alt="">
+                                            <img src="../uploads/<?= htmlspecialchars($product['image']) ?>" class="product-thumb" alt="">
                                         <?php else: ?>
                                             <div class="product-thumb" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
                                                 <?= mb_substr($product['name'], 0, 1) ?>
@@ -848,6 +856,9 @@ function saveQuickStock() {
     });
 }
 </script>
+
+<!-- navbar.php'in actigi .main-content burada kapatilir. -->
+</div>
 
 </body>
 </html>

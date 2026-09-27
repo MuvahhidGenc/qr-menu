@@ -244,7 +244,11 @@ function dvRenderMenuListing(array $categories, array $quickProducts, $categoryI
 
         $h = '<div class="dv-cat-grid">';
         foreach ($categories as $cat) {
-            $h .= '<a class="dv-cat-card" href="siparis.php?category=' . (int)$cat['id'] . '">';
+            // data-dv-category: delivery.js bu bağlantıyı yakalar ve kategori
+            // ekranını SAYFA YENİLENMEDEN yükler. href yine de gerçek adres
+            // kalır; JS kapalıysa (veya fetch yoksa) klasik gezinme çalışır.
+            $h .= '<a class="dv-cat-card" data-dv-category="' . (int)$cat['id'] . '"'
+                . ' href="siparis.php?category=' . (int)$cat['id'] . '">';
             if (!empty($cat['image'])) {
                 $h .= '<img src="' . $basePath . 'uploads/'
                     . htmlspecialchars($cat['image'], ENT_QUOTES, 'UTF-8')
@@ -270,7 +274,8 @@ function dvRenderMenuListing(array $categories, array $quickProducts, $categoryI
     }
 
     // ---------- Kategori ekranı ----------
-    $h = '<a href="siparis.php" class="btn btn-sm btn-outline-secondary mb-3">'
+    // "Kategoriler" geri bağlantısı da AJAX'la çalışır (data-dv-category="0").
+    $h = '<a href="siparis.php" data-dv-category="0" class="dv-cat-back btn btn-sm btn-outline-secondary mb-3">'
        . '<i class="fas fa-arrow-left me-1"></i>Kategoriler</a>';
     $name = (string)($currentCategory['name'] ?? '');
     $h .= '<h2 class="h5 fw-bold mb-1">' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '</h2>';

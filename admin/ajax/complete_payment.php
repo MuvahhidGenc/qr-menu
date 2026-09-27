@@ -1,5 +1,17 @@
 <?php
 require_once '../../includes/config.php';
+require_once '../../includes/auth.php';
+
+header('Content-Type: application/json');
+
+// Bu uç masadan tahsilat kaydı oluşturur ve siparişleri 'completed' yapar.
+// Önceden hiçbir oturum/izin kontrolü yoktu: internete açık bir uçtü ve
+// masadakı herkesin siparişi üzerinde etkiliydi.
+if (!isLoggedIn() || !hasPermission('tables.payment')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
+    exit();
+}
 
 $db = new Database();
 
@@ -11,20 +23,24 @@ try {
         throw new Exception('Geçersiz veri formatı');
     }
 
-    $tableId = $input['table_id'] ?? null;
-    $paymentMethod = $input['payment_method'] ?? null;
-    $totalAmount = $input['total_amount'] ?? 0;
-    $subtotal = $input['subtotal'] ?? $totalAmount;
+    $tableId = (int)($input['table_id'] ?? 0);
+    $paymentMethod = $input['payment_method'] ?? '';
+    $totalAmount = floatval($input['total_amount'] ?? 0);
     $discountType = $input['discount_type'] ?? null;
-    $discountValue = $input['discount_value'] ?? 0;
-    $discountAmount = $input['discount_amount'] ?? 0;
-    $isPartial = $input['is_partial'] ?? false;
+    $discountValue = floatval($input['discount_value'] ?? 0);
+    $discountAmount = floatval($input['discount_amount'] ?? 0);
+    $isPartial = !empty($input['is_partial']);
     $partialData = $input['partial_data'] ?? null;
-    
-    $paidAmount = $totalAmount;
     
     if (!$tableId || !$paymentMethod) {
         throw new Exception('Gerekli alanlar eksik');
+    }
+    
+    // payments.payment_method yalnızca enum('cash','pos') kabul eder.
+    // Beyaz liste olmadan 'card'/'mixed' gibi değerler sessizce boş string'e
+    // dönüşüyor ve ödeme yöntemi kırılımları tutmaz hale geliyor.
+    if (!in_array($paymentMethod, ['cash', 'pos'], true)) {
+        throw new Exception('Geçersiz ödeme yöntemi');
     }
     
     // Kısmi ödeme validasyonu
@@ -49,6 +65,36 @@ try {
              AND payment_id IS NULL",
             [$tableId]
         )->fetchAll();
+
+        if (!$orders) {
+            throw new Exception('Bu masada ödenecek açık sipariş yok');
+        }
+
+        // Tahsil edilecek tutar sunucuda, sipariş satırlarından hesaplanır.
+        // İstemciden gelen total_amount'a güvenilmiyordu.
+        $dueTotal = 0.0;
+        foreach ($orders as $o) {
+            $dueTotal += (float)$o['total_amount'];
+        }
+        $dueTotal = round($dueTotal, 2);
+
+        $discountAmount = max(0.0, min($discountAmount, $dueTotal));
+        $payable = round($dueTotal - $discountAmount, 2);
+
+        if ($isPartial) {
+            // Kısmi tahsilatta kasanın ne kadar aldığı kasadan gelir; ancak
+            // kalan borcun üzerinde olamaz.
+            $paidAmount = round($totalAmount, 2);
+            if ($paidAmount <= 0 || $paidAmount > $payable) {
+                throw new Exception('Kısmi ödeme tutarı kalan borcu aşamaz (en fazla ' . $payable . ')');
+            }
+            $subtotal = $dueTotal;
+            $totalAmount = $paidAmount;
+        } else {
+            $subtotal = $dueTotal;
+            $paidAmount = $payable;
+            $totalAmount = $payable;
+        }
 
         // Kısmi ödeme notunu hazırla
         $paymentNote = $isPartial ? json_encode($partialData, JSON_UNESCAPED_UNICODE) : null;
@@ -156,9 +202,10 @@ try {
                     error_log("Cleaned up empty orders for table $tableId");
                 }
             } else {
-                // Tutar bazlı: Ödenen tutarı ürünlere orantılı dağıt
-                $paidAmount = $partialData['amount'];
-                
+                // Tutar bazlı: Ödenen tutarı ürünlere orantılı dağıt.
+                // Tutar artık partialData'dan değil, yukarıda kalan borca göre
+                // doğruladığımız $paidAmount değerinden gelir.
+                error_log("Amount-based partial payment: Paid=$paidAmount, Total=$dueTotal");
                 // Masadaki tüm ödenmemiş ürünleri ve toplam tutarı al
                 $allItems = $db->query(
                     "SELECT oi.id, oi.quantity, oi.price, (oi.quantity * oi.price) as item_total
@@ -173,32 +220,30 @@ try {
                 
                 if (!empty($allItems)) {
                     // Toplam tutarı hesapla
-                    $totalAmount = 0;
+                    $itemsTotal = 0;
                     foreach ($allItems as $item) {
-                        $totalAmount += $item['item_total'];
+                        $itemsTotal += (float)$item['item_total'];
                     }
-                    
-                    error_log("Amount-based partial payment: Paid=$paidAmount, Total=$totalAmount");
-                    
-                    // Her ürüne orantılı indirim uygula
-                    foreach ($allItems as $item) {
-                        // Bu ürünün payı = (ürün tutarı / toplam tutar) * ödenen tutar
-                        $itemShare = ($item['item_total'] / $totalAmount) * $paidAmount;
-                        
-                        // Yeni birim fiyat = eski fiyat - (pay / miktar)
-                        $priceReduction = $itemShare / $item['quantity'];
-                        $newPrice = $item['price'] - $priceReduction;
-                        
-                        // Negatif olmasın
-                        if ($newPrice < 0) $newPrice = 0;
-                        
-                        error_log("Item {$item['id']}: OldPrice={$item['price']}, Share=$itemShare, Reduction=$priceReduction, NewPrice=$newPrice");
-                        
-                        // Fiyatı güncelle
-                        $db->query(
-                            "UPDATE order_items SET price = ? WHERE id = ?",
-                            [$newPrice, $item['id']]
-                        );
+
+                    if ($itemsTotal > 0) {
+                        error_log("Amount-based partial distribution: Paid=$paidAmount, ItemsTotal=$itemsTotal");
+
+                        // Her ürüne orantılı indirim uygula.
+                        // DİKKAT: Bu işlem order_items.price alanını kalıcı olarak
+                        // değiştirir, yani sipariş kaydındaki menü fiyatı geri
+                        // döndürülemez. Doğru çözüm kısmi ödemeyi ayrı bir
+                        // tahsilat kaydı olarak modellemektir (schema değişikliği).
+                        // Şimdilik yalnızca doğrulanmış tutarla dağıtılır.
+                        foreach ($allItems as $item) {
+                            $itemShare = ((float)$item['item_total'] / $itemsTotal) * $paidAmount;
+                            $priceReduction = $itemShare / $item['quantity'];
+                            $newPrice = (float)$item['price'] - $priceReduction;
+                            if ($newPrice < 0) $newPrice = 0;
+                            $db->query(
+                                "UPDATE order_items SET price = ? WHERE id = ?",
+                                [$newPrice, $item['id']]
+                            );
+                        }
                     }
                 }
             }

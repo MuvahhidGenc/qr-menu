@@ -62,7 +62,11 @@ try {
         $categories = $db->query(
             "SELECT * FROM categories WHERE status = 1 ORDER BY sort_order ASC, id ASC"
         )->fetchAll();
-        $categoryId = (int)($_POST['category_id'] ?? 0);
+        // Kategori id'si guvenli sekilde normalize edilir: negatif, ondalikli
+        // veya devasa bir deger 0'a duser. Aksi halde -5 gibi bir deger
+        // "bu kategoride urun yok" basligi olan BOZUK bir kategori ekrani
+        // uretirdi (ve $quickProducts hic yuklenmezdi).
+        $categoryId = max(0, (int)($_POST['category_id'] ?? 0));
         $currentCategory = null;
         $products = [];
         $quickProducts = [];

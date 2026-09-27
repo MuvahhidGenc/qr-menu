@@ -4,7 +4,8 @@ require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
-if (!isLoggedIn()) {
+if (!isLoggedIn() || !hasPermission('tables.sales')) {
+    http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim']);
     exit();
 }
@@ -20,10 +21,9 @@ try {
     }
     
     // POST verilerini al
-    $items = json_decode($_POST['items'], true);
-    $payment_method = $_POST['payment_method']; // cash, card or mixed
-    $total = floatval($_POST['total']);
-    $subtotal = floatval($_POST['subtotal'] ?? $total);
+    $items = json_decode($_POST['items'] ?? '[]', true);
+    $payment_method = $_POST['payment_method'] ?? '';
+    $total = floatval($_POST['total'] ?? 0);
     $discount = floatval($_POST['discount'] ?? 0);
     $discount_type = $_POST['discount_type'] ?? 'amount';
     $note = $_POST['note'] ?? '';
@@ -31,8 +31,59 @@ try {
     $partial_payments = $is_partial && isset($_POST['partial_payments']) ? json_decode($_POST['partial_payments'], true) : null;
     $register_id = isset($_POST['register_id']) ? intval($_POST['register_id']) : 1;
     
-    if (empty($items) || $total <= 0) {
+    if (empty($items) || !is_array($items)) {
         throw new Exception('Geçersiz sepet verisi');
+    }
+
+    // Ödeme yöntemi beyaz listesi. payments.payment_method yalnızca
+    // enum('cash','pos') kabul eder; 'card'/'mixed' gibi değerler MySQL'in
+    // sessizce boş string'e çevirmesine (bkz. payments.id=71) yol açıyordu.
+    if (!in_array($payment_method, ['cash', 'pos'], true)) {
+        throw new Exception('Geçersiz ödeme yöntemi');
+    }
+
+    // Sepet sunucu tarafında fiyatlandırılır. İstemciden gelen subtotal/total
+    // değerleri güvenilmezdir: aksi halde total=1, subtotal=100000 gönderilerek
+    // raporları kalıcı olarak şişirmek mümkündü.
+    $subtotal = 0.0;
+    $pricedItems = [];
+    foreach ($items as $item) {
+        $productId = (int)($item['id'] ?? 0);
+        $quantity  = (int)($item['quantity'] ?? 0);
+        if ($productId <= 0 || $quantity <= 0) {
+            throw new Exception('Sepette geçersiz ürün veya miktar var');
+        }
+        $product = $db->query(
+            "SELECT id, name, price, stock FROM products WHERE id = ?",
+            [$productId]
+        )->fetch();
+        if (!$product) {
+            throw new Exception('Ürün bulunamadı: ID ' . $productId);
+        }
+        $unitPrice = (float)$product['price'];
+        $subtotal += $unitPrice * $quantity;
+        $pricedItems[] = [
+            'product' => $product,
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+        ];
+    }
+    $subtotal = round($subtotal, 2);
+
+    $discount_amount = 0.0;
+    if ($discount > 0) {
+        $discount_amount = ($discount_type === 'percent')
+            ? ($subtotal * $discount) / 100
+            : min($discount, $subtotal);
+        $discount_amount = round($discount_amount, 2);
+    }
+
+    // Tahsil edilen tutar = brüt - indirim. Eski kod istemciden gelen $total'i
+    // paid_amount olarak yazıyordu; artık aynı değer total_amount alanına da
+    // yazılır, böylece tüm raporlar aynı anlamı taşıyan tek alanı kullanır.
+    $total = round($subtotal - $discount_amount, 2);
+    if ($total <= 0) {
+        throw new Exception('Ödenecek tutar sıfır veya eksi olamaz');
     }
     
     // Sistem parametrelerini kontrol et
@@ -53,47 +104,35 @@ try {
     }
     
     // Payment kaydı oluştur
-    $discount_amount = 0;
-    if ($discount > 0) {
-        if ($discount_type === 'percent') {
-            $discount_amount = ($subtotal * $discount) / 100;
-        } else {
-            $discount_amount = $discount;
-        }
-    }
-    
     $stmt = $db->query(
         "INSERT INTO payments (total_amount, subtotal, paid_amount, discount_amount, payment_method, status, created_at, payment_note) 
          VALUES (?, ?, ?, ?, ?, 'completed', NOW(), ?)",
-        [$subtotal, $subtotal, $total, $discount_amount, $payment_method, $payment_note]
+        [$total, $subtotal, $total, $discount_amount, $payment_method, $payment_note]
     );
     
     $payment_id = $db->lastInsertId();
     
-    // Her ürün için order_items kaydı oluştur ve stok düş
-    foreach ($items as $item) {
+    // Her ürün için order_items kaydı oluştur ve stok düş.
+    // Fiyat sunucuda doğrulandığı için $pricedItems kullanılır; sepet fiyatı
+    // doğrudan order_items'a yazılmaz.
+    foreach ($pricedItems as $entry) {
+        $product = $entry['product'];
+        $quantity = $entry['quantity'];
+        $unitPrice = $entry['unit_price'];
+
         // Stok kontrolü
         if ($stockTrackingEnabled) {
-            $product = $db->query(
-                "SELECT stock, name FROM products WHERE id = ?",
-                [$item['id']]
-            )->fetch();
-            
-            if (!$product) {
-                throw new Exception('Ürün bulunamadı: ID ' . $item['id']);
+            if ((int)$product['stock'] < $quantity) {
+                throw new Exception($product['name'] . ' için stok yetersiz (Mevcut: ' . $product['stock'] . ', İstenen: ' . $quantity . ')');
             }
             
-            if ($product['stock'] < $item['quantity']) {
-                throw new Exception($product['name'] . ' için stok yetersiz (Mevcut: ' . $product['stock'] . ', İstenen: ' . $item['quantity'] . ')');
-            }
-            
-            $old_stock = $product['stock'];
-            $new_stock = $old_stock - $item['quantity'];
+            $old_stock = (int)$product['stock'];
+            $new_stock = $old_stock - $quantity;
             
             // Stok düş
             $db->query(
                 "UPDATE products SET stock = ? WHERE id = ?",
-                [$new_stock, $item['id']]
+                [$new_stock, $product['id']]
             );
             
             // Stok hareketini kaydet
@@ -101,8 +140,8 @@ try {
                 "INSERT INTO stock_movements (product_id, movement_type, quantity, old_stock, new_stock, note, created_by, created_at) 
                  VALUES (?, 'out', ?, ?, ?, ?, ?, NOW())",
                 [
-                    $item['id'],
-                    $item['quantity'],
+                    $product['id'],
+                    $quantity,
                     $old_stock,
                     $new_stock,
                     'POS Satış - Fiş #' . $payment_id,
@@ -115,7 +154,7 @@ try {
         $db->query(
             "INSERT INTO order_items (product_id, quantity, price, payment_id, created_at) 
              VALUES (?, ?, ?, ?, NOW())",
-            [$item['id'], $item['quantity'], $item['price'], $payment_id]
+            [$product['id'], $quantity, $unitPrice, $payment_id]
         );
     }
     
