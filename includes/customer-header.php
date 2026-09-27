@@ -182,18 +182,23 @@ if (isset($settings['header_bg']) && !empty($settings['header_bg'])) {
    </style>
 </head>
 <body>
-<?php 
-   // Sistem parametrelerini kontrol et
-   $acceptOrders = isset($settings['system_accept_qr_orders']) && $settings['system_accept_qr_orders'] == '1';
+<?php
+    // Sistem parametrelerini kontrol et
+    $acceptOrders = isset($settings['system_accept_qr_orders']) && $settings['system_accept_qr_orders'] == '1';
    
-   // Sadece sipariş alımı aktifse ve aktif sipariş varsa butonu göster
-   if ($acceptOrders && isset($_SESSION['existing_order_id']) && $_SESSION['existing_order_id']): ?>
-       <a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
-           <i class="fas fa-receipt"></i>
-           <span>Siparişlerim</span>
-       </a>
-   <?php endif; ?>
+    // Sadece sipariş alımı aktifse ve aktif sipariş varsa butonu göster
+    if ($acceptOrders && isset($_SESSION['existing_order_id']) && $_SESSION['existing_order_id']): ?>
+        <a href="orders.php?table=<?= $_SESSION['table_id'] ?>" class="floating-order-btn">
+            <i class="fas fa-receipt"></i>
+            <span>Siparişlerim</span>
+        </a>
+    <?php endif; ?>
 
+    <?php // $hideCustomerHero = true ile çağıran sayfalar (örn. Web Adrese
+          // Sipariş) kendi başlıklarını kullandığı için hero gizlenir.
+          // Aksi halde restoran adı/sloganı iki kez üst üste basılır ve
+          // mobilde ~180px dikey alan boşa gider. ?>
+    <?php if (empty($hideCustomerHero)): ?>
     <div class="hero-section">
         <div class="header-content">
             <?php if (!empty($settings['restaurant_logo'])): ?>
@@ -209,3 +214,4 @@ if (isset($settings['header_bg']) && !empty($settings['header_bg'])) {
             </div>
         </div>
     </div>
+    <?php endif; ?>

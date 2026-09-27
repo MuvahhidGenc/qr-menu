@@ -3,9 +3,14 @@
  * Web Adrese Sipariş - Müşteri Menü Sayfası (masa bazlı DEĞİLDİR)
  *
  * QR Menü (index.php) ve Peşin Satış akışlarına dokunmaz.
- * Parametre: system_delivery_order_enabled
+ *
+ * Erişim anahtarı: YALNIZCA system_delivery_order_enabled
+ * Bu sayfa QR/masa anahtarından (system_table_qr_order_enabled) BAĞIMSIZ çalışır;
+ * QR siparişi kapatıldığında web adres siparişi açık kalır.
  */
 require_once __DIR__ . '/includes/config.php';
+// Arama mantığı + kart üretimi: ajax/delivery/search.php ile AYNI dosyadan.
+require_once __DIR__ . '/includes/delivery-search.php';
 
 $db = new Database();
 
@@ -16,16 +21,13 @@ foreach ($db->query("SELECT setting_key, setting_value FROM settings")->fetchAll
 }
 
 $deliverySettings = getDeliverySettings($db);
-$customerAccess = isset($settings['system_customer_access']) && $settings['system_customer_access'] == '1';
 $deliveryEnabled = isDeliveryEnabled($db);
 $hours = checkDeliveryHours($db);
 
 // --- Erişim kontrolü --------------------------------------------------------
-if (!$customerAccess || !$deliveryEnabled) {
+if (!$deliveryEnabled) {
     http_response_code(403);
-    $blockedReason = !$customerAccess
-        ? 'Sipariş sistemi şu anda aktif değil.'
-        : 'Web üzerinden sipariş alma hizmeti geçici olarak kapalıdır.';
+    $blockedReason = 'Web üzerinden sipariş alma hizmeti şu anda kapalıdır.';
     ?>
     <!DOCTYPE html>
     <html lang="tr">
@@ -66,7 +68,11 @@ if ($categoryId > 0) {
     $currentCategory = $db->query("SELECT * FROM categories WHERE id = ? AND status = 1", [$categoryId])->fetch();
     if ($currentCategory) {
         $products = $db->query(
-            "SELECT * FROM products WHERE category_id = ? AND status = 1 ORDER BY sort_order ASC, id ASC",
+            "SELECT p.*, c.name AS category_name
+             FROM products p
+             LEFT JOIN categories c ON c.id = p.category_id
+             WHERE p.category_id = ? AND p.status = 1
+             ORDER BY p.sort_order ASC, p.id ASC",
             [$categoryId]
         )->fetchAll();
     } else {
@@ -74,11 +80,44 @@ if ($categoryId > 0) {
     }
 }
 
+// --- Gelişmiş ürün arama (mantık includes/delivery-search.php'te) ----------
+// AYNI fonksiyonlar ajax/delivery/search.php tarafından da kullanılır; böylece
+// ilk sayfa yüklemesi ile canlı (yenilemesiz) arama asla ayrışamaz.
+//
+// NEDEN saf SQL LIKE kullanılmıyor?
+//   MySQL utf8mb4_general_ci, ASCII'de büyük/küçük harf ayrımı yapmaz ama
+//   TÜRKÇE harfleri ayırır: 'I' / 'ı' / 'İ' / 'i' birbirinden farklıdır.
+//   "irmak" araması "IRMAK" ürününü LIKE ile BULAMAZ. Eşleştirme bu yüzden
+//   dvSearchFold() ile normalize edilmiş metin üzerinde PHP'de yapılır.
+$searchTerm = trim((string)($_GET['q'] ?? ''));
+$isSearching = $searchTerm !== '';
+$searchPayload = $isSearching
+    ? dvSearchExecute($db, $searchTerm, 60)
+    : ['term' => '', 'terms' => [], 'results' => [], 'total' => 0];
+$searchTerms   = $searchPayload['terms'];
+$searchResults = $searchPayload['results'];
+
+// --- Hızlı erişim (ana ekranda boş alanı doldurur) ---------------------------
+// Yalnızca kategori seçiliyken/aranmıyorken ve ürün varken gösterilir.
+$quickProducts = [];
+if (!$isSearching && $categoryId === 0 && !empty($categories)) {
+    $quickProducts = $db->query(
+        "SELECT p.* FROM products p
+         WHERE p.status = 1 AND p.stock > 0
+         ORDER BY p.sort_order ASC, p.id ASC
+         LIMIT 6"
+    )->fetchAll();
+}
+
 // --- Sepet özeti (backend) --------------------------------------------------
 $cart = buildDeliveryCart($db);
 $cartCount = getCartCount(DELIVERY_CART_KEY);
 $deliveryFee = calculateDeliveryFee($deliverySettings, $cart['subtotal']);
 
+// customer-header.php'deki hero (restoran adı + slogan) gizlenir: bu sayfa
+// zaten dv-store-bar içinde aynı bilgiyi gösteriyor. İkisi üst üste basılırsa
+// mobilde ~180px dikey alan boşa gider. Tema değişkenleri aynen korunur.
+$hideCustomerHero = true;
 include __DIR__ . '/includes/customer-header.php';
 ?>
 
@@ -124,113 +163,59 @@ include __DIR__ . '/includes/customer-header.php';
         </div>
     <?php endif; ?>
 
-    <!-- Kategori sekmeleri -->
-    <div class="dv-cat-bar">
-        <a class="dv-cat-chip <?= $categoryId === 0 ? 'active' : '' ?>" href="siparis.php">
-            <i class="fas fa-th me-1"></i>Tümü
-        </a>
-        <?php foreach ($categories as $cat): ?>
-            <a class="dv-cat-chip <?= $categoryId === (int)$cat['id'] ? 'active' : '' ?>"
-               href="siparis.php?category=<?= (int)$cat['id'] ?>">
-                <?= htmlspecialchars($cat['name']) ?>
+    <!-- Hızlı ürün arama -->
+    <form class="dv-search" method="get" action="siparis.php" id="dvSearchForm" autocomplete="off">
+        <i class="fas fa-search dv-search-icon"></i>
+        <input type="search" name="q" id="dvSearchInput" class="dv-search-input"
+               value="<?= htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8') ?>"
+               placeholder="Ürün ara&hellip;" aria-label="Ürün ara">
+        <button type="submit" class="dv-search-btn" aria-label="Ara">
+            <i class="fas fa-arrow-right"></i>
+        </button>
+        <?php if ($isSearching): ?>
+            <a href="siparis.php" class="dv-search-clear" aria-label="Aramayı temizle">
+                <i class="fas fa-times"></i>
             </a>
-        <?php endforeach; ?>
-    </div>
+        <?php endif; ?>
+    </form>
+
+    <?php if (!$isSearching): ?>
+        <!-- Kategori sekmeleri -->
+        <div class="dv-cat-bar">
+            <a class="dv-cat-chip <?= $categoryId === 0 ? 'active' : '' ?>" href="siparis.php">
+                <i class="fas fa-th me-1"></i>Tümü
+            </a>
+            <?php foreach ($categories as $cat): ?>
+                <a class="dv-cat-chip <?= $categoryId === (int)$cat['id'] ? 'active' : '' ?>"
+                   href="siparis.php?category=<?= (int)$cat['id'] ?>">
+                    <?= htmlspecialchars($cat['name']) ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 
     <div class="container py-3">
 
-        <?php if ($categoryId === 0): ?>
-            <!-- ============ Kategori ızgarası ============ -->
-            <?php if (empty($categories)): ?>
-                <div class="dv-empty">
-                    <i class="fas fa-utensils"></i>
-                    Menüde henüz kategori bulunmuyor.
-                </div>
-            <?php else: ?>
-                <div class="dv-cat-grid">
-                    <?php foreach ($categories as $cat): ?>
-                        <a class="dv-cat-card" href="siparis.php?category=<?= (int)$cat['id'] ?>">
-                            <?php if (!empty($cat['image'])): ?>
-                                <img src="uploads/<?= htmlspecialchars($cat['image']) ?>" alt="<?= htmlspecialchars($cat['name']) ?>">
-                            <?php else: ?>
-                                <div class="dv-product-img placeholder" style="width:100%;height:132px;border-radius:0;">
-                                    <i class="fas fa-utensils"></i>
-                                </div>
-                            <?php endif; ?>
-                            <span class="dv-cat-name"><?= htmlspecialchars($cat['name']) ?></span>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-
+        <!-- Sonuç konteyneri: hem ilk yüklemede hem canlı aramada
+             AYNI konteyner yenilenir. Canlı arama (delivery.js) yanıtı
+             doğrudan buraya yazar; sayfa yenilenmez. -->
+        <div id="dvSearchResults">
+        <?php if ($isSearching): ?>
+            <?php
+            // Başlık + kartlar + boş durum: includes/delivery-search.php
+            // üretir (AJAX isteğiyle birebir aynı HTML).
+            echo dvRenderSearchResults($searchPayload, '');
+            ?>
         <?php else: ?>
-            <!-- ============ Kategori ürünleri ============ -->
-            <a href="siparis.php" class="btn btn-sm btn-outline-secondary mb-3">
-                <i class="fas fa-arrow-left me-1"></i>Kategoriler
-            </a>
-
-            <h2 class="h5 fw-bold mb-1"><?= htmlspecialchars($currentCategory['name']) ?></h2>
-            <?php if (!empty($currentCategory['description'])): ?>
-                <p class="text-muted small mb-3"><?= htmlspecialchars($currentCategory['description']) ?></p>
-            <?php endif; ?>
-
-            <?php if (empty($products)): ?>
-                <div class="dv-empty">
-                    <i class="fas fa-box-open"></i>
-                    Bu kategoride ürün bulunmuyor.
-                </div>
-            <?php else: ?>
-                <?php foreach ($products as $product): ?>
-                    <?php
-                    $pid = (int)$product['id'];
-                    $price = (float)$product['price'];
-                    $inCart = isset($_SESSION[DELIVERY_CART_KEY][$pid])
-                        ? (int)$_SESSION[DELIVERY_CART_KEY][$pid]['quantity']
-                        : 0;
-                    $soldOut = (int)$product['stock'] <= 0;
-                    ?>
-                    <div class="dv-product">
-                        <?php if (!empty($product['image'])): ?>
-                            <img class="dv-product-img" src="uploads/<?= htmlspecialchars($product['image']) ?>"
-                                 alt="<?= htmlspecialchars($product['name']) ?>" loading="lazy">
-                        <?php else: ?>
-                            <div class="dv-product-img placeholder"><i class="fas fa-utensils"></i></div>
-                        <?php endif; ?>
-
-                        <div class="dv-product-body">
-                            <h3 class="dv-product-name"><?= htmlspecialchars($product['name']) ?></h3>
-                            <?php if (!empty($product['description'])): ?>
-                                <p class="dv-product-desc"><?= htmlspecialchars($product['description']) ?></p>
-                            <?php endif; ?>
-
-                            <div class="dv-product-foot">
-                                <div class="dv-price">
-                                    <?= number_format($price, 2, ',', '.') ?> ₺
-                                    <?php if (!empty($product['special'])): ?>
-                                        <small>ÖZEL</small>
-                                    <?php endif; ?>
-                                </div>
-
-                                <?php if ($soldOut): ?>
-                                    <button class="dv-btn-add" disabled>Tükendi</button>
-                                <?php else: ?>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="dv-qty">
-                                            <button type="button" data-dv-dec="<?= $pid ?>" aria-label="Azalt">&minus;</button>
-                                            <span data-dv-qty="<?= $pid ?>"><?= $inCart > 0 ? $inCart : 1 ?></span>
-                                            <button type="button" data-dv-inc="<?= $pid ?>" aria-label="Arttır">+</button>
-                                        </div>
-                                        <button type="button" class="dv-btn-add" data-dv-add="<?= $pid ?>">
-                                            <i class="fas fa-cart-plus"></i> Ekle
-                                        </button>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+            <!-- ============ Aramarsız menü listesi ============
+                 includes/delivery-search.php üretir; arama kutusu
+                 temizlendiğinde AJAX ile de aynı HTML çağrılır. -->
+            <?php
+            echo dvRenderMenuListing($categories, $quickProducts, $categoryId,
+                                     $currentCategory, $products, '');
+            ?>
         <?php endif; ?>
+        </div><!-- /#dvSearchResults -->
 
     </div>
 
@@ -251,6 +236,11 @@ include __DIR__ . '/includes/customer-header.php';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="assets/js/delivery.js"></script>
+<script>
+    // Canlı aramanın ihtiyaç duyduğu yollar. Uygulama bir alt dizinde de
+    // çalışabildiği için mutlak yol değil, göreli yol verilir.
+    window.DV_SEARCH_URL = 'ajax/delivery/search.php';
+</script>
+<script src="assets/js/delivery.js?v=<?= (int)@filemtime(__DIR__ . '/assets/js/delivery.js') ?>"></script>
 </body>
 </html>

@@ -2257,22 +2257,34 @@ function saveTable() {
     });
 }
 
+// Müşteri menü sayfasının mutlak adresi.
+// Uygulama bir alt dizinde (örn. /qr-menu/) kurulu olabilir; bu yüzden
+// site kökü tahmin edilmez, PHP_SELF'den güvenli şekinde türetilir.
+// NOT: index.php, eski adı menu.php olan dosyanın yerine geçmiştir;
+// menü.php üretmek 404 veriyordu.
+function tableMenuUrl(tableId) {
+    // /admin/tables.php -> / (iki seviye yukarı)
+    $base = rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
+    return window.location.origin + $base + '/index.php?table=' + encodeURIComponent(tableId);
+}
+
 // QR kod oluştur
 function showQRCode(tableId) {
     if (typeof qrcode === 'undefined') {
         return;
     }
-    
-    const url = `${window.location.origin}/menu.php?table=${tableId}`;
+
+    const url = tableMenuUrl(tableId);
     const qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();
-    
+
     Swal.fire({
         title: 'Masa QR Kodu',
         html: `
             <div class="text-center">
                 ${qr.createImgTag(5)}
+                <div class="mt-2"><code class="small">${url}</code></div>
                 <div class="mt-3">
                     <button class="btn btn-primary me-2" onclick="downloadQR('png', '${tableId}')">
                         <i class="fas fa-download"></i> PNG İndir
@@ -2290,7 +2302,7 @@ function showQRCode(tableId) {
 
 // QR kodu indir
 function downloadQR(format, tableId) {
-    const url = `${window.location.origin}/menu.php?table=${tableId}`;
+    const url = tableMenuUrl(tableId);
     const qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();

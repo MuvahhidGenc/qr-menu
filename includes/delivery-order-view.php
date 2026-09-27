@@ -32,9 +32,22 @@ $timeline = [
     'on_the_way' => 'Yola Çıktı',
     'delivered'  => 'Teslim Edildi',
 ];
-$currentIndex = array_search($order['status'], array_keys($timeline), true);
-if ($currentIndex === false) {
-    $currentIndex = 0;
+
+// DİKKAT — buradaki indeksleme bozulursa timeline HİÇ renklenmez.
+// $timeline STRING anahtarlıdır; bu yüzden foreach'te $i bir metindir ve
+//   $i < $index  ile  $i === $index  her zaman FALSE döner (PHP 8'de
+//   metin/sayı karşılaştırması). Bu nedenle konum ayrı bir TAMSATI
+//   değişkende tutulur ve döngüde elle artırılır.
+// 'completed' enum'da var ama timeline'da ADI YOKTUR: sürecin son
+//   halidir ve tamamen bitmiştir. Bu yüzden konum son aşamanın BİR
+//   ÜZERİNE alınır → TÜM aşamalar 'done' olur, hiçbiri 'current'
+//   (yani "devam ediyor") görünmez. Aksi halde 'completed' bir sipariş
+//   "Sipariş Alındı" aşamasında görünürdü.
+$stageKeys = array_keys($timeline);
+$lastIndex = count($stageKeys) - 1;
+$statusPos = array_search($order['status'], $stageKeys, true);
+if ($statusPos === false) {
+    $statusPos = ($order['status'] === 'completed') ? $lastIndex + 1 : 0;
 }
 $isFinished = in_array($order['status'], ['delivered', 'completed', 'cancelled'], true);
 $totalItems = array_sum(array_map(static fn($i) => (int)$i['quantity'], $items));
@@ -43,13 +56,16 @@ $totalItems = array_sum(array_map(static fn($i) => (int)$i['quantity'], $items))
 <!-- Sipariş durumu -->
 <div class="dv-card mt-3">
     <h3 class="dv-card-title"><i class="fas fa-truck"></i>Sipariş Durumu</h3>
-    <ul class="dv-timeline">
-        <?php foreach ($timeline as $i => $label): ?>
-            <?php $isDone = !$isCancelled && $i < $currentIndex; ?>
-            <li class="<?= $isDone ? 'done' : '' ?><?= $i === $currentIndex ? ' current' : '' ?>">
-                <?= htmlspecialchars($label) ?>
+    <ul class="dv-timeline<?= $isCancelled ? ' cancelled' : '' ?>">
+        <?php $n = 0; foreach ($timeline as $label): ?>
+            <?php
+            $isDone    = !$isCancelled && $n <  $statusPos;
+            $isCurrent = !$isCancelled && $n === $statusPos;
+            ?>
+            <li class="<?= $isDone ? 'done' : ($isCurrent ? 'current' : '') ?>">
+                <span class="dv-tl-label"><?= htmlspecialchars($label) ?></span>
             </li>
-        <?php endforeach; ?>
+        <?php $n++; endforeach; ?>
     </ul>
     <div class="text-muted small mt-2">
         Durum: <strong><?= htmlspecialchars($statusText) ?></strong>

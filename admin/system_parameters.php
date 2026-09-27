@@ -30,8 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_parameters'])) {
             'system_qr_tables_visible' => isset($_POST['qr_tables_visible']) ? '1' : '0',
             'system_qr_orders_visible' => isset($_POST['qr_orders_visible']) ? '1' : '0',
             'system_qr_kitchen_visible' => isset($_POST['qr_kitchen_visible']) ? '1' : '0',
-            'system_qr_reservations_visible' => isset($_POST['qr_reservations_visible']) ? '1' : '0',
-            'system_customer_access' => isset($_POST['customer_access']) ? '1' : '0',
+            'system_qr_reservations_visible'  => isset($_POST['qr_reservations_visible'])  ? '1' : '0',
+            // QR üzerinden masa siparişi (index.php?table=N)
+            'system_table_qr_order_enabled'   => isset($_POST['table_qr_order_enabled'])   ? '1' : '0',
             // Stok Yönetimi Alt Modül
             'system_stock_management_visible' => isset($_POST['stock_management_visible']) ? '1' : '0'
         ];
@@ -82,8 +83,9 @@ $defaults = [
     'system_qr_tables_visible' => '1',
     'system_qr_orders_visible' => '1',
     'system_qr_kitchen_visible' => '1',
-    'system_qr_reservations_visible' => '1',
-    'system_customer_access' => '1',
+    'system_qr_reservations_visible'  => '1',
+    // QR üzerinden masa siparişi
+    'system_table_qr_order_enabled'   => '1',
     // Stok Yönetimi Alt Modül
     'system_stock_management_visible' => '1'
 ];
@@ -93,6 +95,14 @@ foreach ($defaults as $key => $value) {
         $current_params[$key] = $value;
     }
 }
+
+// Müşteri menü adresi (QR kodlarında kullanılan gerçek URL).
+// Uygulama bir alt dizinde kurulu olabilir; bu yüzden site kökü tahmin edilmez.
+// index.php masa menüsüdür; eski "menu.php" adı 404 veriyordu.
+$scheme  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host    = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$appPath = rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
+$qrMenuUrlPreview = $scheme . '://' . $host . $appPath . '/index.php?table=1';
 
 ?>
 <?php include 'navbar.php'; ?>
@@ -536,26 +546,35 @@ foreach ($defaults as $key => $value) {
                     </div>
                 </div>
                 
-                <!-- Müşteri Arayüzü Erişimi -->
+                <!-- QR ile Masa Siparişi Erişimi -->
                 <div class="alert alert-danger mt-4 mb-0" style="border-left: 4px solid #dc3545; background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(255, 77, 79, 0.1) 100%);">
                     <h6 class="fw-bold mb-3">
-                        <i class="fas fa-lock me-2"></i>
-                        Müşteri Arayüzü Erişim Kontrolü
+                        <i class="fas fa-qrcode me-2"></i>
+                        QR ile Masa Siparişi Erişimi
                     </h6>
-                    <p class="small text-muted mb-3">⚠️ <strong>Dikkat:</strong> Bu seçenek pasif edildiğinde müşteriler QR menüye hiç erişemez!</p>
-                    <div class="parameter-box-small <?= $current_params['system_customer_access'] == '1' ? 'active' : '' ?>">
+                    <p class="small text-muted mb-3">⚠️ <strong>Dikkat:</strong> Bu seçenek pasif edildiğinde <strong>QR kodları çalışmaz</strong>, müşteriler masa menüsüne erişemez.</p>
+                    <div class="parameter-box-small <?= $current_params['system_table_qr_order_enabled'] == '1' ? 'active' : '' ?>">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" 
-                                   id="customer_access" name="customer_access"
-                                   <?= $current_params['system_customer_access'] == '1' ? 'checked' : '' ?>>
-                            <label class="form-check-label ms-2" for="customer_access">
-                                <i class="fas fa-users text-danger me-1"></i>
-                                <strong>Müşteri Erişimi Aktif</strong>
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="table_qr_order_enabled" name="table_qr_order_enabled"
+                                   <?= $current_params['system_table_qr_order_enabled'] == '1' ? 'checked' : '' ?>>
+                            <label class="form-check-label ms-2" for="table_qr_order_enabled">
+                                <i class="fas fa-chair text-danger me-1"></i>
+                                <strong>QR Masa Siparişi Aktif</strong>
                             </label>
                         </div>
                         <small class="text-muted d-block mt-1">
-                            Pasif edilirse: Müşteriler menüye erişemez, QR kod çalışmaz
+                            Kapatırsanız <code>index.php?table=N</code> adresi 403 döner.
+                            <strong>Web Adrese Sipariş bundan etkilenmez.</strong>
                         </small>
+                    </div>
+                    <div class="alert alert-light mt-3 mb-0" style="border-left: 4px solid #6c757d; font-size: .85rem;">
+                        <strong>Masa QR adresi:</strong>
+                        <code id="qrMenuUrlPreview" class="text-break"><?= htmlspecialchars($qrMenuUrlPreview, ENT_QUOTES, 'UTF-8') ?></code>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2"
+                                onclick="copyText('<?= htmlspecialchars($qrMenuUrlPreview, ENT_QUOTES, 'JavaScript') ?>', this)">
+                            <i class="fas fa-copy"></i> Kopyala
+                        </button>
                     </div>
                 </div>
             </div>
@@ -706,18 +725,17 @@ foreach ($defaults as $key => $value) {
                                 Müşteri Web Sipariş Adresi
                             </h6>
                             <?php
-                            $deliveryLink = 'siparis.php';
-                            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                            $deliveryLink = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/qr-menu/siparis.php';
+                            $deliveryLink = $scheme . '://' . $host . $appPath . '/siparis.php';
                             ?>
                             <input type="text" class="form-control form-control-sm mb-2"
                                    value="<?= htmlspecialchars($deliveryLink) ?>" readonly onclick="this.select()">
                             <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    onclick="navigator.clipboard.writeText('<?= htmlspecialchars($deliveryLink) ?>');this.innerHTML='Kopyalandı!'">
+                                    onclick="copyText('<?= htmlspecialchars($deliveryLink, ENT_QUOTES, 'JavaScript') ?>', this)">
                                 <i class="fas fa-copy me-1"></i>Bağlantıyı Kopyala
                             </button>
                             <small class="text-muted d-block mt-2">
                                 Bu bağlantıyı Instagram, WhatsApp, Google vb. yerlerde paylaşabilirsiniz.
+                                <strong>QR Masa Siparişi anahtarından bağımsızdır.</strong>
                             </small>
                         </div>
                     </div>
@@ -760,10 +778,39 @@ foreach ($defaults as $key => $value) {
 </div>
 
 <script>
+// Panele kopyalama yardimcisi (clipboard API + eski tarayici yedegi)
+function copyText(text, btn) {
+    var done = function () {
+        if (!btn) return;
+        var old = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Kopyalandı!';
+        setTimeout(function () { btn.innerHTML = old; }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else {
+        fallbackCopy(text, done);
+    }
+}
+function fallbackCopy(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { /* yok sayilir */ }
+    document.body.removeChild(ta);
+}
+
 // Switch toggle animation
-document.querySelectorAll('.form-check-input').forEach(input => {
-    input.addEventListener('change', function() {
-        const box = this.closest('.parameter-box');
+// Not: Kucuk kutular .parameter-box-small sinifini kullanir ve .parameter-box
+// icermez; bu yuzden her iki sinif da aranir ( aksi halde null hatasi verir).
+document.querySelectorAll('.form-check-input').forEach(function (input) {
+    input.addEventListener('change', function () {
+        var box = this.closest('.parameter-box') || this.closest('.parameter-box-small');
+        if (!box) return;
         if (this.checked) {
             box.classList.add('active');
         } else {

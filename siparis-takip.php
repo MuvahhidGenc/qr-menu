@@ -7,12 +7,43 @@
  * Güvenlik:
  *   - Sipariş numarası TEK BAŞINA yetmez, kayıtlı telefon ile eşleşmelidir.
  *   - Doğrulama sunucuda yapılır (ajax/delivery/track_order.php).
- *   - Sorgulama, web sipariş modu KAPALIYKEN de çalışır; müşteri daha önce
- *     verdiği siparişini takip edebilmelidir.
+ *   - Erişim, web sipariş anahtarına (system_delivery_order_enabled) bağlıdır.
+ *   - QR/masa siparişi anahtarından (system_table_qr_order_enabled) BAĞIMSIZ
+ *     çalışır; QR siparişi kapatıldığında bu sayfa açık kalır.
  */
 require_once __DIR__ . '/includes/config.php';
 
 $db = new Database();
+
+// Erişim kontrolü: yalnızca web sipariş anahtarına bağlıdır.
+if (!isDeliveryEnabled($db)) {
+    http_response_code(403);
+    ?>
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sipariş Sorgulama Kapalı</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <style>
+            body{background:#f5f6f8;font-family:'Segoe UI',Tahoma,sans-serif;}
+            .dv-empty-box{max-width:460px;margin:12vh auto;background:#fff;border-radius:18px;padding:40px 28px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.08);}
+            .dv-empty-box i{font-size:52px;color:#adb5bd;margin-bottom:18px;}
+        </style>
+    </head>
+    <body>
+        <div class="dv-empty-box">
+            <i class="fas fa-search"></i>
+            <h4 class="fw-bold mb-2">Sipariş Sorgulama Kapalı</h4>
+            <p class="text-muted mb-0">Web üzerinden sipariş alma hizmeti şu anda kapalıdır. Siparişiniz için lütfen işletmemizi arayın.</p>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
 
 $settings = [];
 foreach ($db->query("SELECT setting_key, setting_value FROM settings")->fetchAll() as $row) {

@@ -154,12 +154,108 @@ function getDeliverySettings($db) {
 /**
  * Web Adrese Sipariş açık mı?
  *
+ * Bu anahtar SADECE web adres siparişini (siparis.php, siparis-tamamla.php,
+ * siparis-takip.php) kontrol eder. QR masa menüsünden (index.php) tamamen
+ * bağımsızdır; biri kapatıldığında diğeri etkilenmez.
+ *
  * @param Database $db
  * @return bool
  */
 function isDeliveryEnabled($db) {
     $s = getDeliverySettings($db);
     return isset($s['system_delivery_order_enabled']) && $s['system_delivery_order_enabled'] == '1';
+}
+
+/**
+ * QR üzerinden masa siparişi (index.php?table=N) açık mı?
+ *
+ * Bu anahtar SADECE QR/masa akışını kontrol eder; web adres siparişini
+ * (siparis.php) etkilemez.
+ *
+ * @param Database $db
+ * @return bool
+ */
+function isTableQrOrderEnabled($db) {
+    $s = getSystemSettings($db);
+    return isset($s['system_table_qr_order_enabled'])
+        && $s['system_table_qr_order_enabled'] == '1';
+}
+
+/**
+ * Yönetim panelindeki sipariş listesinin "kaynak" değerini tek yerden çözer.
+ *
+ * İki menü öğesi (Masa Siparişleri / Web Siparişleri) bu SONUCU kullanmalıdır;
+ * aksi halde menüde vurgulanan öğe ile listede gösterilen kaynak tutmaz.
+ * Örn. QR kapalı + web açıkken kaynak 'delivery' olur; menüde "Web Siparişleri"
+ * vurgulanmalıdır, verilen 'source' parametresine bakmadan.
+ *
+ * @param string|null $requested  URL'den gelen kaynak (all|table|delivery|null)
+ * @param bool $tableQrOn         QR/masa siparişi anahtarı
+ * @param bool $webOrderOn        Web adres siparişi anahtarı
+ * @return string all|table|delivery
+ */
+function resolveOrdersSource($requested, $tableQrOn, $webOrderOn) {
+    if (in_array($requested, ['all', 'table', 'delivery'], true)) {
+        return $requested;
+    }
+    if (!$tableQrOn && $webOrderOn) {
+        return 'delivery';
+    }
+    if ($tableQrOn && !$webOrderOn) {
+        return 'table';
+    }
+    return 'all';
+}
+
+/**
+ * Yönetim paneli sipariş menüsü için hangi öğelerin görüneceğini belirler.
+ *
+ * @param bool $tableQrOn
+ * @param bool $webOrderOn
+ * @return array ['table' => bool, 'delivery' => bool]
+ */
+function visibleOrdersMenus($tableQrOn, $webOrderOn) {
+    return [
+        'table'    => (bool)$tableQrOn,
+        'delivery' => (bool)$webOrderOn,
+    ];
+}
+
+/**
+ * Tüm sistem_* anahtarlarını tek seferde okur (istek başına önbellekli).
+ *
+ * @param Database $db
+ * @return array
+ */
+function getSystemSettings($db) {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $cache = [];
+    try {
+        $rows = $db->query(
+            "SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'system_%'"
+        )->fetchAll();
+        foreach ($rows as $r) {
+            $cache[$r['setting_key']] = $r['setting_value'];
+        }
+    } catch (Exception $e) {
+        error_log('getSystemSettings hatası: ' . $e->getMessage());
+    }
+    return $cache;
+}
+
+/**
+ * QR menüsünde sipariş butonu açık mı?
+ *
+ * @param Database $db
+ * @return bool
+ */
+function isAcceptQrOrders($db) {
+    $s = getSystemSettings($db);
+    return isset($s['system_accept_qr_orders']) && $s['system_accept_qr_orders'] == '1';
 }
 
 /**
@@ -281,6 +377,202 @@ function deliveryCleanText($value, $max = 255) {
         return mb_substr($value, 0, $max, 'UTF-8');
     }
     return substr($value, 0, $max);
+}
+
+/**
+ * Arama için Türkçe duyarsız katlama (fold)
+ *
+ * MySQL'in utf8mb4_general_ci collation'ı ASCII'de büyük/küçük harf
+ * ayrımını yapmaz ama TÜRKÇE harfleri birbirinden AYIRIR:
+ *   'I' (I) , 'ı' (i) , 'İ' (İ) , 'i' (i)  ->  birbirinden farklıdır
+ * Bu yüzden saf SQL LIKE ile "büyük küçük harf dikkat edilmesin"
+ * garantisi VERİLEMEZ; normalize edilmiş metin üzerinde çalışmak gerekir.
+ *
+ * Kritik özellik: fonksiyon GİRİŞTEKİ HER KARAKTERE TAM OLARAK BİR
+ * KARAKTER DÖNDÜRÜR (1:1). Böylece katlanmış metindeki karakter
+ * konumları özgün metinle birebir hizalıdır ve dvHighlightMatch()
+ * güvenle çalışabilir.
+ *
+ * @param string $value
+ * @return string
+ */
+function dvSearchFold($value) {
+    static $map = [
+        // ı İ I i  -> i      (Türkçe I/ı ayrımı tamamen ortadan kalkar)
+        "\u{0131}" => 'i', "\u{0130}" => 'i', 'I' => 'i', 'i' => 'i',
+        // ş Ş S s  -> s
+        "\u{015F}" => 's', "\u{015E}" => 's', 'S' => 's', 's' => 's',
+        // ğ Ğ G g  -> g
+        "\u{011F}" => 'g', "\u{011E}" => 'g', 'G' => 'g', 'g' => 'g',
+        // ü Ü U u  -> u
+        "\u{00FC}" => 'u', "\u{00DC}" => 'u', 'U' => 'u', 'u' => 'u',
+        // ö Ö O o  -> o
+        "\u{00F6}" => 'o', "\u{00D6}" => 'o', 'O' => 'o', 'o' => 'o',
+        // ç Ç C c  -> c
+        "\u{00E7}" => 'c', "\u{00C7}" => 'c', 'C' => 'c', 'c' => 'c',
+        // ğ/ş dışında kalan yaygın aksanlı harfler
+        "\u{015F}" => 's', 'a' => 'a', "\u{00E0}" => 'a', 'A' => 'a',
+        'e' => 'e', "\u{00E8}" => 'e', 'E' => 'e',
+        'n' => 'n', "\u{00F1}" => 'n', 'N' => 'n',
+        'r' => 'r', "\u{0159}" => 'r', 'R' => 'r',
+        'y' => 'y', 'Y' => 'y', 'z' => 'z', 'Z' => 'z',
+        'b' => 'b', 'B' => 'b', 'd' => 'd', 'D' => 'd',
+        'f' => 'f', 'F' => 'f', 'h' => 'h', 'H' => 'h',
+        'j' => 'j', 'J' => 'j', 'k' => 'k', 'K' => 'k',
+        'l' => 'l', 'L' => 'l', 'm' => 'm', 'M' => 'm',
+        'p' => 'p', 'P' => 'p', 'q' => 'q', 'Q' => 'q',
+        't' => 't', 'T' => 't', 'v' => 'v', 'V' => 'v',
+        'w' => 'w', 'W' => 'w', 'x' => 'x', 'X' => 'x',
+    ];
+
+    $s = (string)$value;
+    $out = '';
+    $len = function_exists('mb_strlen') ? mb_strlen($s, 'UTF-8') : strlen($s);
+
+    for ($i = 0; $i < $len; $i++) {
+        $ch = function_exists('mb_substr') ? mb_substr($s, $i, 1, 'UTF-8') : $s[$i];
+        if (isset($map[$ch])) {
+            $out .= $map[$ch];                 // 1 karakter -> 1 karakter
+        } else {
+            // Aksansız kalanlar: sadece küçült, uzunluk DEĞİŞMEZ
+            $out .= function_exists('mb_strtolower')
+                ? mb_strtolower($ch, 'UTF-8')
+                : strtolower($ch);
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Arama terimini kelimelere ayırır (çoklu terim = VE mantığı)
+ *
+ * @param string $value
+ * @param int    $maxTerim
+ * @return string[] Her biri dvSearchFold() uygulanmış, 1+ karakter
+ */
+function dvSearchTerms($value, $maxTerim = 6) {
+    $folded = dvSearchFold($value);
+    $parts  = preg_split('/\s+/u', trim($folded), -1, PREG_SPLIT_NO_EMPTY);
+    $out    = [];
+    foreach ((array)$parts as $p) {
+        // Joker karakterler aramada anlamsız; LIKE'a girmeden atılır.
+        $p = str_replace(['%', '_'], '', $p);
+        if ($p !== '' && !in_array($p, $out, true)) {
+            $out[] = $p;
+        }
+        if (count($out) >= $maxTerim) break;
+    }
+    return $out;
+}
+
+/**
+ * Ürünü arama terimlerine göre puanlar ( relevance )
+ *
+ * Puanlaması küçükten büyüğe:  en iyi eşleşme = 0
+ *   0 = ürün adı TAMAMEN terim
+ *   1 = ürün adı terimle BAŞLIYOR
+ *   2 = ürün adı terimi İÇERİYOR
+ *   3 = kategori adı terimi içeriyor
+ *   4 = açıklama terimi içeriyor
+ *
+ * Çoklu terimlerde (VE mantığı) EN ZAYIF alan esas alınır: ürün adında
+ * hem de açıklamada geçen bir arama, yalnızca açıklamada geçene göre öne geçer.
+ *
+ * @param array    $product  'name', 'description', 'category_name' içermeli
+ * @param string[] $terms    dvSearchTerms() çıktısı
+ * @return int|null null = eşleşme yok
+ */
+function dvSearchScore(array $product, array $terms) {
+    if (!$terms) return null;
+
+    $name = dvSearchFold($product['name'] ?? '');
+    $desc = dvSearchFold($product['description'] ?? '');
+    $cat  = dvSearchFold($product['category_name'] ?? '');
+
+    $worst = 0;
+    foreach ($terms as $t) {
+        $posName = mb_strpos($name, $t, 0, 'UTF-8');
+        if ($posName === 0) {
+            $score = 0;                                   // tam ad
+        } elseif ($posName !== false) {
+            $score = 1;                                   // ön ek
+        } elseif (mb_strpos($name, $t, 0, 'UTF-8') !== false) {
+            $score = 2;                                   // ad içinde
+        } elseif ($cat !== '' && mb_strpos($cat, $t, 0, 'UTF-8') !== false) {
+            $score = 3;                                   // kategoride
+        } elseif ($desc !== '' && mb_strpos($desc, $t, 0, 'UTF-8') !== false) {
+            $score = 4;                                   // açıklamada
+        } else {
+            return null;                                  // bu terim hiçbir yerde yok
+        }
+        if ($score > $worst) $worst = $score;
+    }
+    return $worst;
+}
+
+/**
+ * Özgün metin içinde eşleşen terimleri <mark> ile vurgular
+ *
+ * dvSearchFold() 1:1 karakter koruduğu için katlanmış metindeki
+ * konumlar özgün metinle hizalıdır; güvenli biçimde vurgulayabiliriz.
+ *
+ * @param string   $text  Özgün (vurgulanacak) metin
+ * @param string[] $terms dvSearchTerms() çıktısı
+ * @return string HTML-escape edilmiş ve vurgulanmış metin
+ */
+function dvHighlightMatch($text, array $terms) {
+    $text = (string)$text;
+    if (!$terms || $text === '') {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+
+    $folded = dvSearchFold($text);
+    $len    = function_exists('mb_strlen') ? mb_strlen($folded, 'UTF-8') : strlen($folded);
+
+    // Katlanmış koordinattaki eşleşme aralıklarını topla
+    $marks = [];
+    foreach ($terms as $t) {
+        $offset = 0;
+        while ($offset < $len) {
+            $p = mb_strpos($folded, $t, $offset, 'UTF-8');
+            if ($p === false) break;
+            $marks[] = [$p, $p + mb_strlen($t, 'UTF-8')];
+            $offset = $p + max(1, mb_strlen($t, 'UTF-8'));
+        }
+    }
+    if (!$marks) {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+
+    usort($marks, function ($a, $b) { return $a[0] <=> $b[0]; });
+
+    // Çakışan/yan yana aralıkları birleştir
+    $merged = [];
+    foreach ($marks as $m) {
+        $last = count($merged) - 1;
+        if ($last >= 0 && $m[0] <= $merged[$last][1]) {
+            $merged[$last][1] = max($merged[$last][1], $m[1]);
+        } else {
+            $merged[] = $m;
+        }
+    }
+
+    $out = '';
+    $cur = 0;
+    foreach ($merged as $m) {
+        if ($m[0] > $cur) {
+            $out .= htmlspecialchars(mb_substr($text, $cur, $m[0] - $cur, 'UTF-8'), ENT_QUOTES, 'UTF-8');
+        }
+        $out .= '<mark class="dv-hl">'
+              . htmlspecialchars(mb_substr($text, $m[0], $m[1] - $m[0], 'UTF-8'), ENT_QUOTES, 'UTF-8')
+              . '</mark>';
+        $cur = $m[1];
+    }
+    if ($cur < mb_strlen($text, 'UTF-8')) {
+        $out .= htmlspecialchars(mb_substr($text, $cur, null, 'UTF-8'), ENT_QUOTES, 'UTF-8');
+    }
+    return $out;
 }
 
 /**

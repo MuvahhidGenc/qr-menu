@@ -1085,10 +1085,47 @@ $showReservations = isset($visibilityParams['system_qr_reservations_visible']) ?
                         </a>
                     </li>
                     <?php endif; ?>
-                    <?php if ($showOrders && hasPermission('orders.view')): ?>
+                    <?php
+                    // Sipariş menüleri birbirinden BAĞIMSIZ iki anahtara bağlıdır:
+                    //   - Masa/QR siparişleri  -> system_table_qr_order_enabled
+                    //   - Web adres siparişleri -> system_delivery_order_enabled
+                    // Bu yüzden iki ayrı menü öğesi gösterilir; web siparişi
+                    // açıkken QR sipariş ikonunun web tarafında görünmesi engellenir.
+                    //
+                    // DİKKAT: "Siparişler menüsünü göster/gizle" ayarı
+                    // (system_qr_orders_visible) YALNIZCA QR Menü bölümüne aittir ve
+                    // Web Siparişleri menüsünü GİZLEMEZ. Bu bayrağı Web menüsüne
+                    // uygulamak, web siparişi açıkken menünün kaybolmasına yol
+                    // açar; iki menü bu bakımdan da birbirinden bağımsızdır.
+                    $currentPage = basename($_SERVER['PHP_SELF']);
+                    $isOrdersPage = ($currentPage === 'orders.php');
+
+                    $tableQrOn = isTableQrOrderEnabled($db);
+                    $webOrderOn = isDeliveryEnabled($db);
+
+                    // Kaynak hem navbar'da hem admin/orders.php'de AYNI sekilde
+                    // cozulmelidir; aksi halde menude vurgulanan oge ile listede
+                    // gosterilen kaynak birbirinden kopar.
+                    $resolvedSource = resolveOrdersSource($_GET['source'] ?? null, $tableQrOn, $webOrderOn);
+                    $ordersActive     = $isOrdersPage && $resolvedSource !== 'delivery';
+                    $webOrdersActive  = $isOrdersPage && $resolvedSource === 'delivery';
+                    $menuVis = visibleOrdersMenus($tableQrOn, $webOrderOn);
+                    ?>
+                    <?php // Masa siparişleri: QR menüsü görünürlüğü + QR sipariş anahtarı
+                    if ($showOrders && $menuVis['table'] && hasPermission('orders.view')): ?>
                     <li class="nav-item">
-                        <a href="orders.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'active' : '' ?>">
-                            <i class="fas fa-shopping-cart"></i>Siparişler
+                        <a href="orders.php?source=table" class="nav-link <?= $ordersActive ? 'active' : '' ?>">
+                            <i class="fas fa-shopping-cart"></i>Masa Siparişleri
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
+                    <?php // Web siparişleri: YALNIZCA web sipariş anahtarı + yetki.
+                          // QR menüsü görünürlük ayarı burada DANIŞILMAZ.
+                    if ($menuVis['delivery'] && hasPermission('orders.view')): ?>
+                    <li class="nav-item">
+                        <a href="orders.php?source=delivery" class="nav-link <?= $webOrdersActive ? 'active' : '' ?>">
+                            <i class="fas fa-motorcycle"></i>Web Siparişleri
                         </a>
                     </li>
                     <?php endif; ?>

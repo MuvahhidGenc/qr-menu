@@ -12,10 +12,10 @@ foreach ($db->query("SELECT setting_key, setting_value FROM settings")->fetchAll
     $settings[$row['setting_key']] = $row['setting_value'];
 }
 
-$customerAccess = isset($settings['system_customer_access']) && $settings['system_customer_access'] == '1';
 $deliveryEnabled = isDeliveryEnabled($db);
 
-if (!$customerAccess || !$deliveryEnabled) {
+// Erişim yalnızca web sipariş anahtarına bağlıdır (QR/masa anahtarından bağımsız).
+if (!$deliveryEnabled) {
     header('Location: siparis.php');
     exit;
 }
@@ -43,6 +43,10 @@ $isRequired = function ($field) use ($requiredFields) {
 // --- Önceki siparişten saklanan bilgiler (yalnızca bu tarayıcı oturumunda) ---
 $saved = $_SESSION['delivery_customer'] ?? [];
 
+// customer-header.php'deki hero gizlenir: bu sayfa da dv-store-bar ile aynı
+// restoran adı/sloganı basıyor. siparis.php ile tutarlı olması için aynı
+// davranış uygulanır (mobilde ~180px dikey alan kazanılır).
+$hideCustomerHero = true;
 include __DIR__ . '/includes/customer-header.php';
 ?>
 

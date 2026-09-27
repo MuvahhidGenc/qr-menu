@@ -134,3 +134,18 @@ INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
     ('delivery_close_time', '23:00'),
     ('delivery_hour_check', '0')
 ON DUPLICATE KEY UPDATE `setting_key` = `setting_key`;
+
+-- 10) QR ile masa siparisi anahtari -------------------------------------------
+-- QR menusu (index.php?table=N) ve Web Adrese Siparis (siparis.php) artik
+-- BIRBIRINDEN BAGIMSIZ iki ayri anahtarla kontrol edilir.
+-- Eski `system_customer_access` degeri yeni anahtara tasinir; boylece mevcut
+-- kurulumlarda yoneticinin tercihi korunur.
+-- INSERT IGNORE: anahtar zaten varsa UYGULANMAZ (idempotent ve yikici degil).
+INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`)
+    SELECT 'system_table_qr_order_enabled', `setting_value`
+    FROM `settings`
+    WHERE `setting_key` = 'system_customer_access';
+
+-- Eski anahtar artik kullanilmaz; yanlislikla acik kalmasin diye silinir.
+-- NOT: Bu anahtari tutan kod kalmadigi icin veri kaybi riski yoktur.
+DELETE FROM `settings` WHERE `setting_key` = 'system_customer_access';

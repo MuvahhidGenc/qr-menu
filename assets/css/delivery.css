@@ -39,9 +39,158 @@
 }
 
 /* --- Kategori sekmeleri --- */
-.dv-cat-bar {
+/* --- Hızlı ürün arama ------------------------------------------------------ */
+/* Arama çubuğu her zaman üstte sabit kalır; kategori çubuğu tam altına yapışır.
+   Yüksekliği sabit tutulur (--dv-search-h) ki kategori çubuğunun offset'i
+   her ekranda doğru hizalanabilsin. */
+.dv-search {
+    --dv-search-h: 57px;
     position: sticky;
     top: 0;
+    z-index: 950;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border-bottom: 1px solid #eceef1;
+    padding: 10px 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+}
+
+.dv-search-icon {
+    color: #8b93a0;
+    font-size: .95rem;
+    flex: 0 0 auto;
+}
+
+.dv-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 36px;
+    border: 1px solid #e2e5ea;
+    border-radius: 18px;
+    padding: 0 6px 0 14px;
+    background: #f5f6f8;
+    color: #1f2430;
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .2s, background .2s, box-shadow .2s;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* type=search için tarayıcının kendi temizleme düğmesini gizle
+   (kendi düğmemiz var) */
+.dv-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.dv-search-input:focus {
+    background: #fff;
+    border-color: var(--theme-primary, #3a94ee);
+    box-shadow: 0 0 0 3px rgba(58, 148, 238, .16);
+}
+
+.dv-search-btn,
+.dv-search-clear {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--theme-primary, #3a94ee);
+    color: #fff;
+    font-size: .85rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity .2s;
+}
+
+.dv-search-btn:active { opacity: .8; }
+
+.dv-search-clear {
+    width: 30px;
+    height: 30px;
+    font-size: .75rem;
+    background: #eceef1;
+    color: #6b7280;
+}
+
+/* Arama sonuçları / hızlı sipariş başlıkları */
+.dv-search-head,
+.dv-quick-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 12px;
+}
+
+.dv-quick-head { margin-top: 22px; }
+
+.dv-search-count {
+    font-size: .78rem;
+    color: #8b93a0;
+    text-align: right;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Arama sonuçlarında kategori rozeti */
+.dv-search-cat {
+    display: inline-block;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--theme-primary, #3a94ee);
+    background: rgba(58, 148, 238, .1);
+    border-radius: 20px;
+    padding: 2px 9px;
+    margin-bottom: 4px;
+}
+
+/* --- Arama eşleşme vurgusu ---
+   Tema değişkenlerini kullanır; mark etiketinin kendi varsayılan
+   sarı zeminini kullanmaktansa markaya uyumlu, yumuşak bir ton. */
+.dv-hl {
+    background: rgba(58, 148, 238, .18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 0 2px;
+    font-weight: 700;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* --- Canlı arama: yükleniyor durumu --- */
+.dv-searching .dv-search-icon {
+    animation: dvSpin .8s linear infinite;
+}
+.dv-searching .dv-search-btn {
+    opacity: .55;
+    pointer-events: none;
+}
+@keyframes dvSpin {
+    to { transform: rotate(360deg); }
+}
+/* Hareket azaltma tercihi olan kullanıcılar için animasyon kapalı */
+@media (prefers-reduced-motion: reduce) {
+    .dv-searching .dv-search-icon { animation: none; }
+}
+
+/* --- Arama sonuç listesi --- */
+.dv-result-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.dv-cat-bar {
+    position: sticky;
+    top: 57px;
     z-index: 900;
     background: #fff;
     border-bottom: 1px solid #eceef1;
@@ -492,8 +641,10 @@
     position: relative;
     padding: 0 0 16px 26px;
     font-size: .88rem;
+    color: #8b93a0;
 }
 
+/* Nokta (aşama durumu) */
 .dv-timeline li::before {
     content: '';
     position: absolute;
@@ -503,11 +654,28 @@
     height: 10px;
     border-radius: 50%;
     background: #dee2e6;
+    transition: background .2s, box-shadow .2s;
 }
 
+/* Tamamlanan aşama: nokta yeşil, metin yeşil, bağlantı çizgisi yeşil */
+.dv-timeline li.done { color: #2f9e5f; }
 .dv-timeline li.done::before { background: #2f9e5f; }
-.dv-timeline li.current::before { background: var(--theme-primary, #3a94ee); box-shadow: 0 0 0 4px rgba(58, 148, 238, .18); }
+.dv-timeline li.done::after { background: #2f9e5f; }
+.dv-timeline li.done .dv-tl-label { color: #2f9e5f; font-weight: 600; }
 
+/* Şu anki aşama: vurgulu halka + kalın metin */
+.dv-timeline li.current { color: var(--theme-primary, #3a94ee); }
+.dv-timeline li.current::before {
+    background: var(--theme-primary, #3a94ee);
+    box-shadow: 0 0 0 4px rgba(58, 148, 238, .18);
+}
+.dv-timeline li.current .dv-tl-label { font-weight: 700; }
+
+/* İptal edilen sipariş: hiçbir aşama işaretlenmez */
+.dv-timeline.cancelled li { color: #adb5bd; }
+.dv-timeline.cancelled li::before { background: #e2e6ea; }
+
+/* Bağlantı çizgisi */
 .dv-timeline li::after {
     content: '';
     position: absolute;

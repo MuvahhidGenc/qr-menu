@@ -4,7 +4,9 @@
  * ?no=1024  (Sipariş numarası)
  *
  * Müşteri yalnızca kendi oturumunda saklanan delivery_token ile siparişini
- * görebilir. Telefon numarası ile sorgulama YAPILMAZ (KVKK / IDOR koruması).
+ * görebilir. Sipariş numarası + telefon ile sorgulama ayrı sayfadadır
+ * (siparis-takip.php). Bu ekranın kapısı yalnızca oturum token'ıdır; sipariş
+ * verildikten hemen sonra erişilebilir kalmalıdır.
  */
 require_once __DIR__ . '/includes/config.php';
 
@@ -16,8 +18,6 @@ foreach ($db->query("SELECT setting_key, setting_value FROM settings")->fetchAll
 }
 
 $orderNumber = getSecureInt('no', 0);
-$deliveryEnabled = isDeliveryEnabled($db);
-$customerAccess = isset($settings['system_customer_access']) && $settings['system_customer_access'] == '1';
 
 // Token doğrulaması: session'daki son sipariş ile eşleşmeli
 $sessionToken = $_SESSION['delivery_last_order']['token'] ?? '';

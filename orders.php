@@ -3,6 +3,12 @@ require_once 'includes/config.php';
 require_once 'includes/cart.php';
 $db = new Database();
 
+// QR üzerinden masa siparişi kapalıysa erişim yok (web siparişten bağımsız)
+if (!isTableQrOrderEnabled($db)) {
+    header('Location: index.php');
+    exit;
+}
+
 // Masa ID'sini al
 $table_id = $_SESSION['table_id'] ?? null;
 if (!$table_id) {
@@ -106,7 +112,7 @@ if (defined('DEBUG_MODE') && DEBUG_MODE) {
 $orders = $filtered_orders;
 
 // Geri dönüş URL'sini belirle
-$back_url = $_SERVER['HTTP_REFERER'] ?? 'menu.php'; // Eğer referrer yoksa menu.php'ye git
+$back_url = $_SERVER['HTTP_REFERER'] ?? 'index.php'; // Eğer referrer yoksa ana menüye git
 
 include 'includes/customer-header.php';
 ?>
@@ -222,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.history.back();
             } else {
                 // Yoksa menüye yönlendir
-                window.location.href = 'menu.php';
+                window.location.href = 'index.php';
             }
         });
     });

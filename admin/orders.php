@@ -30,7 +30,38 @@ $filter_type = $_GET['filter_type'] ?? 'active';
 $status = $_GET['status'] ?? 'all';
 $table_id = $_GET['table'] ?? 'all';
 $date = $_GET['date'] ?? date('Y-m-d');
-$source = $_GET['source'] ?? 'all';
+// Sipariş kaynağı (masa / web adres)
+// NOT: Menüde iki ayrı öğe vardır (Masa Siparişleri / Web Siparişleri) ve her
+// biri kaynağı URL ile sabitleyerek gelir. Parametre gelmezse hangi modun
+// açık olduğuna göre makul bir varsayılan seçilir. Çözümleme navbar.php ile
+// paylaşılan resolveOrdersSource() ile yapılır; menüde vurgulanan öğe ile
+// listede gösterilen kaynak bu yüzden her zaman tutarlıdır.
+$tableQrOn  = isTableQrOrderEnabled($db);
+$webOrderOn = isDeliveryEnabled($db);
+$source     = resolveOrdersSource($_GET['source'] ?? null, $tableQrOn, $webOrderOn);
+
+// Sayfa başlığı kaynağı yansıtır (menüde hangi öğeden gelindiği anlaşılsın)
+$sourceTitle = [
+    'all'      => '',
+    'table'    => 'Masa Siparişleri',
+    'delivery' => 'Web Adres Siparişleri',
+][$source];
+
+// Sadece bir mod açıkken diğerini seçmeye izin verme (menü ayrımıyla tutarlı)
+$orderSources = [
+    'all' => 'Tüm Kaynaklar',
+    'table' => 'Masa Siparişleri',
+    'delivery' => 'Adres Siparişleri'
+];
+if ($source === 'delivery') {
+    unset($orderSources['table']);
+} elseif ($source === 'table') {
+    unset($orderSources['delivery']);
+} elseif (!$tableQrOn && $webOrderOn) {
+    $orderSources = ['delivery' => 'Adres Siparişleri'];
+} elseif (!$webOrderOn && $tableQrOn) {
+    $orderSources = ['table' => 'Masa Siparişleri'];
+}
 
 // Sipariş durumları
 $orderStatuses = [
@@ -51,12 +82,7 @@ $orderTypes = [
     'cancelled' => 'İptal Edilen Siparişler'
 ];
 
-// Sipariş kaynağı (masa / web adres)
-$orderSources = [
-    'all' => 'Tüm Kaynaklar',
-    'table' => 'Masa Siparişleri',
-    'delivery' => 'Adres Siparişleri'
-];
+// Sipariş kaynağı (masa / web adres) yukarıda kaynak duyarlı tanımlandı.
 
 // Sorgu oluştur
 $query = "SELECT o.*, t.table_no, 
@@ -336,10 +362,15 @@ select:disabled {
 </style>
 
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
             <h5 class="mb-0">
                 <?= $filter_type === 'active' ? 'Aktif Siparişler' : ($filter_type === 'completed' ? 'Tamamlanan Siparişler' : 'İptal Edilen Siparişler') ?>
             </h5>
+            <?php if ($sourceTitle !== ''): ?>
+                <span class="badge <?= $source === 'delivery' ? 'bg-danger' : 'bg-primary' ?>">
+                    <i class="fas <?= $source === 'delivery' ? 'fa-motorcycle' : 'fa-shopping-cart' ?> me-1"></i><?= $sourceTitle ?>
+                </span>
+            <?php endif; ?>
         </div>
         <div class="card-body">
             <!-- Filtreler -->

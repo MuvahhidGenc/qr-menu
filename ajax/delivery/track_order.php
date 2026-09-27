@@ -8,6 +8,7 @@
  *     (Sipariş numaraları sıralıdır; tek başına sorgu IDOR'a açıktır.)
  *   - Hız sınırlama (RateLimit) ile numara tahmin edilmesi engellenir.
  *   - Hatalı eşleşmede sipariş varlığı BİLE ele verilmez.
+ *   - Erişim web sipariş anahtarına (system_delivery_order_enabled) bağlıdır.
  *   - PDO prepared statement; çıktılar htmlspecialchars ile kaçırılır.
  */
 require_once __DIR__ . '/../../includes/config.php';
@@ -22,8 +23,16 @@ try {
         throw new Exception('Geçersiz istek.');
     }
 
-    // Sorgulama özelliği her zaman açık kalmalıdır: müşteri mod kapalıyken de
-    // verilmiş siparişini sorgulayabilmelidir. Bu yüzden isDeliveryEnabled kontrolü YOK.
+    // Erişim kontrolü: web sipariş anahtarına bağlıdır. QR/masa anahtarından
+    // bağımsızdır; QR siparişi kapatıldığında sorgulama çalışmaya devam eder.
+    if (!isDeliveryEnabled($db)) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Web üzerinden sipariş alma hizmeti şu anda kapalıdır.',
+        ]);
+        exit;
+    }
 
     // CSRF
     $csrfToken = $_POST['csrf_token'] ?? '';

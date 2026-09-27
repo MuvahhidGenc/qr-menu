@@ -160,56 +160,277 @@ const DV = {
 document.addEventListener('DOMContentLoaded', function () {
     DV.refreshCartBar();
 
-    // Ürün kartlarındaki miktar butonları
-    document.querySelectorAll('[data-dv-inc]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+    // ---------------------------------------------------------------
+    // ÜRÜN KARTI BUTONLARI: EVENT DELEGASYONU (document seviyesinde)
+    // ---------------------------------------------------------------
+    // Neden delegasyon? Canlı arama sonuçları AJAX ile sonradan DOM'a
+    // ekleniyor. querySelectorAll ile bağlansaydı yeni gelen kartların
+    // butonları HİÇBİR ŞEKİLDE bağlanmaz ve ölü kalırdı. Tek dinleyici
+    // document'e bağlandığı için sonradan eklenen her kart otomatik çalışır.
+    document.addEventListener('click', function (e) {
+        const target = e.target;
+        if (!target || !target.closest) return;
+
+        // Miktar artır
+        const inc = target.closest('[data-dv-inc]');
+        if (inc) {
             e.preventDefault();
-            const id = btn.dataset.dvInc;
+            const id = inc.dataset.dvInc;
             const span = document.querySelector('[data-dv-qty="' + id + '"]');
-            const current = parseInt(span.textContent, 10) || 1;
+            const current = span ? (parseInt(span.textContent, 10) || 1) : 1;
             if (current >= 99) return;
             DV.setQty(id, 1, '[data-dv-qty="' + id + '"]');
-        });
-    });
+            return;
+        }
 
-    document.querySelectorAll('[data-dv-dec]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+        // Miktar azalt
+        const dec = target.closest('[data-dv-dec]');
+        if (dec) {
             e.preventDefault();
-            const id = btn.dataset.dvDec;
+            const id = dec.dataset.dvDec;
             const span = document.querySelector('[data-dv-qty="' + id + '"]');
-            const current = parseInt(span.textContent, 10) || 1;
+            const current = span ? (parseInt(span.textContent, 10) || 1) : 1;
             if (current <= 0) return;
             DV.setQty(id, -1, '[data-dv-qty="' + id + '"]');
-        });
-    });
+            return;
+        }
 
-    // Sepete ekle butonları
-    document.querySelectorAll('[data-dv-add]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+        // Sepete ekle
+        const add = target.closest('[data-dv-add]');
+        if (add) {
             e.preventDefault();
-            const id = btn.dataset.dvAdd;
+            const id = add.dataset.dvAdd;
             const span = document.querySelector('[data-dv-qty="' + id + '"]');
             const qty = span ? (parseInt(span.textContent, 10) || 1) : 1;
             DV.add(id, qty);
-        });
-    });
+            return;
+        }
 
-    // Sepetten çıkar
-    document.querySelectorAll('[data-dv-remove]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+        // Sepetten çıkar
+        const rem = target.closest('[data-dv-remove]');
+        if (rem) {
             e.preventDefault();
-            DV.remove(btn.dataset.dvRemove, function (res) {
+            DV.remove(rem.dataset.dvRemove, function (res) {
                 if (typeof window.dvCartRowRemoved === 'function') {
-                    window.dvCartRowRemoved(btn.dataset.dvRemove, res);
+                    window.dvCartRowRemoved(rem.dataset.dvRemove, res);
                 } else {
                     location.reload();
                 }
             });
-        });
+            return;
+        }
+
+        // Ödeme seçeneği
+        const pay = target.closest('.dv-pay-option');
+        if (pay) {
+            DV.selectPayment(pay.dataset.value);
+        }
     });
 
-    // Ödeme seçenekleri
-    document.querySelectorAll('.dv-pay-option').forEach(function (el) {
-        el.addEventListener('click', function () { DV.selectPayment(el.dataset.value); });
-    });
+    DV.initSearch();
 });
+
+/**
+ * CANLI ürün araması (sayfa yenilenmeden)
+ *
+ *  - Yazmaya başlandığında 280 ms debounce uygulanır, sonra sunucuya
+ *    POST ile sorulur (ajax/delivery/search.php). SAYFA YENİLENMEZ.
+ *  - Sunucu, siparis.php ile BİREBİR aynı HTML'yi döner
+ *    (includes/delivery-search.php) ve yanıt doğrudan #dvSearchResults
+ *    konteyzerine yazılır. Böylece "N sonuç" yazısı ile ekrandaki kart
+ *    sayısı yapısal olarak eşitlenemez.
+ *  - Yazarken ayrıca anlık yerel filtre uygulanır (sunucu yanıtını
+ *    beklemeden anında geri bildirim).
+ *  - Enter'a basılırsa debounce beklemeden anında gönderilir.
+ *  - fetch desteklenmiyorsa veya istek başarısız olursa klasik forma
+ *    düşülür (progressive enhancement: arama yine de çalışır).
+ *  - Arama kutusu yalnızca menü sayfasında vardır; yoksa sessizce çıkar.
+ */
+DV.initSearch = function () {
+    const form = document.getElementById('dvSearchForm');
+    const input = document.getElementById('dvSearchInput');
+    if (!form || !input) return;
+
+    // PHP dvSearchFold() ile BİREBİR aynı normalize etme.
+    // 'I'/'ı'/'İ'/'i' -> 'i' ... 'Ş'/'s' -> 's' vb. Böylece "IRMAK" yazan
+    // müşteri "irmak" aradığında da ürünü bulur.
+    const norm = function (s) {
+        return (s || '')
+            .replace(/[ıİIi]/g, 'i')
+            .replace(/[şŞSs]/g, 's')
+            .replace(/[ğĞGg]/g, 'g')
+            .replace(/[üÜUu]/g, 'u')
+            .replace(/[öÖOo]/g, 'o')
+            .replace(/[çÇCc]/g, 'c')
+            .replace(/[àáâä]/g, 'a')
+            .replace(/[èéêë]/g, 'e')
+            .replace(/[ñ]/g, 'n')
+            .replace(/[ř]/g, 'r')
+            .toLowerCase()
+            .trim();
+    };
+
+    // Çoklu kelime = VE mantığı (sunucuyla aynı)
+    const termsOf = function (s) {
+        return norm(s)
+            .replace(/[%_]/g, ' ')
+            .split(/\s+/)
+            .filter(function (t) { return t.length > 0; })
+            .slice(0, 6);
+    };
+
+    // data-name + data-desc + data-cat: sunucu bu ÜÇ alanda arar,
+    // istemci de aynı üç alanda arar. (Eskiden yalnızca adda aranıyordu;
+    // açıklama/kategoride geçen ürünler sunucuda bulunup ekranda gizleniyordu.)
+    const haystackOf = function (card) {
+        return norm(
+            (card.dataset.name || '') + ' ' +
+            (card.dataset.desc || '') + ' ' +
+            (card.dataset.cat  || '')
+        );
+    };
+
+    const results = document.getElementById('dvSearchResults');
+    const endpoint = (window.DV_SEARCH_URL || 'ajax/delivery/search.php');
+    const csrf = window.DV_CSRF_TOKEN || '';
+    const canFetch = !!(window.fetch && results);
+    // Kutu boşaltılıp menüye dönüldüğünde hangi kategoride olduğumuzu
+    // korumak için gerekir (aksi halde kategori ekranından ana menüye atlanır).
+    // URLSearchParams yoksa (çok eski tarayıcı) ana menüye dönülür.
+    let currentCategory = '0';
+    try {
+        currentCategory = (new URLSearchParams(window.location.search || ''))
+            .get('category') || '0';
+    } catch (e) { /* ana menü varsayılanı */ }
+    let debounce = null;
+    let inflight = null;        // AbortController: eski istek iptal edilir
+    let seq = 0;                // Yanıt sırası: yarış koşulunda eski yanıt ezilir
+    let lastTerm = null;
+
+    // ---- Yerel filtre: anında geri bildirim, sunucu gelene kadar ----
+    // Ekrandaki kartlara dokunmak SADECE sunucu yanıtı beklerken anlık
+    // geri bildirim içindir. Yanıt geldiğinde tüm liste sunucunun HTML'i
+    // ile değiştirilir; "N sonuç" ile kart sayısı daima eşittir.
+    const localFilter = function (terms) {
+        const cards = Array.prototype.slice.call(
+            results.querySelectorAll('.dv-product[data-name]')
+        );
+        if (!terms.length) {
+            cards.forEach(function (c) { c.style.display = ''; });
+            return cards.length;
+        }
+        let shown = 0;
+        cards.forEach(function (c) {
+            const hay = haystackOf(c);
+            // Tüm terimler bulunmalı (VE mantığı)
+            let hit = true;
+            for (let i = 0; i < terms.length; i++) {
+                if (hay.indexOf(terms[i]) === -1) { hit = false; break; }
+            }
+            c.style.display = hit ? '' : 'none';
+            if (hit) shown++;
+        });
+        return shown;
+    };
+
+    // ---- URL'yi arama terimiyle eşitle (sayfa YENİLENMEZ) ----
+    // replaceState: geri tuşu arama geçmişinde gezinmez, ama URL
+    // paylaşılabilir kalır ve sayfa yenilense de arama korunur.
+    const syncUrl = function (term) {
+        if (!window.history || !window.history.replaceState) return;
+        const url = term ? 'siparis.php?q=' + encodeURIComponent(term) : 'siparis.php';
+        try { window.history.replaceState({ dvSearch: term }, '', url); }
+        catch (e) { /* bazı tarayıcılar file://'de reddeder */ }
+    };
+
+    // ---- Canlı arama isteği ----
+    const runSearch = function (term) {
+        if (!canFetch) { form.submit(); return; }   // fetch yoksa klasik form
+
+        const mySeq = ++seq;
+        if (inflight) { try { inflight.abort(); } catch (e) {} }
+        inflight = (window.AbortController ? new AbortController() : null);
+
+        form.classList.add('dv-searching');
+
+        const body = new URLSearchParams();
+        body.append('q', term);
+        // Kutu boşaltıldığında sunucu menü listesini döndürsün; böylece
+        // "tüm ürünler"e dönüş de sayfa yenilemeden olur.
+        if (!term) { body.append('reset', '1'); }
+        if (currentCategory) { body.append('category_id', currentCategory); }
+        if (csrf) body.append('csrf_token', csrf);
+
+        fetch(endpoint, {
+            method: 'POST',
+            body: body,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: inflight ? inflight.signal : undefined
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (res) {
+                if (mySeq !== seq) return;   // daha yeni bir istek geldi
+                if (!res || !res.success) throw new Error((res && res.message) || 'Arama başarısız');
+
+                // Sunucunun ürettiği HTML doğrudan yerleştirilir.
+                results.innerHTML = res.html;
+                syncUrl(res.term);
+                lastTerm = res.term;
+                form.classList.remove('dv-searching');
+                if (typeof DV.refreshCartBar === 'function') DV.refreshCartBar();
+            })
+            .catch(function (err) {
+                if (mySeq !== seq) return;             // iptal edilmiş istek
+                if (err && err.name === 'AbortError') return;
+                form.classList.remove('dv-searching');
+                // Sunucuya ulaşılamadıysa klasik forma düş.
+                // NOT: fetch desteklenmiyorsa form zaten POST'a gider; burada
+                // yalnızca istek BAŞARISIZ olduğunda devreye girer.
+                if (canFetch) { form.submit(); }
+            });
+    };
+
+    // ---- Yazma olayı: debounce ile canlı arama ----
+    input.addEventListener('input', function () {
+        const raw = input.value;
+        const terms = termsOf(raw);
+        clearTimeout(debounce);
+
+        if (terms.length === 0) {
+            // Boş kutu: menüye dön. fetch varsa AJAX (sayfa yenilenmez),
+            // yoksa klasik form.
+            if (lastTerm !== null) {
+                lastTerm = null;
+                runSearch('');
+            }
+            return;
+        }
+
+        // 1) Anında yerel geri bildirim (sunucuyu beklemeden)
+        localFilter(terms);
+
+        // 2) 280 ms sonra sunucuya sor (yazma duraklayınca)
+        debounce = setTimeout(function () { runSearch(raw.trim()); }, 280);
+    });
+
+    // Enter: anında sunucuya gönder (debounce beklemeden)
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearTimeout(debounce);
+        if (input.value.trim() === '') {
+            runSearch('');
+            return;
+        }
+        runSearch(input.value.trim());
+    });
+
+    // Sayfa ?q= ile açıldıysa canlı arama zaten etkin; yalnızca
+    // "sunucu sonucu" modunda olduğumuzu not ederiz.
+    if (document.querySelector('[data-server-search="1"]')) {
+        input.setAttribute('data-server-results', '1');
+        lastTerm = input.value.trim();
+    }
+};

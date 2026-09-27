@@ -34,12 +34,13 @@ foreach($settingsResult->fetchAll() as $row) {
 }
 
 // Sistem parametrelerini kontrol et
-$acceptOrders = isset($settings['system_accept_qr_orders']) && $settings['system_accept_qr_orders'] == '1';
-$qrMenuEnabled = isset($settings['system_qr_menu_enabled']) && $settings['system_qr_menu_enabled'] == '1';
-$customerAccess = isset($settings['system_customer_access']) && $settings['system_customer_access'] == '1';
+$acceptOrders   = isAcceptQrOrders($db);
+$qrMenuEnabled  = isset($settings['system_qr_menu_enabled']) && $settings['system_qr_menu_enabled'] == '1';
+$tableQrEnabled = isTableQrOrderEnabled($db);
 
-// Müşteri erişimi kapalıysa sayfayı gösterme
-if (!$customerAccess) {
+// QR üzerinden masa siparişi kapalıysa sayfayı gösterme
+// (Web Adrese Sipariş bu anahttan BAĞIMSIZ çalışır; siparis.php etkilenmez.)
+if (!$tableQrEnabled) {
     http_response_code(403);
     ?>
     <!DOCTYPE html>

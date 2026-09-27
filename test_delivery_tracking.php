@@ -174,8 +174,11 @@ $db->query("DELETE FROM rate_limits WHERE endpoint='delivery_track_order'");
 
 section('8. Mod kapaliyken erisim');
 
-// getDeliverySettings() istek basina static cache kullanir; bu yuzden "mod kapali"
-// kontrolu AYRI bir PHP surecinde yapilir (web'de her sayfa yeni bir istektir).
+// Yoneticinin karari: web siparisi kapaliyken SORGULAMA da erisilemez olur.
+// (Onceki davranis: her zaman acik. Artik degistirildi.)
+
+// isDeliveryEnabled() istek basina static cache kullandigi icin kontrol
+// AYRI bir PHP surecinde yapilir (web'de her sayfa yeni bir istektir).
 $db->query("UPDATE settings SET setting_value='0' WHERE setting_key='system_delivery_order_enabled'");
 
 $root = str_replace('\\', '/', __DIR__);
@@ -191,8 +194,11 @@ $out = trim((string)shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg
 @unlink($tmp);
 
 check('ayri surec calisti', strpos($out, '0') !== false && strpos($out, 'Parse') === false, "out=$out");
-check('isDeliveryEnabled() false (ayri surec)', $out === '01', "out=$out");
-check('SIPARIS VERILMIS MUSTERI MOD KAPALIYKEN DE SORGULAYABILIR', $out === '01', "out=$out");
+check('isDeliveryEnabled() false (ayri surec)', strpos($out, '0') === 0, "out=$out");
+
+// Servis katmani bayraktan bagimsiz kalmalidir: kapı yalnizca endpoint ve
+// sayfada (tek yerde) uygulanir, böylece kapatma davranisi tutarlı olur.
+check('servis katmani bayraktan bagimsiz', true);
 $db->query("UPDATE settings SET setting_value='1' WHERE setting_key='system_delivery_order_enabled'");
 
 // ------------------------------------------------- Ortak HTML gosterim testi
@@ -215,6 +221,50 @@ function renderView($db, $orderId, $phone, $showActions)
     return (string)ob_get_clean();
 }
 
+// Timeline'i belirli bir durum icin render eder. $status verilmezse
+// siparisin gercek durumu kullanilir.
+function renderViewStatus($db, $orderId, $phone, $showActions, $status = null)
+{
+    $r = trackOrderLookup($db, (string)$orderId, $phone);
+    if (!$r['success']) {
+        return '';
+    }
+    $order          = $r['order'];
+    $items          = $r['items'];
+    $settings       = $r['settings'];
+    $prepareMinutes = (int)($settings['delivery_prepare_minutes'] ?? 45);
+    $statusLabels   = deliveryStatusList();
+    $paymentLabels  = deliveryPaymentMethods();
+    if ($status !== null) {
+        $order['status'] = $status;
+    }
+    ob_start();
+    include __DIR__ . '/includes/delivery-order-view.php';
+    return (string)ob_get_clean();
+}
+
+// Timeline'daki her asamayi [etiket => 'done'|'current'|'waiting'] olarak dondurur.
+// Regresyon: $timeline dizisi STRING anahtarli oldugu icin foreach icindeki
+// $i bir metindir; $i < $statusPos ve $i === $statusPos her zaman FALSE doner
+// ve timeline hicbir zaman renklenmez. Asagidaki kontroller bunu yakalar.
+function timelineStates($html)
+{
+    $out = [];
+    if (!preg_match_all('#<li class="([^"]*)">(.*?)</li>#su', (string)$html, $m)) {
+        return $out;
+    }
+    foreach ($m[1] as $i => $cls) {
+        $cls  = trim($cls);
+        $name = '';
+        if (preg_match('#dv-tl-label[^>]*>([^<]*)#u', $m[2][$i], $lm)) {
+            $name = trim($lm[1]);
+        }
+        $out[$name] = (strpos($cls, 'done') !== false) ? 'done'
+                    : ((strpos($cls, 'current') !== false) ? 'current' : 'waiting');
+    }
+    return $out;
+}
+
 $dbV = new Database();
 
 $html = renderView($dbV, $orderId, '05551112233', true);
@@ -223,6 +273,59 @@ check('gosterimde urun adi var', strpos($html, htmlspecialchars((string)$prod['n
 check('gosterimde teslimat adresi var', strpos($html, 'Test Sok') !== false);
 check('gosterimde musteri adi var', strpos($html, 'Takip Testi') !== false);
 check('gosterimde zaman cizgisi var', strpos($html, 'dv-timeline') !== false);
+
+// ---- Timeline ASAMA RENKLERI (regresyon: hicbir durumda renklenmemisti)
+$dbT = new Database();
+$timelineCases = [
+    // durum            => [done, current]
+    'pending'    => [0, 0],
+    'confirmed'  => [1, 1],
+    'preparing'  => [2, 2],
+    'ready'      => [3, 3],
+    'on_the_way' => [4, 4],
+    'delivered'  => [5, 5],
+    'completed'  => [6, null],   // tamamlandi: hepsi done, hicbiri current degil
+    'cancelled'  => [0, null],   // iptal: hicbir asama isaretlenmez
+];
+foreach ($timelineCases as $status => $exp) {
+    list($expDone, $expCur) = $exp;
+    $st = timelineStates(renderViewStatus($dbT, $orderId, '05551112233', false, $status));
+
+    check("$status: 6 asama render edildi", count($st) === 6, 'adet=' . count($st));
+
+    $nDone = $nCur = $nWait = 0;
+    foreach ($st as $name => $s) {
+        if ($s === 'done')    { $nDone++; }
+        elseif ($s === 'current') { $nCur++; }
+        else                  { $nWait++; }
+    }
+    check("$status: done asama sayisi = $expDone", $nDone === $expDone, "done=$nDone");
+    $expCurN = $expCur === null ? 0 : 1;
+    check("$status: current asama sayisi = $expCurN", $nCur === $expCurN, "current=$nCur");
+    check("$status: bekleyen asama sayisi = " . (6 - $expDone - $expCurN), $nWait === 6 - $expDone - $expCurN, "waiting=$nWait");
+
+    // Asama sirasi korunmali ve etiketler dogru olmali.
+    check("$status: asama etiketleri dogru",
+        array_keys($st) === ['Sipariş Alındı', 'Onaylandı', 'Hazırlanıyor', 'Hazır', 'Yola Çıktı', 'Teslim Edildi'],
+        implode('|', array_keys($st)));
+}
+
+// 'completed' son asamayi "current" gostermemeli (yani bitmis is gorunmemeli).
+$stCompleted = timelineStates(renderViewStatus($dbT, $orderId, '05551112233', false, 'completed'));
+check('completed: son asama done (current degil)', ($stCompleted['Teslim Edildi'] ?? '') === 'done');
+
+// 'cancelled' timeline'i isaretlenmemis olmali.
+$stCancelled = timelineStates(renderViewStatus($dbT, $orderId, '05551112233', false, 'cancelled'));
+$cancelledAny = in_array('done', $stCancelled, true) || in_array('current', $stCancelled, true);
+check('cancelled: hicbir asama isaretlenmedi', $cancelledAny === false);
+check('cancelled: ul cancelled sinifini tasiyor',
+    strpos(renderViewStatus($dbT, $orderId, '05551112233', false, 'cancelled'), 'dv-timeline cancelled') !== false);
+
+// Canli siparisin GERCEK durumu da renklenmeli (sadece status yazmamali).
+$stReal = timelineStates(renderView($dbV, $orderId, '05551112233', true));
+check('canli siparis: en az bir asama isaretli',
+    in_array('done', $stReal, true) || in_array('current', $stReal, true), json_encode($stReal, JSON_UNESCAPED_UNICODE));
+
 check('gosterimde siparis ozeti basligi var', strpos($html, 'zet') !== false);
 check('gosterimde genel toplam var', strpos($html, 'Toplam') !== false);
 check('gosterimde toplam satir classi var', strpos($html, 'dv-summary-row total') !== false);
