@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_parameters'])) {
             'system_stock_tracking' => isset($_POST['stock_tracking']) ? '1' : '0',
             'system_multi_payment' => isset($_POST['multi_payment']) ? '1' : '0',
             'system_reservation_enabled' => isset($_POST['reservation_enabled']) ? '1' : '0',
+            // Web Adrese Sipariş
+            'system_delivery_order_enabled' => isset($_POST['delivery_order_enabled']) ? '1' : '0',
             // QR Menü Alt Modüller
             'system_qr_tables_visible' => isset($_POST['qr_tables_visible']) ? '1' : '0',
             'system_qr_orders_visible' => isset($_POST['qr_orders_visible']) ? '1' : '0',
@@ -74,6 +76,8 @@ $defaults = [
     'system_stock_tracking' => '0',
     'system_multi_payment' => '1',
     'system_reservation_enabled' => '1',
+    // Web Adrese Sipariş
+    'system_delivery_order_enabled' => '0',
     // QR Menü Alt Modüller
     'system_qr_tables_visible' => '1',
     'system_qr_orders_visible' => '1',
@@ -663,6 +667,77 @@ foreach ($defaults as $key => $value) {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Web Adrese Sipariş Sistemi -->
+        <div class="modern-card mb-4">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);">
+                <i class="fas fa-motorcycle me-3"></i>
+                Web Adrese Sipariş Sistemi
+            </div>
+            <div class="modern-card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="parameter-box <?= $current_params['system_delivery_order_enabled'] == '1' ? 'active' : '' ?>">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="param-icon text-white" style="background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);">
+                                    <i class="fas fa-globe"></i>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="delivery_order_enabled" name="delivery_order_enabled"
+                                           <?= $current_params['system_delivery_order_enabled'] == '1' ? 'checked' : '' ?>>
+                                </div>
+                            </div>
+                            <h6 class="fw-bold mb-2">Web Üzerinden Adrese Sipariş</h6>
+                            <p class="text-muted small mb-0">
+                                Müşterilerin QR kod okutmadan internet üzerinden sipariş vermesini sağlar.
+                                Bu mod <strong>masa bazlı değildir</strong>; siparişler "Siparişler" bölümüne
+                                adres bilgileriyle birlikte düşer.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="parameter-box-small h-100" style="border:1px solid rgba(0,0,0,.08);border-radius:14px;padding:18px;">
+                            <h6 class="fw-bold mb-2">
+                                <i class="fas fa-link text-danger me-2"></i>
+                                Müşteri Web Sipariş Adresi
+                            </h6>
+                            <?php
+                            $deliveryLink = 'siparis.php';
+                            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                            $deliveryLink = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/qr-menu/siparis.php';
+                            ?>
+                            <input type="text" class="form-control form-control-sm mb-2"
+                                   value="<?= htmlspecialchars($deliveryLink) ?>" readonly onclick="this.select()">
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    onclick="navigator.clipboard.writeText('<?= htmlspecialchars($deliveryLink) ?>');this.innerHTML='Kopyalandı!'">
+                                <i class="fas fa-copy me-1"></i>Bağlantıyı Kopyala
+                            </button>
+                            <small class="text-muted d-block mt-2">
+                                Bu bağlantıyı Instagram, WhatsApp, Google vb. yerlerde paylaşabilirsiniz.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <?php if ($current_params['system_delivery_order_enabled'] == '1'): ?>
+                <div class="alert alert-info mt-3 mb-0" style="border-radius: 12px; border-left: 4px solid #f857a6;">
+                    <h6 class="fw-bold mb-2">
+                        <i class="fas fa-cogs me-2"></i>
+                        Detaylı Teslimat Ayarları
+                    </h6>
+                    <p class="small mb-2">
+                        Teslimat ücreti, minimum sipariş tutarı, ödeme yöntemleri, zorunlu alanlar ve
+                        çalışma saatleri için <strong>Ayarlar &rarr; Web Adrese Sipariş Ayarları</strong> sayfasını kullanın.
+                    </p>
+                    <a href="delivery_settings.php" class="btn btn-sm btn-primary">
+                        <i class="fas fa-sliders-h me-1"></i>Teslimat Ayarlarını Aç
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 

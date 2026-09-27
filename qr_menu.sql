@@ -203,9 +203,25 @@ CREATE TABLE `orders` (
   `id` int(11) NOT NULL,
   `reservation_id` int(11) DEFAULT NULL,
   `table_id` int(11) DEFAULT NULL,
-  `status` enum('pending','preparing','ready','delivered','completed','cancelled','partial_paid') DEFAULT 'pending',
+  `order_type` enum('table','delivery') NOT NULL DEFAULT 'table',
+  `customer_name` varchar(100) DEFAULT NULL,
+  `customer_surname` varchar(100) DEFAULT NULL,
+  `customer_phone` varchar(20) DEFAULT NULL,
+  `delivery_city` varchar(50) DEFAULT NULL,
+  `delivery_district` varchar(50) DEFAULT NULL,
+  `delivery_neighborhood` varchar(100) DEFAULT NULL,
+  `delivery_address` varchar(500) DEFAULT NULL,
+  `delivery_building_no` varchar(20) DEFAULT NULL,
+  `delivery_apartment_no` varchar(20) DEFAULT NULL,
+  `delivery_note` text DEFAULT NULL,
+  `status` enum('pending','preparing','ready','delivered','completed','cancelled','partial_paid','confirmed','on_the_way') NOT NULL DEFAULT 'pending',
   `order_code` varchar(6) DEFAULT NULL,
   `total_amount` decimal(10,2) DEFAULT NULL,
+  `subtotal` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `delivery_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `payment_method` varchar(20) DEFAULT NULL,
+  `delivery_token` varchar(64) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `note` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -635,8 +651,21 @@ INSERT INTO `settings` (`setting_key`, `setting_value`, `updated_at`, `header_bg
 ('system_reservation_enabled', '0', '2025-10-29 18:55:24', NULL, 0, '4'),
 ('system_stock_management_visible', '1', '2025-10-29 19:00:57', NULL, 0, '4'),
 ('system_stock_tracking', '1', '2025-10-29 19:00:52', NULL, 0, '4'),
-('system_table_management', '0', '2025-10-29 18:55:24', NULL, 0, '4'),
-('theme_color', '#fafafa', '2025-10-29 18:58:35', NULL, 0, '4');
+ ('system_table_management', '0', '2025-10-29 18:55:24', NULL, 0, '4'),
+ ('theme_color', '#fafafa', '2025-10-29 18:58:35', NULL, 0, '4'),
+ ('system_delivery_order_enabled', '0', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_fee', '0.00', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_free_over', '0.00', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_min_order', '0.00', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_payment_methods', 'cash,card', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_payment_cash_enabled', '1', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_payment_card_enabled', '1', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_required_fields', 'name,surname,phone,city,district,neighborhood,address', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_prepare_minutes', '45', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_active_days', '1,2,3,4,5,6,7', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_open_time', '10:00', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_close_time', '23:00', '2025-10-29 19:00:52', NULL, 0, '4'),
+ ('delivery_hour_check', '0', '2025-10-29 19:00:52', NULL, 0, '4');
 
 -- --------------------------------------------------------
 
@@ -791,7 +820,9 @@ ALTER TABLE `orders`
   ADD PRIMARY KEY (`id`),
   ADD KEY `table_id` (`table_id`),
   ADD KEY `payment_id` (`payment_id`),
-  ADD KEY `reservation_id` (`reservation_id`);
+  ADD KEY `reservation_id` (`reservation_id`),
+  ADD KEY `idx_order_type` (`order_type`,`status`),
+  ADD KEY `idx_delivery_token` (`delivery_token`);
 
 --
 -- Tablo için indeksler `order_codes`

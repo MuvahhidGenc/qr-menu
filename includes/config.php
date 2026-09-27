@@ -5,7 +5,11 @@ ini_set('session.cookie_lifetime', 86400);
 ini_set('session.use_strict_mode', 1);
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_secure', 1);
+// HTTPS algıla (ters proxy başlıkları dahil)
+$__isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && strtolower($_SERVER['HTTPS']) !== 'off')
+    || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
+    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+ini_set('session.cookie_secure', $__isHttps ? 1 : 0);
 
 // Oturumu başlat
 if (session_status() === PHP_SESSION_NONE) {
@@ -32,6 +36,8 @@ require_once __DIR__ . '/upload.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/ratelimit.php';
+require_once __DIR__ . '/cart.php';
+require_once __DIR__ . '/delivery.php';
 
 // Hata raporlama
 error_reporting(E_ALL);

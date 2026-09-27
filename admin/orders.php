@@ -30,13 +30,16 @@ $filter_type = $_GET['filter_type'] ?? 'active';
 $status = $_GET['status'] ?? 'all';
 $table_id = $_GET['table'] ?? 'all';
 $date = $_GET['date'] ?? date('Y-m-d');
+$source = $_GET['source'] ?? 'all';
 
 // Sipariş durumları
 $orderStatuses = [
     'all' => 'Tüm Durumlar',
     'pending' => 'Beklemede',
+    'confirmed' => 'Onaylandı',
     'preparing' => 'Hazırlanıyor',
     'ready' => 'Hazır',
+    'on_the_way' => 'Yola Çıktı',
     'delivered' => 'Teslim Edildi',
     'cancelled' => 'İptal Edildi'
 ];
@@ -46,6 +49,13 @@ $orderTypes = [
     'active' => 'Aktif Siparişler',
     'completed' => 'Tamamlanan Siparişler',
     'cancelled' => 'İptal Edilen Siparişler'
+];
+
+// Sipariş kaynağı (masa / web adres)
+$orderSources = [
+    'all' => 'Tüm Kaynaklar',
+    'table' => 'Masa Siparişleri',
+    'delivery' => 'Adres Siparişleri'
 ];
 
 // Sorgu oluştur
@@ -60,6 +70,13 @@ $query = "SELECT o.*, t.table_no,
           WHERE 1=1";
 
 $params = [];
+
+// Adres siparişleri için order_type = 'delivery', geri kalanı masa siparişi kabul et
+if ($source === 'delivery') {
+    $query .= " AND o.order_type = 'delivery'";
+} elseif ($source === 'table') {
+    $query .= " AND (o.order_type IS NULL OR o.order_type = 'table')";
+}
 
 // Aktif/Tamamlanan/İptal Edilen filtresi
 if ($filter_type === 'active') {
@@ -339,6 +356,17 @@ select:disabled {
                         </select>
                     </div>
 
+                    <!-- Sipariş Kaynağı Filtresi -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="sourceFilter">
+                            <?php foreach($orderSources as $key => $value): ?>
+                                <option value="<?= $key ?>" <?= $source === $key ? 'selected' : '' ?>>
+                                    <?= $value ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
                     <!-- Sipariş Durumu Filtresi -->
                     <div class="col-md-3">
                         <select class="form-select" id="statusFilter">
@@ -352,7 +380,7 @@ select:disabled {
                     
                     <!-- Masa Filtresi -->
                     <div class="col-md-2">
-                        <select class="form-select" id="tableFilter">
+                        <select class="form-select" id="tableFilter" <?= $source === 'delivery' ? 'disabled' : '' ?>>
                             <option value="all">Tüm Masalar</option>
                             <?php foreach($tables as $table): ?>
                                 <option value="<?= $table['id'] ?>" <?= $table_id == $table['id'] ? 'selected' : '' ?>>
@@ -379,22 +407,22 @@ select:disabled {
             <!-- Siparişler Tablosu -->
             <div class="table-responsive">
                 <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Sipariş No</th>
-                            <th>Masa</th>
-                            <th>Tutar</th>
-                            <th>Durum</th>
-                            <th>
-                                <?php if($filter_type === 'active'): ?>
-                                    Bekleme Süresi
-                                <?php else: ?>
-                                    <?= $filter_type === 'cancelled' ? 'İptal Edilme Tarihi' : 'Tamamlanma Tarihi' ?>
-                                <?php endif; ?>
-                            </th>
-                            <th>İşlemler</th>
-                        </tr>
-                    </thead>
+                        <thead>
+                            <tr>
+                                <th>Sipariş No</th>
+                                <th>Müşteri / Masa</th>
+                                <th>Tutar</th>
+                                <th>Durum</th>
+                                <th>
+                                    <?php if($filter_type === 'active'): ?>
+                                        Bekleme Süresi
+                                    <?php else: ?>
+                                        <?= $filter_type === 'cancelled' ? 'İptal Edilme Tarihi' : 'Tamamlanma Tarihi' ?>
+                                    <?php endif; ?>
+                                </th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
                     <tbody class="filter-type-<?= $filter_type ?>">
                         <?php if(empty($orders)): ?>
                             <tr>
@@ -405,6 +433,8 @@ select:disabled {
                         <?php else: ?>
                             <?php foreach($orders as $order): 
                                 $rowClass = '';
+                                $isDelivery = ($order['order_type'] ?? 'table') === 'delivery';
+                                $customerName = trim(($order['customer_name'] ?? '') . ' ' . ($order['customer_surname'] ?? ''));
                                 
                                 if($filter_type === 'active') {
                                     // Sadece aktif siparişler için zaman hesaplaması ve sınıf ataması
@@ -413,7 +443,7 @@ select:disabled {
                                     $waitingTime = $currentTime - $orderTime;
                                     $waitingMinutes = floor($waitingTime / 60);
                                     
-                                    if($order['status'] === 'pending') {
+                                    if($order['status'] === 'pending' || $order['status'] === 'confirmed') {
                                         $rowClass = 'order-new';
                                     } elseif($waitingMinutes > 30) {
                                         $rowClass = 'order-waiting';
@@ -423,22 +453,55 @@ select:disabled {
                                 <tr class="<?= $rowClass ?>">
                                     <td>
                                         #<?= $order['id'] ?>
+                                        <?php if($isDelivery): ?>
+                                            <span class="badge bg-danger" title="Web üzerinden adrese sipariş">
+                                                <i class="fas fa-motorcycle"></i> Adres Siparişi
+                                            </span>
+                                        <?php endif; ?>
                                         <?php if($filter_type === 'active' && $waitingMinutes < 5): ?>
                                             <span class="badge bg-success">Yeni</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>Masa <?= htmlspecialchars($order['table_no']) ?></td>
-                                    <td><?= number_format($order['total_amount'], 2) ?> ₺</td>
+                                    <td>
+                                        <?php if($isDelivery): ?>
+                                            <strong><?= htmlspecialchars($customerName !== '' ? $customerName : 'Belirtilmedi') ?></strong><br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-phone-alt"></i> <?= htmlspecialchars($order['customer_phone'] ?? '-') ?>
+                                            </small><br>
+                                            <small class="text-muted d-inline-block text-truncate" style="max-width:220px;"
+                                                   title="<?= htmlspecialchars(formatDeliveryAddress($order)) ?>">
+                                                <i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars(formatDeliveryAddress($order)) ?>
+                                            </small>
+                                        <?php else: ?>
+                                            Masa <?= htmlspecialchars((string)($order['table_no'] ?? '-')) ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?= number_format($order['total_amount'], 2) ?> ₺
+                                        <?php if($isDelivery && (float)$order['delivery_fee'] > 0): ?>
+                                            <br><small class="text-muted">Teslimat: <?= number_format((float)$order['delivery_fee'], 2) ?> ₺</small>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?php if($filter_type === 'active'): ?>
                                             <select class="form-select form-select-sm status-select" 
                                                     data-order-id="<?= $order['id'] ?>"
-                                                    style="max-width: 150px;">
-                                                <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
-                                                <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
-                                                <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
-                                                <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
-                                                <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Et</option>
+                                                    style="max-width: 160px;">
+                                                <?php if($isDelivery): ?>
+                                                    <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Yeni Sipariş</option>
+                                                    <option value="confirmed" <?= $order['status'] == 'confirmed' ? 'selected' : '' ?>>Onaylandı</option>
+                                                    <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
+                                                    <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
+                                                    <option value="on_the_way" <?= $order['status'] == 'on_the_way' ? 'selected' : '' ?>>Yola Çıktı</option>
+                                                    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                                    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Et</option>
+                                                <?php else: ?>
+                                                    <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>
+                                                    <option value="preparing" <?= $order['status'] == 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
+                                                    <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
+                                                    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                                    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Et</option>
+                                                <?php endif; ?>
                                             </select>
                                         <?php elseif($filter_type === 'cancelled'): ?>
                                             <div class="d-flex align-items-center">
@@ -460,7 +523,7 @@ select:disabled {
                                                     $statusText = '<span class="badge bg-danger">İptal Edildi</span>';
                                                     break;
                                                 default:
-                                                    $statusText = '<span class="badge bg-secondary">'.ucfirst($order['status']).'</span>';
+                                                    $statusText = '<span class="badge bg-secondary">'.htmlspecialchars(deliveryStatusLabel($order['status'])).'</span>';
                                             }
                                             echo $statusText;
                                             ?>
@@ -929,12 +992,23 @@ function formatJSTotalLine(label, amount, totalWidth) {
 
 function applyFilters() {
     const filterType = document.getElementById('filterType').value;
+    const source = document.getElementById('sourceFilter').value;
     const status = document.getElementById('statusFilter').value;
-    const tableId = document.getElementById('tableFilter').value;
+    const tableFilter = document.getElementById('tableFilter');
+    // Adres siparişlerinde masa filtresi geçersizdir
+    const tableId = (source === 'delivery') ? 'all' : tableFilter.value;
     const date = document.getElementById('dateFilter').value;
     
-    window.location.href = `orders.php?filter_type=${filterType}&status=${status}&table=${tableId}&date=${date}`;
+    window.location.href = `orders.php?filter_type=${filterType}&source=${source}&status=${status}&table=${tableId}&date=${date}`;
 }
+
+// Kaynak filtresi değişince masa filtresini devre dışı bırak
+document.getElementById('sourceFilter').addEventListener('change', function() {
+    const tableFilter = document.getElementById('tableFilter');
+    const isDelivery = this.value === 'delivery';
+    tableFilter.disabled = isDelivery;
+    if (isDelivery) tableFilter.value = 'all';
+});
 
 // Filtre değişikliklerini dinle
 document.getElementById('filterType').addEventListener('change', function() {

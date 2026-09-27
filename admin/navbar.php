@@ -1255,6 +1255,19 @@ $showReservations = isset($visibilityParams['system_qr_reservations_visible']) ?
                                     Sipariş Ayarları
                                 </a>
                             </li>
+                            <?php
+                            // Web Adrese Sipariş ayarları - sadece mod aktifken göster
+                            $deliverySetting = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_delivery_order_enabled'")->fetch();
+                            $deliveryEnabled = $deliverySetting && $deliverySetting['setting_value'] == '1';
+                            if ($deliveryEnabled):
+                            ?>
+                            <li class="nav-item">
+                                <a class="nav-link text-white" href="delivery_settings.php">
+                                    <i class="fas fa-motorcycle"></i>
+                                    Web Adrese Sipariş
+                                </a>
+                            </li>
+                            <?php endif; ?>
                             <?php if (isSuperAdmin()): ?>
                             <li class="nav-item">
                                 <a class="nav-link text-white" href="system_parameters.php">
