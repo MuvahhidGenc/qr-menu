@@ -60,20 +60,138 @@ if ($currentUserId) {
     ", [$currentUserId])->fetchAll();
 }
 
+// Sayfaya özel <body> sınıfı: .pos-page .main-content dolgusunu sıfırlar,
+// kabuk yüksekliğini ekranın tamamına yerleştirir.
+$bodyClass = 'pos-page';
 ?>
 <?php include 'navbar.php'; ?>
 
 <style>
 /* Modern POS Design */
+/* Uygulama kabuğu
+   ---------------------------------------------------------------------------
+   Önceki hâli `height: calc(100vh - 60px)` idi ve .main-content'in 2rem'lik
+   alt/üst dolgusunu hesaba katmıyordu; bu yüzden masaüstünde bile 64px taşma
+   vardı ve "Ödemeyi Tamamla" butonları ekranın altında kalıyordu. Yükseklik
+   artık kabuk tarafından belirleniyor, dolgu .pos-page kuralıyla sıfırlanıyor.
+   100dvh: mobil tarayıcının adres çubuğu açılıp kapandığında 100vh sabit
+   kaldığı için paneller kırpılıyordu. */
+.pos-page .main-content {
+    padding: 0;
+    overflow: hidden;
+}
+
 .pos-container {
     height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     background: #f8f9fa;
+}
+
+/* Satır, kabuğun kalan yüksekliğini alır; mobil alt çubuk görünürken
+   esnemek zorunda (eski h-100 = height:100%!important buna izin vermiyordu) */
+.pos-main-row {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Mobil alt sepet çubuğu - yalnız tek panel modunda görünür */
+.pos-mobile-bar {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: white;
+    border-top: 2px solid #e9ecef;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.pos-mobile-bar-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pos-mobile-bar-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    display: block;
+    line-height: 1.2;
+}
+
+.pos-mobile-bar-total {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #2c3e50;
+    line-height: 1.2;
+}
+
+.pos-mobile-bar-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    min-height: 48px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 12px rgba(67, 233, 123, 0.35);
+    transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.pos-mobile-bar-btn:active {
+    transform: scale(0.97);
+}
+
+.pos-mobile-bar:not(.has-items) .pos-mobile-bar-btn {
+    background: #adb5bd;
+    box-shadow: none;
+}
+
+/* Ürün eklenince çubuk kısa bir kez vurgulanır (mobilde geri bildirim) */
+@keyframes pos-bar-pulse {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+
+.pos-mobile-bar.pulse .pos-mobile-bar-total {
+    animation: pos-bar-pulse 0.35s ease;
+    color: #28a745;
+}
+
+/* Sepet görünümüne dönüş butonu - yalnız tek panel modunda */
+.pos-cart-back {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 10px 14px;
+    min-height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s ease;
+}
+
+.pos-cart-back:active {
+    background: rgba(255, 255, 255, 0.35);
 }
 
 /* Left Side - Products */
 .pos-left {
     height: 100%;
+    min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -159,8 +277,13 @@ if ($currentUserId) {
 /* Products Grid */
 .products-area {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 20px;
+    /* İç kaydırma: mobilde liste sonuna gelince sayfa değil sadece bu
+       alan kaysın (aşırı kaydırma / pull-to-refresh tetiklenmesin). */
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .products-area::-webkit-scrollbar {
@@ -312,6 +435,7 @@ if ($currentUserId) {
 /* Right Side - Cart */
 .pos-right {
     height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background: white;
@@ -333,8 +457,11 @@ if ($currentUserId) {
 
 .pos-cart-items {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 20px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .pos-cart-items::-webkit-scrollbar {
@@ -640,25 +767,315 @@ if ($currentUserId) {
     transform: scale(1.1);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .pos-products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+/* ===========================================================================
+   Responsive
+   ---------------------------------------------------------------------------
+   İki mod var:
+
+   1) YAN YAN (split): sadece gerçekten yer varsa.
+      min-width: 992px VE min-height: 600px
+      Ürünler solda, sepet sağda - klasik kasa görünümü.
+
+   2) TEK PANEL (tabs): dar ekran VEYA kısa ekran.
+      max-width: 991.98px, (max-height: 599.98px)
+      Ürünler ve sepet aynı anda durmuyor; alt çubuk ve "← Ürünler" butonu
+      ile geçiş yapılıyor.
+
+   Neden 992px (Bootstrap md=768 değil)? Sidebar 250px yer kaplıyor, yani
+   820px'lik bir tablette içerik alanı 570px'e düşüyor; 4/12'lik sepet 190px,
+   ödeme butonları 71px genişliğe sıkışıyordu (Chrome ölçümü). 992px altında
+   tek panel hem ürün ızgarasını hem sepeti rahatlatıyor.
+
+   Neden yükseklik de koşula giriyor? Yatay telefon (ör. 844x390) genişlik
+   kriterini geçtiği için yan yan açılıyordu; 390-60=330px yükseklikte
+   sepet başlığı + özet + ödeme butonları ürün alanını tamamen eziyordu.
+   =========================================================================== */
+
+/* --- 2) Tek panel: dar veya kısa ekran --- */
+@media (max-width: 991.98px), (max-height: 599.98px) {
+    /* Bootstrap'ın col-md-8 / col-md-4 kolonlarını tek kolona indir.
+       Bu olmadan iki panel alt alta yığılıyor, kabuk overflow:hidden
+       olduğu için sepet ve ödeme butonları ekran dışında kalıyordu. */
+    .pos-main-row > .pos-left,
+    .pos-main-row > .pos-right {
+        flex: 0 0 100%;
+        max-width: 100%;
+        border-right: none;
+        box-shadow: none;
     }
-    
+
+    /* data-view tek panelde hangi panelin görüneceğini seçer.
+       JS sadece bu özniteliği değiştirir (setPosView). */
+    .pos-container[data-view="products"] .pos-right {
+        display: none;
+    }
+
+    .pos-container[data-view="cart"] .pos-left {
+        display: none;
+    }
+
+    .pos-container[data-view="cart"] .pos-right {
+        display: flex;
+    }
+
+    .pos-mobile-bar {
+        display: flex;
+    }
+
+    /* Sepet görünümünde alt çubuk gereksiz: özet ve ödeme butonları
+       zaten panelin içinde görünür. */
+    .pos-container[data-view="cart"] .pos-mobile-bar {
+        display: none;
+    }
+
+    .pos-cart-back {
+        display: inline-flex;
+    }
+
+    /* Dokunma hedefleri: masaüstündeki 28-32px butonlar parmakla
+       vurulduğunda yanlış ürüne/sepete denk geliyordu. */
+    .pos-qty-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.1rem;
+    }
+
+    .pos-qty-value {
+        padding: 0 14px;
+        font-size: 1.05rem;
+    }
+
+    .pos-cart-item-remove {
+        width: 38px;
+        height: 38px;
+        font-size: 1.1rem;
+    }
+
+    .pos-fav-btn {
+        width: 38px;
+        height: 38px;
+        top: 8px;
+        left: 8px;
+    }
+
+    .pos-add-tab {
+        min-width: 48px;
+        min-height: 44px;
+    }
+
+    /* Ürün ızgarası: dokunma için biraz daha geniş kutular */
+    .pos-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+    }
+
+    .pos-product-card {
+        padding: 12px 10px;
+    }
+
+    .pos-product-img {
+        width: 68px;
+        height: 68px;
+    }
+
+    .pos-search-bar {
+        padding: 12px;
+    }
+
+    /* iOS Safari 16px altındaki inputlarda odaklanınca sayfayı otomatik
+       yakınlaştırıyor; 16px taban şart. */
+    .pos-search-bar input,
+    .pos-container input,
+    .pos-container select,
+    .pos-container textarea {
+        font-size: 16px;
+    }
+
+    .category-tabs {
+        padding: 10px 12px 0;
+    }
+
+    .category-tab {
+        padding: 12px 16px;
+    }
+
+    .pos-tabs-container {
+        padding: 6px 10px 0;
+    }
+
     .pos-tab {
+        padding: 10px 14px;
+        font-size: 0.85rem;
+    }
+
+    .pos-cart-header {
+        padding: 12px 16px;
+    }
+
+    .pos-cart-header h4 {
+        font-size: 1.2rem;
+    }
+
+    .pos-cart-items,
+    .pos-summary,
+    .pos-payment-buttons {
+        padding: 14px;
+    }
+
+    .pos-cart-item {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .pos-pay-btn-compact {
+        min-height: 72px;
+        font-size: 0.9rem;
+    }
+
+    .pos-pay-btn-compact i {
+        font-size: 1.5rem;
+    }
+
+    .pos-summary-row {
+        margin-bottom: 8px;
+    }
+
+    .pos-summary-row.total {
+        font-size: 1.3rem;
+        padding-top: 10px;
+    }
+
+    /* Ödeme modalı 576px altında bir sonraki blokta tam ekrana geçiyor. */
+}
+
+@media (max-width: 575.98px) {
+    .modal-fullscreen-sm-down {
+        max-width: 100%;
+        height: 100%;
+        margin: 0;
+    }
+
+    .modal-fullscreen-sm-down .modal-content {
+        height: 100%;
+        border-radius: 0 !important;
+    }
+
+    .modal-fullscreen-sm-down .modal-header {
+        border-radius: 0 !important;
+    }
+}
+
+/* --- Kısa ekran (yatay telefon, kasa rafı vb.) ---
+   390px yükseklikte sepet görünümünde başlık + özet + ödeme butonları
+   toplam 424px tutuyordu; ödeme butonları ekranın altında kalıyordu.
+   Özet ve butonlar sıkıştırılınca toplam ~294px'e iniyor ve liste alanı
+   nefes alıyor. */
+@media (max-height: 599.98px) {
+    /* Başlık: "← Ürünler" ve "Sepet" başlığı tek satırda yan yana (~40px kazanç) */
+    .pos-cart-header {
+        padding: 6px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .pos-cart-back {
+        min-height: 34px;
+        padding: 4px 12px;
+        margin-bottom: 0;
+        font-size: 0.85rem;
+        flex: 0 0 auto;
+    }
+
+    .pos-cart-header h4 {
+        font-size: 1rem;
+        margin: 0;
+        min-width: 0;
+    }
+
+    .pos-cart-header h4 i {
+        font-size: 0.9rem;
+    }
+
+    .pos-cart-items {
+        padding: 8px 12px;
+    }
+
+    .pos-cart-item {
+        padding: 8px;
+        margin-bottom: 6px;
+    }
+
+    .pos-summary {
+        padding: 8px 14px;
+    }
+
+    .pos-summary-row {
+        margin-bottom: 2px;
+        font-size: 0.9rem;
+    }
+
+    .pos-summary-row.total {
+        font-size: 1.05rem;
+        padding-top: 4px;
+    }
+
+    .pos-payment-buttons {
+        padding: 8px 14px;
+    }
+
+    /* Ödeme butonları 2x2 yerine tek satır (4 kolon): ~62px kazandırır.
+       390px yükseklikte sepet listesi 20px'e sıkışmıştı. */
+    .pos-payment-buttons .row > [class*="col-"] {
+        flex: 0 0 25%;
+        max-width: 25%;
+    }
+
+    .pos-pay-btn-compact {
+        min-height: 50px;
+        padding: 4px 2px;
+        font-size: 0.75rem;
+    }
+
+    .pos-pay-btn-compact i {
+        font-size: 1rem;
+        margin-bottom: 0 !important;
+    }
+
+    /* Ürün görünümünde arama + kategori çubuğu yer kaplıyordu */
+    .pos-search-bar {
+        padding: 8px 12px;
+    }
+
+    .pos-search-bar input {
+        padding: 9px 40px 9px 14px;
+        font-size: 16px;
+    }
+
+    .category-tabs {
+        padding: 6px 10px 0;
+    }
+
+    .category-tab {
         padding: 8px 12px;
         font-size: 0.85rem;
     }
-    
+
     .pos-tabs-container {
-        padding: 5px 10px 0;
+        padding: 4px 8px 0;
+    }
+
+    .pos-tab {
+        padding: 7px 12px;
     }
 }
 </style>
 
-<div class="pos-container">
-    <div class="row g-0 h-100">
+<!-- data-view: mobilde hangi panelin açık olduğu. JS sadece bu değeri
+     değiştirir; masaüstünde (yan yan mod) değer önemsizdir. -->
+<div class="pos-container" id="posContainer" data-view="products">
+    <div class="row g-0 pos-main-row">
         <!-- Left Side - Products -->
         <div class="col-md-8 pos-left">
             <!-- Kasa Sekmeleri -->
@@ -712,6 +1129,9 @@ if ($currentUserId) {
         <div class="col-md-4 pos-right">
             <!-- Cart Header -->
             <div class="pos-cart-header">
+                <button type="button" class="pos-cart-back" onclick="setPosView('products')">
+                    <i class="fas fa-arrow-left"></i> Ürünler
+                </button>
                 <h4>
                     <i class="fas fa-shopping-cart me-2"></i>
                     Sepet
@@ -778,11 +1198,24 @@ if ($currentUserId) {
             </div>
         </div>
     </div>
+
+    <!-- Mobil alt çubuk: dar/kısa ekranda ürün listesinden sepete geçiş.
+         Masaüstünde display:none (CSS), sepet görünümünde de gizlenir. -->
+    <div class="pos-mobile-bar" id="posMobileBar">
+        <div class="pos-mobile-bar-info">
+            <span class="pos-mobile-bar-label">Sepet (<span id="mobileCartCount">0</span>)</span>
+            <span class="pos-mobile-bar-total" id="mobileCartTotal">0.00 ₺</span>
+        </div>
+        <button type="button" class="pos-mobile-bar-btn" onclick="setPosView('cart')">
+            <i class="fas fa-shopping-cart"></i>
+            <span>Sepeti Aç</span>
+        </button>
+    </div>
 </div>
 
 <!-- Ödeme Modal -->
 <div class="modal fade" id="paymentModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content" style="border-radius: 20px; border: none;">
             <div class="modal-header" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; border-radius: 20px 20px 0 0;">
                 <h5 class="modal-title">
@@ -864,7 +1297,7 @@ if ($currentUserId) {
 
 <!-- Kısmi Ödeme Modal -->
 <div class="modal fade" id="partialPaymentModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content" style="border-radius: 20px; border: none;">
             <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 20px 20px 0 0;">
                 <h5 class="modal-title">
@@ -975,6 +1408,29 @@ function setCart(newCart) {
     registers[currentRegister].cart = newCart;
 }
 
+// HTML kaçışı - ürün/ad alanları HTML şablonuna gömülüyor; kaçışsız
+// basılırsa ürün adından gelen işaretler markup'ı kırabilir.
+function escHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function(c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+}
+
+// Mobil görünüm anahtarı: sadece data-view değerini değiştirir, hangi
+// panelin görüneceğine CSS karar verir. Yan yan (masaüstü) modda değer
+// önemsizdir, iki panel zaten aynı anda görünür.
+function setPosView(view) {
+    const container = document.getElementById('posContainer');
+    if (!container) return;
+    container.dataset.view = (view === 'cart') ? 'cart' : 'products';
+
+    // Sepete geçince ilk ürün satırının görünür olmasını sağla
+    if (container.dataset.view === 'cart') {
+        const cartEl = document.getElementById('cartItems');
+        if (cartEl) cartEl.scrollTop = 0;
+    }
+}
+
 // Kısmi ödemeleri al
 function getPartialPayments() {
     return registers[currentRegister].partialPayments;
@@ -1046,7 +1502,7 @@ function closeRegister(registerId, event) {
     }
     
     const registerCart = registers[registerId].cart;
-    if (registergetCart().length > 0) {
+    if (registerCart.length > 0) {
         Swal.fire({
             icon: 'warning',
             title: 'Kasa Boş Değil!',
@@ -1088,7 +1544,10 @@ function performCloseRegister(registerId) {
 // Sepet sayısını güncelle
 function updateRegisterBadges() {
     for (let id in registers) {
-        const count = registers[id].getCart().reduce((sum, item) => sum + item.quantity, 0);
+        // registers[id] düz bir nesne ({cart, partialPayments}); metot değil.
+        // Burada registers[id].getCart() çağrısı her renderCart'te
+        // TypeError fırlatıyor ve rozetler hep 0'da kalıyordu.
+        const count = registers[id].cart.reduce((sum, item) => sum + item.quantity, 0);
         $(`#register-${id}-count`).text(count);
     }
 }
@@ -1162,15 +1621,15 @@ function renderProducts(productList, isFavorites = false) {
                 <i class="far fa-star"></i>
             </button>`;
         
-        const usageCount = product.usage_count ? `<span class="usage-count" title="${product.usage_count} kez kullanıldı">${product.usage_count}×</span>` : '';
+        const usageCount = product.usage_count ? `<span class="usage-count" title="${escHtml(product.usage_count)} kez kullanıldı">${escHtml(product.usage_count)}×</span>` : '';
         
         const card = $(`
-            <div class="pos-product-card" onclick="addToCart(${product.id})">
+            <div class="pos-product-card" onclick="addToCart(${parseInt(product.id, 10)})">
                 ${stockText}
                 ${favIcon}
                 ${isFavorites ? usageCount : ''}
-                <img src="../uploads/${product.image}" class="pos-product-img" alt="${product.name}">
-                <div class="pos-product-name">${product.name}</div>
+                <img src="../uploads/${escHtml(product.image)}" class="pos-product-img" alt="${escHtml(product.name)}">
+                <div class="pos-product-name">${escHtml(product.name)}</div>
                 <div class="pos-product-price">${parseFloat(product.price).toFixed(2)} ₺</div>
             </div>
         `);
@@ -1339,7 +1798,7 @@ function renderCart() {
             const itemHtml = $(`
                 <div class="pos-cart-item">
                     <div class="pos-cart-item-header">
-                        <span class="pos-cart-item-name">${item.name}</span>
+                        <span class="pos-cart-item-name">${escHtml(item.name)}</span>
                         <button class="pos-cart-item-remove" onclick="removeFromCart(${index})">
                             <i class="fas fa-times"></i>
                         </button>
@@ -1395,7 +1854,7 @@ function removeFromCart(index) {
     renderCart();
 }
 
-// Özet güncelle
+// Özet güncelle - hem sağ panel hem mobil alt çubuk buradan beslenir
 function updateSummary() {
     const itemCount = getCart().reduce((sum, item) => sum + item.quantity, 0);
     const total = getCart().reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -1403,6 +1862,27 @@ function updateSummary() {
     $('#itemCount').text(itemCount);
     $('#subtotal').text(total.toFixed(2) + ' ₺');
     $('#total').text(total.toFixed(2) + ' ₺');
+    
+    updateMobileBar(itemCount, total);
+}
+
+// Mobil alt çubuk: ürün eklenince sayaç/toplam güncellenir ve kısa bir
+// vurgu oynatılır (dokunmatik geri bildirim; masaüstünde görünmez).
+let lastMobileBarCount = 0;
+function updateMobileBar(itemCount, total) {
+    const bar = $('#posMobileBar');
+    if (bar.length === 0) return;
+
+    $('#mobileCartCount').text(itemCount);
+    $('#mobileCartTotal').text(total.toFixed(2) + ' ₺');
+    bar.toggleClass('has-items', itemCount > 0);
+
+    if (itemCount > lastMobileBarCount) {
+        bar.removeClass('pulse');
+        void bar[0].offsetWidth;
+        bar.addClass('pulse');
+    }
+    lastMobileBarCount = itemCount;
 }
 
 // Sepeti temizle
@@ -1692,6 +2172,9 @@ function processPayment(paymentMethod, finalTotal, discount, discountType, note,
                     setPartialPayments([]);
                     $('#discountRow').hide();
                     renderCart();
+                    // Satış bitti: mobilde boş sepet ekranında kalıp kalmasın,
+                    // kasa ürün listesine geri dönsün.
+                    setPosView('products');
                     loadProducts($('.category-tab.active').data('category'));
                 });
             } else {

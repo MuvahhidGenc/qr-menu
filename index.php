@@ -18,13 +18,11 @@ $stmt = $db->query(
      ORDER BY sort_order ASC, id ASC"
 );
 $categories = $stmt->fetchAll();
-// URL'den table parametresini güvenli şekilde al
-$table_id = getSecureInt('table', 1);
-if ($table_id <= 0) {
-    $table_id = 1; // Negatif değerlere karşı korunma
-}
-$_SESSION['table_id'] = $table_id; // Session'a kaydet
 
+// NOT: table parametresinin işlenmesi aşağıdaki GATEWAY bölümünde yapılır.
+// Eski davranış "?table yoksa 1 kullan" idi; bu, web sipariş sistemi açıkken
+// anasayfadan erişilememesine yol açıyordu ve silinmiş masanın QR'ı yanlış
+// masaya açılabiliyordu.
 
 // Ayarları çek
 $settingsResult = $db->query("SELECT * FROM settings");
@@ -33,14 +31,42 @@ foreach($settingsResult->fetchAll() as $row) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
 
-// Sistem parametrelerini kontrol et
-$acceptOrders   = isAcceptQrOrders($db);
-$qrMenuEnabled  = isset($settings['system_qr_menu_enabled']) && $settings['system_qr_menu_enabled'] == '1';
-$tableQrEnabled = isTableQrOrderEnabled($db);
+// ---------------------------------------------------------------------------
+// SİSTEM BAYRAKLARI + GATEWAY
+//
+// Bu dosya hem "QR masa menüsü" hem de "hangi müşteri sistemi açık?" sorusunun
+// kapısıdır. Önceden yalnızca system_table_qr_order_enabled'e bakılıyordu;
+// web/online sipariş sistemi AÇIK olsa bile anasayfadan erişilemiyordu ve
+// system_qr_menu_enabled (panelde "QR Menü Kullanımı" ana anahtarı) hiç
+// uygulanmıyordu.
+//
+// Üç müşteri sistemi vardır ve BİRLİKTE açık olabilirler:
+//   1. QR masa menüsü  -> index.php?table=N   (masada basılı QR'nin açtığı yol)
+//   2. Web/online sipariş -> siparis.php
+// Ana anahtar: system_qr_menu_enabled (menü erişimi) + system_table_qr_order_enabled
+//
+// ?table=N yalnızca masada basılı QR kodlarının açtığı yoldur (bkz.
+// admin/system_parameters.php URL şeması). Bu yol ASLA seçim sayfasına
+// düşürülmez; aksi halde misafir hangi masada olduğunu kaybeder ve siparişi
+// yanlış masaya yazardı. Paramsız giriş ise "gateway" davranışı gösterir.
+// ---------------------------------------------------------------------------
+$acceptOrders = isAcceptQrOrders($db);
+$flags        = dvFeatureFlags($db);   // tek bayrak kaynağı (navbar/dashboard ile aynı)
 
-// QR üzerinden masa siparişi kapalıysa sayfayı gösterme
-// (Web Adrese Sipariş bu anahttan BAĞIMSIZ çalışır; siparis.php etkilenmez.)
-if (!$tableQrEnabled) {
+$qrMenuEnabled   = (bool)$flags['qrMenu'];        // ana anahtar
+$tableQrEnabled  = (bool)$flags['tableOrders'];
+$webOrderEnabled = (bool)$flags['webOrders'];
+
+$menuOpen = $qrMenuEnabled && $tableQrEnabled;     // QR menü gerçekten açık mı
+$webOpen  = $webOrderEnabled;
+
+$tableFromUrl = getSecureInt('table', 0);
+$wantsTable   = $tableFromUrl > 0;
+
+/**
+ * Kapanan sistemler için ortak "Erişim Kapalı" sayfası.
+ */
+function renderAccessClosed($title, $text) {
     http_response_code(403);
     ?>
     <!DOCTYPE html>
@@ -48,7 +74,7 @@ if (!$tableQrEnabled) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Erişim Kapalı</title>
+        <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
             body {
@@ -88,8 +114,8 @@ if (!$tableQrEnabled) {
     <body>
         <div class="access-denied">
             <i class="fas fa-lock"></i>
-            <h1>Erişim Kapalı</h1>
-            <p>Menü sistemimiz şu anda aktif değil.</p>
+            <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
+            <p><?= htmlspecialchars($text, ENT_QUOTES, 'UTF-8') ?></p>
             <p class="mt-3 small text-muted">Lütfen daha sonra tekrar deneyiniz.</p>
         </div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
@@ -98,6 +124,58 @@ if (!$tableQrEnabled) {
     <?php
     exit();
 }
+
+// Hiçbir müşteri sistemi açık değil
+if (!$menuOpen && !$webOpen) {
+    renderAccessClosed('Erişim Kapalı', 'Menü sistemimiz şu anda aktif değil.');
+}
+
+// --- GATEWAY: paramsız giriş ------------------------------------------------
+if (!$wantsTable) {
+    // Sadece QR menü açık -> ilk aktif masaya yönlendir
+    if ($menuOpen && !$webOpen) {
+        $firstTable = $db->query(
+            "SELECT id FROM tables WHERE status = 'active'
+             ORDER BY table_no ASC, id ASC LIMIT 1"
+        )->fetch();
+        if ($firstTable) {
+            header('Location: index.php?table=' . (int)$firstTable['id']);
+            exit;
+        }
+        // Hizmette masa yok -> menü gösterilemez
+        renderAccessClosed('Erişim Kapalı', 'Şu anda hizmete açık masa bulunmuyor.');
+    }
+
+    // Sadece web/online sipariş açık -> doğrudan oraya
+    if (!$menuOpen && $webOpen) {
+        header('Location: siparis.php');
+        exit;
+    }
+
+    // İkisi de açık -> seçim sayfası (aşağıda)
+    include __DIR__ . '/includes/customer-entry.php';
+    exit;
+}
+
+// --- QR MASA MENÜSÜ: table istendi -----------------------------------------
+if (!$menuOpen) {
+    // Web sipariş açık olsa bile masadaki QR hedefi menüye giremez; masada
+    // oturan misafir web adres siparişine yönlendirilmez (yanlış kanal).
+    renderAccessClosed('Erişim Kapalı', 'Menü sistemimiz şu anda aktif değil.');
+}
+
+// Masanın gerçekten var olduğunu ve hizmette olduğunu doğrula.
+// (Silinmiş bir masanın QR'ı yeni bir masanın menüsüne açılmasın diye.)
+$tableRow = $db->query(
+    "SELECT id, table_no FROM tables WHERE id = ? AND status = 'active' LIMIT 1",
+    [$tableFromUrl]
+)->fetch();
+if (!$tableRow) {
+    renderAccessClosed('Masa Bulunamadı', 'Bu masaya ait QR kod güncel değil. Lütfen kasiyadan yardım isteyin.');
+}
+
+$table_id = (int)$tableRow['id'];
+$_SESSION['table_id'] = $table_id; // Session'a kaydet
 
 // Tema rengini al
 $theme_color = $_SESSION['theme_color'] ?? '#343a40'; // Varsayılan koyu renk

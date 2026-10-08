@@ -67,8 +67,13 @@ $canViewReports = hasPermission('reports.view');
 $canViewProducts = hasPermission('products.view');
 $canViewOrders = hasPermission('orders.view');
 $canViewTables = hasPermission('tables.view');
-$canManageProducts = hasPermission('products.manage');
-$canManageCategories = hasPermission('categories.manage');
+// NOT: 'products.manage' / 'categories.manage' anahtarları roles.php'te hiç
+// tanımlı değildi; hasPermission() yalnız tanımlı anahtarlara baktığı için bu
+// kontroller sadece Süper Admin'de true dönüyordu ve Yönetici'de yönetim
+// butonları hiç görünmüyordu. Roller şeması add/edit/delete kullanıyor, o yüzden
+// burada aynı yetenekler aynı anahtarlara bağlanır.
+$canManageProducts   = hasPermission('products.manage') || hasPermission('products.edit') || hasPermission('products.add') || hasPermission('products.delete');
+$canManageCategories = hasPermission('categories.manage') || hasPermission('categories.edit') || hasPermission('categories.add') || hasPermission('categories.delete');
 
 // ---------------------------------------------------------------------------
 // SATIŞ PANELİ (kanonik ciro katmanı)

@@ -6,7 +6,8 @@ header('Content-Type: application/json'); // JSON header'ı ekle
 
 try {
     // Yetki kontrolü
-    if (!hasPermission('admins.edit')) {
+    // NOT: roller şemasında 'admins' modülü yok; 'users.edit' kullanılır.
+    if (!hasPermission('users.edit')) {
         throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
     }
 

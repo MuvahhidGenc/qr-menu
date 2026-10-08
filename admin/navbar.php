@@ -17,6 +17,18 @@ $showTables       = $featureFlags['tables'];
 $showOrders       = $featureFlags['qrOrders'];
 $showKitchen      = $featureFlags['kitchen'];
 $showReservations = $featureFlags['reservations'];
+
+// Sayfaya özel <body> sınıfı. Sayfa bu değişkeni navbar include'dan ÖNCE
+// set ederse uygulanır; set etmeyen sayfaların çıktısı değişmez.
+// style.css'teki .tables-page / .products-page / .orders-page seçicileri
+// yıllardır bu kancaya bağlıydı ama hiçbir sayfa sınıfı basmadığı için
+// ölü kurallardı; artık bir sayfa gerçekten sınıf basabiliyor.
+if (!isset($bodyClass)) {
+    $bodyClass = '';
+}
+$bodyClassAttr = trim($bodyClass) !== ''
+    ? ' class="' . htmlspecialchars(trim($bodyClass), ENT_QUOTES, 'UTF-8') . '"'
+    : '';
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -64,7 +76,91 @@ $showReservations = $featureFlags['reservations'];
    padding: 60px 1rem 1rem;
    z-index: 1020;
    overflow-y: auto;
-   transition: all 0.3s ease-in-out;
+   transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+/* Masaüstü mini sidebar */
+@media (min-width: 769px) {
+    .sidebar.closed {
+        width: 70px;
+        overflow: visible;
+    }
+    
+    .sidebar.closed .sidebar-header {
+        display: none;
+    }
+
+    .sidebar.closed .brand-text,
+    .sidebar.closed .sidebar-header .text-white,
+    .sidebar.closed .nav-link span,
+    .sidebar.closed .nav-link .ms-auto,
+    .sidebar.closed .nav-link::after,
+    .sidebar.closed .dropdown-toggle::after,
+    .sidebar.closed .navbar-nav .border-start,
+    .sidebar.closed .collapse .nav-link span {
+        display: none !important;
+    }
+    
+    .sidebar.closed .nav-link {
+        justify-content: center;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        /* Metin düğümleri span içinde değil: font-size ile anında gizle */
+        font-size: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        /* font-size'ın animasyonlu küçülmesini engelle (bozuk görünümü önler) */
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .sidebar.closed .nav-link svg.bi-chevron-down {
+        display: none !important;
+    }
+    
+    .sidebar.closed .nav-link i {
+        margin-right: 0 !important;
+        font-size: 1.1rem;
+    }
+    
+    .sidebar.closed .nav-item {
+        text-align: center;
+    }
+    
+    .sidebar.closed .collapse {
+        position: absolute;
+        left: 70px;
+        background: #1a1c23;
+        border-radius: 0.25rem;
+        min-width: 200px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        z-index: 1030;
+    }
+    
+    .sidebar.closed .collapse .navbar-nav {
+        padding: 0.5rem;
+        border-left: none !important;
+        margin-left: 0 !important;
+    }
+    
+    .sidebar.closed .collapse .nav-link {
+        justify-content: flex-start;
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        /* Flyout menüde metin görünür olmalı */
+        font-size: 0.9rem;
+        white-space: normal;
+        overflow: visible;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    
+    .sidebar.closed .collapse .nav-link i {
+        margin-right: 8px !important;
+        font-size: 0.9rem;
+    }
+    
+    .sidebar.closed .collapse .nav-link span {
+        display: inline !important;
+    }
 }
 
 .sidebar-header {
@@ -107,15 +203,29 @@ $showReservations = $featureFlags['reservations'];
         background: #1a1c23;
         width: 250px;
         transition: transform 0.3s ease-in-out;
+        overflow-y: auto;
     }
     
     .sidebar.active {
         transform: translateX(0);
     }
     
+    .sidebar.closed {
+        /* Mobilde closed class'ı etkisini kaldır */
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active.closed {
+        transform: translateX(0);
+    }
+    
     .main-content {
         margin-left: 0;
         width: 100%;
+    }
+    
+    .main-content.expanded {
+        margin-left: 0;
     }
 }
 
@@ -173,9 +283,9 @@ $showReservations = $featureFlags['reservations'];
     }
     
     .sidebar.closed {
-        transform: translateX(-280px);
+        transform: none;
     }
-    
+
     .main-content {
         margin-left: 250px;
         width: calc(100% - 250px);
@@ -339,13 +449,17 @@ $showReservations = $featureFlags['reservations'];
     transition: all 0.3s ease-in-out;
 }
 
-/* Masaüstü için kapalı sidebar durumu */
-.sidebar.closed {
-    transform: translateX(-250px);
-}
+/* Masaüstü için kapalı sidebar durumu (mini sidebar - transform yok) */
 
 .main-content.expanded {
     margin-left: 0;
+}
+
+@media (min-width: 769px) {
+    .main-content.expanded {
+        margin-left: 70px;
+        width: calc(100% - 70px);
+    }
 }
 
 /* Toggle buton animasyonu */
@@ -1003,7 +1117,7 @@ $showReservations = $featureFlags['reservations'];
 
     <script src="assets/js/tables.js"></script>
 </head>
-<body>
+<body<?= $bodyClassAttr ?>>
 <!-- navbar.php -->
 <div class="mobile-nav">
     <button class="btn-toggle" id="sidebarToggle">
@@ -1451,13 +1565,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         sidebarToggle.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             
             if (window.innerWidth <= 768) {
-                // Mobil davranış
+                // Mobil davranışı
                 sidebar.classList.toggle('active');
                 sidebarToggle.classList.toggle('active');
             } else {
-                // Masaüstü davranış
+                // Masaüstü davranışı
                 sidebar.classList.toggle('closed');
                 mainContent.classList.toggle('expanded');
                 sidebarToggle.classList.toggle('active');
@@ -1466,6 +1581,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.setItem('sidebarClosed', sidebar.classList.contains('closed'));
             }
         });
+
 
         // Dışarı tıklandığında sidebar'ı kapat (sadece mobil)
         document.addEventListener('click', function(e) {
@@ -1481,7 +1597,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Link tıklamalarında mobilde sidebar'ı kapat
         const sidebarLinks = sidebar.querySelectorAll('.nav-link');
         sidebarLinks.forEach(link => {
-            link.addEventListener('click', () => {
+            link.addEventListener('click', (e) => {
+                // Açılır menü (collapse) linklerine tıklanırsa sidebar kapatılmasın
+                if (link.hasAttribute('data-bs-toggle') && link.getAttribute('data-bs-toggle') === 'collapse') {
+                    return;
+                }
                 if (window.innerWidth <= 768) {
                     sidebar.classList.remove('active');
                     sidebarToggle.classList.remove('active');
@@ -1599,10 +1719,6 @@ $(document).ready(function() {
 <!-- Bootstrap JS - Sayfanın en altına ekleyin -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Bootstrap JS ve Popper.js -->
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
-
 <script>
 // Dropdown'ı etkinleştir
 document.addEventListener('DOMContentLoaded', function() {
@@ -1618,8 +1734,6 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     // Sidebar ve toggle elementlerini seç
     const sidebar = document.querySelector('.sidebar');
-    const sidebarToggle = document.querySelector('.btn-toggle');
-    const mobileToggle = document.querySelector('.mobile-nav .btn-toggle');
     const mainContent = document.querySelector('.main-content');
 
     // Sidebar toggle fonksiyonu
@@ -1630,48 +1744,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Toggle butonlarına click event ekle
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSidebar();
-        });
-    }
+    // Toggle butonuna Block A zaten listener bağlıyor (aynı #sidebarToggle elemanı)
 
-    if (mobileToggle) {
-        mobileToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSidebar();
-        });
-    }
-
-    // Açılır menüler için
-    const collapseButtons = document.querySelectorAll('[data-bs-toggle="collapse"]');
-    collapseButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const targetId = this.getAttribute('href');
-            const targetCollapse = document.querySelector(targetId);
-            
-            // Diğer menüleri kapat
-            collapseButtons.forEach(otherButton => {
-                if (otherButton !== this) {
-                    const otherId = otherButton.getAttribute('href');
-                    const otherCollapse = document.querySelector(otherId);
-                    if (otherCollapse && otherCollapse.classList.contains('show')) {
-                        new bootstrap.Collapse(otherCollapse).hide();
-                    }
+    // Açılır menüler: Bootstrap data-api document üzerinde CAPTURE fazında
+    // dinlediği için buton-seviyesinde stopPropagation yetmez (Bootstrap önce
+    // çalışır). Ayrıca sayfada çift Bootstrap kopyası data-api'yi iki kez
+    // tetikler. Bu yüzden window CAPTURE fazında yakalayıp Bootstrap'e
+    // hiç ulaştırmıyoruz; aç/kapa işini deterministik şekilde kendimiz yapıyoruz.
+    window.addEventListener('click', function(e) {
+        const toggle = e.target && e.target.closest
+            ? e.target.closest('[data-bs-toggle="collapse"]')
+            : null;
+        if (!toggle || !sidebar.contains(toggle)) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const sel = toggle.getAttribute('href') || toggle.getAttribute('data-bs-target');
+        const panel = sel ? document.querySelector(sel) : null;
+        if (!panel) {
+            return;
+        }
+        const willOpen = !panel.classList.contains('show');
+        // Akordeon: diğer açık panelleri kapat
+        sidebar.querySelectorAll('.collapse.show').forEach(other => {
+            if (other !== panel) {
+                other.classList.remove('show');
+                const otherBtn = sidebar.querySelector('[href="#' + other.id + '"], [data-bs-target="#' + other.id + '"]');
+                if (otherBtn) {
+                    otherBtn.setAttribute('aria-expanded', 'false');
                 }
-            });
-            
-            // Tıklanan menüyü aç/kapat
-            new bootstrap.Collapse(targetCollapse).toggle();
+            }
         });
-    });
+        panel.classList.toggle('show', willOpen);
+        toggle.setAttribute('aria-expanded', String(willOpen));
+    }, true);
 
     // Sadece main content'e tıklandığında sidebar'ı kapat
     if (mainContent) {

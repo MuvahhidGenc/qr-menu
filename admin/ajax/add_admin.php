@@ -24,7 +24,9 @@ if (!isLoggedIn()) {
 
 try {
     // Yetki kontrolü
-    if (!hasPermission('admins.add')) {
+    // NOT: roller şemasında 'admins' modülü yok; kullanıcı yönetimi 'users'
+    // modülünde tanımlı. Eski anahtar yalnızca Süper Admin'de geçiyordu.
+    if (!hasPermission('users.add')) {
         throw new Exception('Bu işlem için yetkiniz bulunmuyor.');
     }
 
