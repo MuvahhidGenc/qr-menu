@@ -54,13 +54,13 @@ try {
             throw new Exception('Sepette geçersiz ürün veya miktar var');
         }
         $product = $db->query(
-            "SELECT id, name, price, stock FROM products WHERE id = ?",
+            "SELECT id, name, price, discount_percent, stock FROM products WHERE id = ?",
             [$productId]
         )->fetch();
         if (!$product) {
             throw new Exception('Ürün bulunamadı: ID ' . $productId);
         }
-        $unitPrice = (float)$product['price'];
+        $unitPrice = dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0);
         $subtotal += $unitPrice * $quantity;
         $pricedItems[] = [
             'product' => $product,

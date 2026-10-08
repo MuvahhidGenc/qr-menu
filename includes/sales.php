@@ -529,9 +529,17 @@ function sales_daily_series($db, array $opts = []): array
  *  3) Masa kapanışı      -> order_items.order_id = orders.id (payment_id NULL,
  *                           yani kapanış ödemesinden sonra masada kalan kalem)
  *  4) Web siparişi       -> order_items.order_id = orders.id
+ *  5) Teslim edilmiş ama henüz ödenmemiş masa siparişi
+ *                         -> orders.status = 'delivered' olan masa siparişinin
+ *                            tamamlanmış ödemeye BAĞLI OLMAYAN kalemleri.
+ *                            (Ürün masaya teslim edilince satılmış sayılır;
+ *                            ciro yine ödemeden gelir, burası yalnızca adet/
+ *                            ürün kırılımı içindir.)
  *
  * (2) ve (3) örtüşmez: kısmi ödemede kalemin payment_id'si doludur, tam
  * kapanışta ise boştur ve o satır ancak 3. kolda yakalanır.
+ * (5), (2)/(3) ile örtüşmez: tamamlanmış ödemeye bağlı kalemler hariçtir;
+ * ödeme alınınca sipariş 'completed' olur ve 5. koldan düşer.
  *
  * Her kol ayrıca `sale_ref` (satış kaydının id'si) ve `sale_at` (satış
  * tarihi) sütunlarını taşır; böylece kanal ve tarih filtresi tüm birleşim
@@ -572,7 +580,24 @@ function sales_items_sql(): string
                o.id, COALESCE(o.completed_at, o.created_at)
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-         WHERE o.status = 'completed' AND o.order_type = 'delivery'
+         WHERE o.status IN ('completed', 'delivered') AND o.order_type = 'delivery'
+
+        UNION ALL
+
+        SELECT 'table', oi.product_id, oi.quantity, (oi.quantity * oi.price),
+               o.id, COALESCE(o.updated_at, o.created_at)
+          FROM orders o
+          JOIN order_items oi ON oi.order_id = o.id
+         WHERE o.status = 'delivered'
+           AND (o.order_type IS NULL OR o.order_type = 'table')
+           AND NOT EXISTS (
+               SELECT 1 FROM payments p
+                WHERE p.id = oi.payment_id AND p.status = 'completed'
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM payments p
+                WHERE p.id = o.payment_id AND p.status = 'completed'
+           )
     )";
 }
 
@@ -675,6 +700,82 @@ function sales_open_orders($db, array $opts = []): array
           ORDER BY o.created_at DESC",
         $params
     )->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Tahsil bekleyen teslimatlar: status='delivered' olan masa siparişlerinden
+ * tamamlanmış ödemeye bağlı OLMAYANLAR.
+ *
+ * Ürün teslim edilince satış gerçekleşmiş sayılır (stok düşer, adet kırılımına
+ * girer) ancak para henüz alınmamıştır. Bu fonksiyon ciroya EKLENMEZ; yalnızca
+ * "bekleyen tahsilat" göstergesi ve Alınmış Ödemeler sayfasındaki liste için
+ * kullanılır. Ödeme alınınca (complete_payment) veya iptalde satır kendiliğinden
+ * düşer.
+ *
+ * @return array{count:int,total:float,orders:array<int,array>}
+ */
+function sales_pending_collection($db): array
+{
+    $orders = $db->query(
+        "SELECT o.id, o.order_code, o.table_id, o.total_amount, o.created_at, o.updated_at,
+                t.table_no,
+                GROUP_CONCAT(DISTINCT CONCAT(oi.quantity, 'x ', pr.name) SEPARATOR '||') AS items
+           FROM orders o
+           LEFT JOIN tables t ON t.id = o.table_id
+           LEFT JOIN order_items oi ON oi.order_id = o.id
+           LEFT JOIN products pr ON pr.id = oi.product_id
+          WHERE o.status = 'delivered'
+            AND (o.order_type IS NULL OR o.order_type = 'table')
+            AND NOT EXISTS (
+                SELECT 1 FROM payments p
+                 WHERE p.id = o.payment_id AND p.status = 'completed'
+            )
+          GROUP BY o.id
+          ORDER BY o.updated_at DESC, o.id DESC"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $total = 0.0;
+    foreach ($orders as $o) {
+        $total += (float)($o['total_amount'] ?? 0);
+    }
+
+    return ['count' => count($orders), 'total' => round($total, 2), 'orders' => $orders];
+}
+
+/**
+ * Tamamlanmış web/adres siparişleri (cirodaki delivery bacağının karşılığı).
+ *
+ * Bu siparişlerin `payments` satırı OLMADIĞI için Alınmış Ödemeler listesinde
+ * görünmezler. Bu fonksiyon ciroyu DEĞİŞTİRMEZ; yalnızca sayfada ayrı bir
+ * bölüm olarak listelenmeleri için satırları döndürür.
+ *
+ * Kapsam: 'completed' (ciroya girer) + 'delivered' (teslim edildi, para
+ * henüz işlenmedi; ciroya GİRMEZ, yalnızca görünürlük için listelenir).
+ *
+ * @return array{count:int,total:float,orders:array<int,array>}
+ */
+function sales_web_completed($db): array
+{
+    $orders = $db->query(
+        "SELECT o.id, o.order_code, o.total_amount, o.subtotal, o.discount_amount,
+                o.delivery_fee, o.payment_method, o.status, o.created_at,
+                o.customer_name, o.customer_surname, o.customer_phone,
+                GROUP_CONCAT(DISTINCT CONCAT(oi.quantity, 'x ', pr.name) SEPARATOR '||') AS items
+           FROM orders o
+           LEFT JOIN order_items oi ON oi.order_id = o.id
+           LEFT JOIN products pr ON pr.id = oi.product_id
+          WHERE o.order_type = 'delivery'
+            AND o.status IN ('completed', 'delivered')
+          GROUP BY o.id
+          ORDER BY COALESCE(o.completed_at, o.updated_at, o.created_at) DESC, o.id DESC"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $total = 0.0;
+    foreach ($orders as $o) {
+        $total += (float)($o['total_amount'] ?? 0);
+    }
+
+    return ['count' => count($orders), 'total' => round($total, 2), 'orders' => $orders];
 }
 
 /**

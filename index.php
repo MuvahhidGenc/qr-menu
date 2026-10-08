@@ -19,6 +19,19 @@ $stmt = $db->query(
 );
 $categories = $stmt->fetchAll();
 
+// Sanal "İndirimli Ürünler" kategorisi: indirimli ürün varsa listenin
+// başına eklenir, yoksa hiç gösterilmez.
+if (dvHasDiscountedProducts($db)) {
+    array_unshift($categories, [
+        'id'          => -1,
+        'name'        => 'İndirimli Ürünler',
+        'description' => 'İndirimdeki tüm ürünleri burada görebilirsiniz.',
+        'image'       => '',
+        'status'      => 1,
+        'sort_order'  => -1,
+    ]);
+}
+
 // NOT: table parametresinin işlenmesi aşağıdaki GATEWAY bölümünde yapılır.
 // Eski davranış "?table yoksa 1 kullan" idi; bu, web sipariş sistemi açıkken
 // anasayfadan erişilememesine yol açıyordu ve silinmiş masanın QR'ı yanlış
@@ -76,7 +89,36 @@ function renderAccessClosed($title, $text) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
+<style>
+        .discount-badge {
+            display: inline-block;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .old-price {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 0.85em;
+            margin-right: 4px;
+        }
+        .category-bg-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: rgba(255,255,255,0.9);
+            font-size: 3rem;
+            min-height: 120px;
+        }
+        .discount-category {
+            border: 2px solid #e74c3c;
+        }
             body {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
@@ -185,7 +227,10 @@ $theme_rgb = hexToRgb($theme_color);
 // Eğer kategori seçilmişse ürünleri çek
 $products = [];
 $category_input = getSecureInt('category', 0);
-if ($category_input > 0) {
+if ($category_input === -1) {
+    // Sanal indirim kategorisi
+    $products = dvDiscountedProducts($db);
+} elseif ($category_input > 0) {
     $stmt = $db->query(
         "SELECT * FROM products 
          WHERE category_id = ? 
@@ -338,10 +383,13 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="category-section">
             <div class="modern-category-grid">
                 <?php foreach($categories as $index => $category): ?>
-                    <a href="?category=<?= $category['id'] ?>&table=<?= $table_id ?>" class="text-decoration-none">
-                        <div class="modern-category-item">
+                    <a href="?category=<?= (int)$category['id'] ?>&table=<?= $table_id ?>" class="text-decoration-none">
+                        <div class="modern-category-item<?= (int)$category['id'] === -1 ? ' discount-category' : '' ?>">
+                            <?php if (!empty($category['image'])): ?>
                             <img src="uploads/<?= $category['image'] ?>" class="category-bg-image" alt="<?= $category['name'] ?>">
-                            
+                            <?php else: ?>
+                            <div class="category-bg-image category-bg-placeholder"><i class="fas fa-percent"></i></div>
+                            <?php endif; ?>
                             <div class="modern-category-content">
                                 <h3 class="modern-category-title"><?= htmlspecialchars($category['name']) ?></h3>
                             </div>
@@ -364,7 +412,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 $current_category = null;
                 $products = [];
                 
-                if ($category_input > 0) {
+                if ($category_input === -1) {
+                    // Sanal indirim kategorisi: DB'de karşılığı yok
+                    $products = dvDiscountedProducts($db);
+                    $current_category = [
+                        'id' => -1,
+                        'name' => 'İndirimli Ürünler',
+                        'description' => 'İndirimdeki tüm ürünler',
+                    ];
+                } elseif ($category_input > 0) {
                     $stmt = $db->query(
                         "SELECT * FROM products 
                          WHERE category_id = ? 
@@ -425,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <?php if(!empty($product['description'])): ?>
                                     <p class="product-description"><?= htmlspecialchars($product['description']) ?></p>
                                     <?php endif; ?>
-                                    <div class="product-price"><?= number_format($product['price'], 2) ?> ₺</div>
+                                    <div class="product-price"><?php $dp = (float)($product['discount_percent'] ?? 0); if ($dp > 0): ?><span class="discount-badge">%<?= rtrim(rtrim(number_format($dp, 2, ',', '.'), '0'), ',') ?></span> <span class="old-price"><?= number_format($product['price'], 2) ?> ₺</span> <?= number_format(dvEffectivePrice($product['price'], $dp), 2) ?> ₺<?php else: ?><?= number_format($product['price'], 2) ?> ₺<?php endif; ?></div>
                                     <?php if ($acceptOrders): ?>
                                     <div class="order-controls">
                                         <div class="quantity-control">
@@ -459,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <h5 class="menu-item-title"><?= htmlspecialchars($product['name']) ?></h5>
                                         <p class="menu-item-description"><?= htmlspecialchars($product['description']) ?></p>
                                         <div class="menu-item-footer">
-                                            <div class="menu-item-price"><?= number_format($product['price'], 2) ?> ₺</div>
+                                            <div class="menu-item-price"><?php $dp = (float)($product['discount_percent'] ?? 0); if ($dp > 0): ?><span class="discount-badge">%<?= rtrim(rtrim(number_format($dp, 2, ',', '.'), '0'), ',') ?></span> <span class="old-price"><?= number_format($product['price'], 2) ?> ₺</span> <?= number_format(dvEffectivePrice($product['price'], $dp), 2) ?> ₺<?php else: ?><?= number_format($product['price'], 2) ?> ₺<?php endif; ?></div>
                                             <?php if ($acceptOrders): ?>
                                             <div class="order-controls">
                                                 <div class="quantity-control">

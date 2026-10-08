@@ -37,7 +37,7 @@ try {
 
     // Mevcut sipariş bilgisi (stok iadesi ve bildirim için)
     $currentOrder = $db->query(
-        "SELECT id, status, order_type FROM orders WHERE id = ?",
+        "SELECT id, status, order_type, payment_id FROM orders WHERE id = ?",
         [$order_id]
     )->fetch();
 
@@ -46,13 +46,33 @@ try {
     }
 
     $wasCancelled = $currentOrder['status'] === 'cancelled';
+    $wasDelivered = in_array($currentOrder['status'], ['delivered', 'completed'], true);
     $isDelivery = ($currentOrder['order_type'] ?? 'table') === 'delivery';
+
+    $stockTrackingRow = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_stock_tracking'")->fetch();
+    $stockTrackingOn = $stockTrackingRow && $stockTrackingRow['setting_value'] == '1';
+
+    // TESLİM: masa siparişinde ürünler satılmış sayılır → stok düş.
+    // (Adres siparişinde stok oluşurken düşülmüştü; tekrar düşülmez.)
+    // completed/cancelled/delivered durumundan gelen tekrarlar çift düşürmez.
+    $stockDeducted = false;
+    if ($status === 'delivered' && !$wasCancelled && !$wasDelivered && !$isDelivery && $stockTrackingOn) {
+        $db->beginTransaction();
+        try {
+            dvDeductTableStock($db, (int)$order_id, 'Masa Siparişi #' . $order_id . ' teslim - stok çıkışı');
+            $db->commit();
+            $stockDeducted = true;
+        } catch (Exception $ex) {
+            $db->rollBack();
+            error_log('Stok düşüş hatası (order #' . $order_id . '): ' . $ex->getMessage());
+            throw new Exception('Stok yetersiz olduğu için teslim alınamadı: ' . $ex->getMessage());
+        }
+    }
 
     // Adres siparişi iptal ediliyorsa stoğu geri al (tekrar iptal edilirse geri alma)
     $stockRestored = false;
     if ($status === 'cancelled' && !$wasCancelled && $isDelivery) {
-        $stockRow = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'system_stock_tracking'")->fetch();
-        if ($stockRow && $stockRow['setting_value'] == '1') {
+        if ($stockTrackingOn) {
             $db->beginTransaction();
             try {
                 restoreDeliveryStock($db, (int)$order_id);
@@ -62,6 +82,21 @@ try {
                 $db->rollBack();
                 error_log('Stok iadesi hatası (order #' . $order_id . '): ' . $ex->getMessage());
             }
+        }
+    }
+
+    // Masa siparişi teslimden SONRA iptal edilirse düşülen stoğu geri al.
+    // (Teslim öncesi iptalde stok hiç düşülmemişti; iade gerekmez.)
+    if ($status === 'cancelled' && !$wasCancelled && !$isDelivery
+        && $currentOrder['status'] === 'delivered' && $stockTrackingOn) {
+        $db->beginTransaction();
+        try {
+            dvRestoreTableStock($db, (int)$order_id, 'Masa Siparişi #' . $order_id . ' iptal - stok iadesi');
+            $db->commit();
+            $stockRestored = true;
+        } catch (Exception $ex) {
+            $db->rollBack();
+            error_log('Stok iadesi hatası (order #' . $order_id . '): ' . $ex->getMessage());
         }
     }
 
@@ -90,6 +125,34 @@ try {
              WHERE id = ?",
             [$status, $order_id]
         );
+    }
+
+    // İPTALDE ÖDEME: siparişin bağlı olduğu ödeme, başka aktif siparişi
+    // kalmadıysa iptal edilir (alınmış ödemelerde görünmez, ciroya girmez).
+    // Kardeş siparişler duruyorsa ödeme korunur (kısmi iptal).
+    $paymentCancelled = false;
+    if ($status === 'cancelled' && !$wasCancelled && !empty($currentOrder['payment_id'])) {
+        $paymentId = (int)$currentOrder['payment_id'];
+        $sibling = $db->query(
+            "SELECT id FROM orders WHERE payment_id = ? AND id <> ? AND status <> 'cancelled' LIMIT 1",
+            [$paymentId, $order_id]
+        )->fetch();
+        if (!$sibling) {
+            $db->beginTransaction();
+            try {
+                $db->query(
+                    "UPDATE payments SET status = 'cancelled',
+                        payment_note = CONCAT(COALESCE(payment_note, ''), '\nSipariş #', ?, ' iptali nedeniyle otomatik iptal')
+                     WHERE id = ? AND status = 'completed'",
+                    [$order_id, $paymentId]
+                );
+                $db->commit();
+                $paymentCancelled = true;
+            } catch (Exception $ex) {
+                $db->rollBack();
+                error_log('Ödeme iptal hatası (payment #' . $paymentId . '): ' . $ex->getMessage());
+            }
+        }
     }
 
     if ($result) {
@@ -130,7 +193,9 @@ try {
             'success'        => true,
             'message'        => 'Sipariş durumu güncellendi',
             'status'         => $status,
-            'stock_restored' => $stockRestored
+            'stock_restored' => $stockRestored,
+            'stock_deducted' => $stockDeducted,
+            'payment_cancelled' => $paymentCancelled
         ]);
     } else {
         throw new Exception('Sipariş güncellenirken bir hata oluştu');

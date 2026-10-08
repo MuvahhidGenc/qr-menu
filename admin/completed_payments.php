@@ -12,6 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 $canViewCompletedPayments = hasPermission('payments.view_completed');
 $canCancelPayment = hasPermission('payments.cancel');
 $canReorderToTable = hasPermission('payments.reorder');
+$canCancelOrder = hasPermission('orders.status') || hasPermission('kitchen.manage');
 
 // Sadece görüntüleme yetkisi kontrolü
 if (!$canViewCompletedPayments) {
@@ -70,6 +71,17 @@ $payments = $db->query("
     GROUP BY p.id
     ORDER BY p.created_at DESC
 ")->fetchAll();
+
+// Tahsil bekleyen teslimatlar: teslim edilmiş ama ödemesi alınmamış masa
+// siparişleri. sales_pending_collection() ciroya EKLENMEZ; yalnızca bu
+// listedeki bekleyen tutarı gösterir. Ödeme alınınca/iptalde satır düşer.
+require_once '../includes/sales.php';
+$pendingCollection = sales_pending_collection($db);
+
+// Web/online satışlar: payments satırı olmadığı için ödeme listesinde
+// görünmezler. Ayrı bölümde listelenir; mevcut ödeme kartlarına ve
+// toplamlara DOKUNULMAZ.
+$webSales = sales_web_completed($db);
 
 // Restoran adını settings tablosundan al
 $restaurantName = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'restaurant_name'")->fetch()['setting_value'];
@@ -425,9 +437,46 @@ function jsArg($value): string
             box-shadow: 0 4px 15px rgba(253, 121, 168, 0.4);
         }
 
+        .action-btn.edit-method {
+            background: linear-gradient(135deg, #55efc4 0%, #00b894 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(85, 239, 196, 0.4);
+        }
+
         .action-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        /* Sekmeler: açık renk kart zemininde belirgin butonlar */
+        #paymentsTab {
+            border-bottom: 2px solid #e9ecef;
+            gap: 8px;
+        }
+        #paymentsTab .nav-link {
+            background: #eef1f6;
+            border: 1px solid #d5dbe5;
+            color: #3a3f4b;
+            font-weight: 600;
+            padding: 10px 22px;
+            border-radius: 12px 12px 0 0;
+            transition: all 0.25s ease;
+        }
+        #paymentsTab .nav-link:hover {
+            background: #e2e7f0;
+            color: #222;
+            transform: translateY(-2px);
+        }
+        /* Aktif sekme: klasik Bootstrap sekme görünümü (önceki hali) */
+        #paymentsTab .nav-link.active {
+            background: #fff;
+            color: #495057;
+            border-color: #dee2e6 #dee2e6 #fff;
+            box-shadow: none;
+            transform: none;
+        }
+        #paymentsTab .nav-link .badge {
+            margin-left: 6px;
         }
 
         /* Order Details */
@@ -1033,8 +1082,225 @@ function jsArg($value): string
                     <div class="stat-label" title="Bu sayfa yalnızca tahsilat kayıtlarını listeler: masa + POS kanalları. Teslimat/web cirosu bu toplama dahil değildir; kanonik ciro için dashboard veya finansal raporu kullanın.">Tahsil Edilen (Masa + POS)</div>
                 </div>
             </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stat-card animate-slide-up">
+                    <div class="stat-icon primary">
+                        <i class="fas fa-motorcycle"></i>
+                    </div>
+                    <div class="stat-number"><?= number_format($webSales['total'], 2, ',', '.') ?>₺</div>
+                    <div class="stat-label">Web / Online Satış (<?= (int)$webSales['count'] ?> sipariş)</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="stat-card animate-slide-up">
+                    <div class="stat-icon success">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stat-number"><?= number_format($totalRevenue + $webSales['total'], 2, ',', '.') ?>₺</div>
+                    <div class="stat-label">Genel Toplam (Kasa + Web)</div>
+                </div>
+            </div>
         </div>
 
+        <!-- Sekmeler: sayfa uzamasın diye Ödemeler / Web / Bekleyen ayrı panelde -->
+        <ul class="nav nav-tabs mb-3" id="paymentsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tabbtn-payments" data-bs-toggle="tab" data-bs-target="#tab-payments" type="button" role="tab">
+                    <i class="fas fa-credit-card me-1"></i>Alınan Ödemeler
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tabbtn-web" data-bs-toggle="tab" data-bs-target="#tab-web" type="button" role="tab">
+                    <i class="fas fa-motorcycle me-1"></i>Web / Online
+                    <span class="badge bg-primary"><?= (int)$webSales['count'] ?></span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tabbtn-pending" data-bs-toggle="tab" data-bs-target="#tab-pending" type="button" role="tab">
+                    <i class="fas fa-hourglass-half me-1"></i>Bekleyen Tahsilat
+                    <span class="badge bg-warning text-dark"><?= (int)$pendingCollection['count'] ?></span>
+                </button>
+            </li>
+        </ul>
+        <div class="tab-content" id="paymentsTabContent">
+
+        <div class="tab-pane fade" id="tab-pending" role="tabpanel">
+        <?php if (!empty($pendingCollection['orders'])): ?>
+        <!-- Tahsil Bekleyen Teslimatlar -->
+        <div class="modern-table-container animate-slide-up mb-4" id="pending-collection">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-hourglass-half me-2 text-warning"></i>
+                    Tahsil Bekleyen Teslimatlar
+                    <span class="badge bg-warning text-dark"><?= (int)$pendingCollection['count'] ?> sipariş</span>
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-bold">Bekleyen: <?= number_format($pendingCollection['total'], 2, ',', '.') ?> ₺</span>
+                    <a href="tables.php" class="btn btn-sm btn-success">
+                        <i class="fas fa-cash-register me-1"></i>Tahsil Et (Masalar)
+                    </a>
+                </div>
+            </div>
+            <div class="table-responsive d-none d-md-block">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Sipariş</th>
+                            <th>Masa</th>
+                            <th>Ürünler</th>
+                            <th>Teslim</th>
+                            <th class="text-end">Tutar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendingCollection['orders'] as $pend): ?>
+                        <tr>
+                            <td><strong>#<?= (int)$pend['id'] ?></strong></td>
+                            <td><?= $pend['table_no'] !== null ? 'Masa ' . e($pend['table_no']) : '-' ?></td>
+                            <td>
+                                <?php
+                                $pitems = !empty($pend['items']) ? explode('||', $pend['items']) : [];
+                                foreach ($pitems as $pi) {
+                                    echo '<div>' . e(trim($pi)) . '</div>';
+                                }
+                                if (!$pitems) echo '<span class="text-muted">-</span>';
+                                ?>
+                            </td>
+                            <td><small><?= e(date('d.m.Y H:i', strtotime($pend['updated_at'] ?? $pend['created_at']))) ?></small></td>
+                            <td class="text-end fw-bold"><?= number_format((float)$pend['total_amount'], 2, ',', '.') ?> ₺</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-block d-md-none">
+                <?php foreach ($pendingCollection['orders'] as $pend): ?>
+                <div class="payment-card payment-item mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Sipariş #<?= (int)$pend['id'] ?></strong>
+                            <small class="text-muted ms-1"><?= $pend['table_no'] !== null ? 'Masa ' . e($pend['table_no']) : '' ?></small>
+                            <div class="small text-muted"><?= e(date('d.m.Y H:i', strtotime($pend['updated_at'] ?? $pend['created_at']))) ?></div>
+                        </div>
+                        <div class="fw-bold"><?= number_format((float)$pend['total_amount'], 2, ',', '.') ?> ₺</div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <a href="tables.php" class="btn btn-success w-100 mt-2">
+                    <i class="fas fa-cash-register me-1"></i>Tahsil Et (Masalar)
+                </a>
+            </div>
+            <small class="text-muted d-block mt-2">Bu tutar ciroya dahil değildir; ödeme alınınca Alınmış Ödemeler'e düşer.</small>
+        </div>
+        <?php else: ?>
+        <div class="alert alert-success mb-0">
+            <i class="fas fa-check-circle me-2"></i>Bekleyen tahsilat yok. Teslim edilen tüm siparişlerin ödemesi alınmış.
+        </div>
+        <?php endif; ?>
+        </div><!-- /tab-pending -->
+
+        <div class="tab-pane fade" id="tab-web" role="tabpanel">
+        <?php if (!empty($webSales['orders'])): ?>
+        <!-- Web / Online Satışlar (ödeme satırı yoktur, ayrı listelenir) -->
+        <div class="modern-table-container animate-slide-up mb-4" id="web-sales">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-motorcycle me-2 text-primary"></i>
+                    Web / Online Satışlar
+                    <span class="badge bg-primary"><?= (int)$webSales['count'] ?> sipariş</span>
+                </h5>
+                <span class="fw-bold">Toplam: <?= number_format($webSales['total'], 2, ',', '.') ?> ₺</span>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="webDateFilter" class="form-label">Tarih Filtresi:</label>
+                        <input type="date" id="webDateFilter" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="webMethodFilter" class="form-label">Ödeme Yöntemi:</label>
+                        <select id="webMethodFilter" class="form-control">
+                            <option value="">Tümü</option>
+                            <option value="kapıda nakit">Kapıda Nakit</option>
+                            <option value="kapıda kart">Kapıda Kart</option>
+                            <option value="online">Online Ödeme</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="webSearchFilter" class="form-label">Müşteri / Sipariş No:</label>
+                        <input type="text" id="webSearchFilter" class="form-control" placeholder="Ad, telefon veya sipariş no">
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="webSalesTable" class="table table-hover align-middle modern-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Sipariş</th>
+                            <th>Müşteri</th>
+                            <th>Ürünler</th>
+                            <th>Yöntem</th>
+                            <th>Tarih</th>
+                            <th class="text-end">Tutar</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $webMethodLabels = ['cash' => 'Kapıda Nakit', 'card' => 'Kapıda Kart', 'online' => 'Online Ödeme'];
+                        foreach ($webSales['orders'] as $ws):
+                            $wsMethod = $ws['payment_method'] ?? '';
+                        ?>
+                        <tr>
+                            <td><strong><?= e($ws['order_code'] ?: ('#' . (int)$ws['id'])) ?></strong></td>
+                            <td>
+                                <?= e(trim(($ws['customer_name'] ?? '') . ' ' . ($ws['customer_surname'] ?? ''))) ?>
+                                <?php if (!empty($ws['customer_phone'])): ?><br><small class="text-muted"><?= e($ws['customer_phone']) ?></small><?php endif; ?>
+                            </td>
+                            <td>
+                                <?php
+                                $wsItems = !empty($ws['items']) ? explode('||', $ws['items']) : [];
+                                foreach ($wsItems as $wi) {
+                                    echo '<div>' . e(trim($wi)) . '</div>';
+                                }
+                                if (!$wsItems) echo '<span class="text-muted">-</span>';
+                                ?>
+                            </td>
+                            <td><?= e($webMethodLabels[$wsMethod] ?? ($wsMethod ?: '-')) ?></td>
+                            <td data-order="<?= e(strtotime($ws['created_at']) ?: 0) ?>"><small><?= e(date('d.m.Y H:i', strtotime($ws['created_at']))) ?></small></td>
+                            <td class="text-end fw-bold" data-order="<?= (float)$ws['total_amount'] ?>"><?= number_format((float)$ws['total_amount'], 2, ',', '.') ?> ₺</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="action-btn print" onclick="printWebOrder(<?= (int)$ws['id'] ?>)" title="Fiş Yazdır">
+                                        <i class="fas fa-print"></i>
+                                    </button>
+                                    <?php if ($canCancelPayment): ?>
+                                    <button class="action-btn edit-method" onclick="updateWebOrderMethod(<?= (int)$ws['id'] ?>, <?= jsArg($wsMethod) ?>)" title="Ödeme Yöntemini Düzelt">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                    <?php endif; ?>
+                                    <?php if ($canCancelOrder): ?>
+                                    <button class="action-btn cancel" onclick="cancelWebOrder(<?= (int)$ws['id'] ?>)" title="Siparişi İptal Et">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <small class="text-muted d-block mt-2">Teslim edilen adres siparişleri burada listelenir; kapıda tahsilat kaydı tutulmadığı için ödeme listesinden ayrıdır.</small>
+        </div>
+        <?php endif; ?>
+        </div><!-- /tab-web -->
+
+        <div class="tab-pane fade show active" id="tab-payments" role="tabpanel">
         <!-- Desktop: Normal Table, Mobile: Accordion -->
         <div class="modern-table-container animate-slide-up">
             <!-- Desktop Table View -->
@@ -1083,7 +1349,7 @@ function jsArg($value): string
                                 <tbody>
                                     <?php foreach ($payments as $payment): ?>
                                     <tr>
-                            <td>
+                            <td data-order="<?= e(strtotime($payment['created_at']) ?: 0) ?>">
                                 <div class="d-flex flex-column">
                                     <span class="fw-bold"><?= date('d.m.Y', strtotime($payment['created_at'])) ?></span>
                                     <small class="text-muted"><?= date('H:i', strtotime($payment['created_at'])) ?></small>
@@ -1221,6 +1487,9 @@ function jsArg($value): string
                                                 </button>
                                             <?php endif; ?>
                                             <?php if ($payment['status'] == 'completed' && $canCancelPayment): ?>
+                                        <button class="action-btn edit-method" onclick="updatePaymentMethod(<?= (int)$payment['payment_id'] ?>, <?= jsArg($payment['payment_method']) ?>)" title="Ödeme Yöntemini Düzelt">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </button>
                                         <button class="action-btn cancel" onclick="cancelPayment(<?= $payment['payment_id'] ?>)" title="Ödemeyi İptal Et">
                                                     <i class="fas fa-times"></i>
                                                 </button>
@@ -1510,6 +1779,8 @@ function jsArg($value): string
                 </div>
             </div>
         </div>
+        </div><!-- /tab-payments -->
+        </div><!-- /paymentsTabContent -->
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -1546,7 +1817,9 @@ function jsArg($value): string
     // Yetki değişkenlerini GLOBAL olarak JavaScript'e aktar
     const userPermissions = {
         canCancelPayment: <?php echo $canCancelPayment ? 'true' : 'false' ?>,
-        canReorderToTable: <?php echo $canReorderToTable ? 'true' : 'false' ?>
+        canReorderToTable: <?php echo $canReorderToTable ? 'true' : 'false' ?>,
+        canEditPaymentMethod: <?php echo $canCancelPayment ? 'true' : 'false' ?>,
+        canCancelOrder: <?php echo $canCancelOrder ? 'true' : 'false' ?>
     };
 
     // Debug için yetkileri console'a yazdır
@@ -1653,6 +1926,7 @@ function jsArg($value): string
                 },
                 {
                     extend: 'print',
+                    text: 'Yazdır',
                     exportOptions: {
                         columns: [0, 1, 2, 3, 4, 5, 6, 7]
                     },
@@ -1662,8 +1936,26 @@ function jsArg($value): string
             ]
         });
 
-            // Custom filtering
+            // Web / Online Satışlar tablosu: arama + sayfalama, her zaman
+            // en güncel (Tarih sütunu, data-order ile) en üstte.
+            if ($('#webSalesTable').length) {
+                $('#webSalesTable').DataTable({
+                    language: turkishLanguage,
+                    order: [[4, 'desc']],
+                    pageLength: 10,
+                    responsive: false,
+                    dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                         '<"row"<"col-sm-12"tr>>' +
+                         '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                    columnDefs: [
+                        { orderable: false, targets: [2, 6] }
+                    ]
+                });
+            }
+
+            // Custom filtering (yalnızca ödemeler tablosu; web tablosunu etkilemez)
             $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                if (settings.nTable && settings.nTable.id !== 'paymentsTable') return true;
                 const dateFilter = $('#dateFilter').val();
                 const statusFilter = $('#statusFilter').val();
                 const tableFilter = $('#tableFilter').val().toLowerCase();
@@ -1694,6 +1986,58 @@ function jsArg($value): string
             $('#dateFilter, #statusFilter, #tableFilter').on('keyup change', function() {
                 table.draw();
             });
+
+            // Web tablosu filtreleri (yalnızca web tablosu; ödemeleri etkilemez)
+            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                if (!settings.nTable || settings.nTable.id !== 'webSalesTable') return true;
+                const dateFilter = $('#webDateFilter').val();
+                const methodFilter = $('#webMethodFilter').val();
+                const searchFilter = $('#webSearchFilter').val().toLowerCase();
+
+                const rowText = (data[0] + ' ' + data[1]).toLowerCase(); // Sipariş + Müşteri
+                const rowMethod = (data[3] || '').toLowerCase();          // Yöntem
+                const rowDate = data[4];                                  // Tarih (gg.aa.yyyy)
+
+                if (dateFilter && !rowDate.includes(dateFilter.split('-').reverse().join('.'))) {
+                    return false;
+                }
+                if (methodFilter && !rowMethod.includes(methodFilter)) {
+                    return false;
+                }
+                if (searchFilter && !rowText.includes(searchFilter)) {
+                    return false;
+                }
+                return true;
+            });
+            $('#webDateFilter, #webMethodFilter').on('change', function() {
+                if ($.fn.DataTable.isDataTable('#webSalesTable')) {
+                    $('#webSalesTable').DataTable().draw();
+                }
+            });
+            $('#webSearchFilter').on('keyup', function() {
+                if ($.fn.DataTable.isDataTable('#webSalesTable')) {
+                    $('#webSalesTable').DataTable().draw();
+                }
+            });
+
+            // ?tab=web|pending|payments ile doğrudan sekme açma + gizli
+            // sekmeden dönünce DataTables sütun genişliklerini düzeltme
+            (function initPaymentsTab() {
+                const params = new URLSearchParams(window.location.search || '');
+                const tab = params.get('tab');
+                if (tab === 'web' || tab === 'pending' || tab === 'payments') {
+                    const btn = document.getElementById('tabbtn-' + tab);
+                    if (btn) {
+                        const t = new bootstrap.Tab(btn);
+                        t.show();
+                    }
+                }
+                document.querySelectorAll('#paymentsTab button[data-bs-toggle="tab"]').forEach(function(btn) {
+                    btn.addEventListener('shown.bs.tab', function() {
+                        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                    });
+                });
+            })();
 
             // Desktop Table hover effects
             $('#paymentsTable tbody').on('mouseenter', 'tr', function() {
@@ -1944,6 +2288,178 @@ function jsArg($value): string
                 .then(data => {
                     if (data.success) {
                         Swal.fire('Başarılı!', 'Ödeme iptal edildi.', 'success')
+                        .then(() => location.reload());
+                    } else {
+                        throw new Error(data.message || 'Bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Hata!', error.message, 'error');
+                });
+            }
+        });
+    }
+
+    // Ödeme Yöntemi Düzeltme (yanlış girilen Nakit/POS seçimi)
+    function updatePaymentMethod(paymentId, currentMethod) {
+        if (!userPermissions.canEditPaymentMethod) {
+            Swal.fire('Yetkisiz İşlem', 'Ödeme yöntemini düzenleme yetkiniz bulunmuyor!', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Ödeme Yöntemini Düzelt',
+            html: `
+                <div class="mb-3 text-start">
+                    <label for="paymentMethodSelect" class="form-label">Ödeme Yöntemi</label>
+                    <select id="paymentMethodSelect" class="form-select">
+                        <option value="cash" ${currentMethod === 'cash' ? 'selected' : ''}>Nakit</option>
+                        <option value="pos" ${currentMethod === 'pos' ? 'selected' : ''}>POS / Kart</option>
+                    </select>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Kaydet',
+            cancelButtonText: 'Vazgeç',
+            preConfirm: () => {
+                return document.getElementById('paymentMethodSelect').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('ajax/update_payment_method.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        payment_id: paymentId,
+                        payment_method: result.value
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Başarılı!', 'Ödeme yöntemi güncellendi.', 'success')
+                        .then(() => location.reload());
+                    } else {
+                        throw new Error(data.message || 'Bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Hata!', error.message, 'error');
+                });
+            }
+        });
+    }
+
+    // Web/adres siparişi fiş yazdırma (sipariş fişi)
+    function printWebOrder(orderId) {
+        Swal.fire({
+            title: 'Fiş Yazdırılıyor...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+        const body = new FormData();
+        body.append('order_id', orderId);
+        fetch('ajax/print_order.php', {
+            method: 'POST',
+            body: body
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Başarılı!', 'Fiş yazdırıldı.', 'success');
+            } else {
+                throw new Error(data.error || data.message || 'Bir hata oluştu');
+            }
+        })
+        .catch(error => {
+            Swal.fire('Hata!', error.message, 'error');
+        });
+    }
+
+    // Web/adres siparişi ödeme yöntemi düzeltme
+    function updateWebOrderMethod(orderId, currentMethod) {
+        if (!userPermissions.canEditPaymentMethod) {
+            Swal.fire('Yetkisiz İşlem', 'Ödeme yöntemini düzenleme yetkiniz bulunmuyor!', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Ödeme Yöntemini Düzelt',
+            html: `
+                <div class="mb-3 text-start">
+                    <label for="webPaymentMethodSelect" class="form-label">Ödeme Yöntemi</label>
+                    <select id="webPaymentMethodSelect" class="form-select">
+                        <option value="cash" ${currentMethod === 'cash' ? 'selected' : ''}>Kapıda Nakit</option>
+                        <option value="card" ${currentMethod === 'card' ? 'selected' : ''}>Kapıda Kart</option>
+                        <option value="online" ${currentMethod === 'online' ? 'selected' : ''}>Online Ödeme</option>
+                    </select>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Kaydet',
+            cancelButtonText: 'Vazgeç',
+            preConfirm: () => {
+                return document.getElementById('webPaymentMethodSelect').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('ajax/update_payment_method.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        payment_method: result.value
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Başarılı!', 'Ödeme yöntemi güncellendi.', 'success')
+                        .then(() => location.reload());
+                    } else {
+                        throw new Error(data.message || 'Bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Hata!', error.message, 'error');
+                });
+            }
+        });
+    }
+
+    // Web/adres siparişi iptal (stoğu iade eder)
+    function cancelWebOrder(orderId) {
+        if (!userPermissions.canCancelOrder) {
+            Swal.fire('Yetkisiz İşlem', 'Sipariş iptal etme yetkiniz bulunmuyor!', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Sipariş İptal',
+            text: 'Bu adres siparişi iptal edilecek ve stoğu iade edilecek. Onaylıyor musunuz?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Evet, İptal Et',
+            cancelButtonText: 'Vazgeç'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const body = new FormData();
+                body.append('order_id', orderId);
+                body.append('status', 'cancelled');
+                fetch('ajax/update_order_status.php', {
+                    method: 'POST',
+                    body: body
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Başarılı!', 'Sipariş iptal edildi.', 'success')
                         .then(() => location.reload());
                     } else {
                         throw new Error(data.message || 'Bir hata oluştu');

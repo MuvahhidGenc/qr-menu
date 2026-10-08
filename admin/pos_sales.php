@@ -1630,7 +1630,7 @@ function renderProducts(productList, isFavorites = false) {
                 ${isFavorites ? usageCount : ''}
                 <img src="../uploads/${escHtml(product.image)}" class="pos-product-img" alt="${escHtml(product.name)}">
                 <div class="pos-product-name">${escHtml(product.name)}</div>
-                <div class="pos-product-price">${parseFloat(product.price).toFixed(2)} ₺</div>
+                <div class="pos-product-price">${parseFloat(product.effective_price ?? product.price).toFixed(2)} ₺${(parseFloat(product.discount_percent) > 0) ? ` <small class="text-decoration-line-through text-muted">${parseFloat(product.price).toFixed(2)}</small>` : ''}</div>
             </div>
         `);
         
@@ -1767,7 +1767,7 @@ function addToCart(productId) {
         getCart().push({
             id: product.id,
             name: product.name,
-            price: parseFloat(product.price),
+            price: parseFloat(product.effective_price ?? product.price),
             quantity: 1,
             stock: product.stock
         });

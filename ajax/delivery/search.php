@@ -62,14 +62,37 @@ try {
         $categories = $db->query(
             "SELECT * FROM categories WHERE status = 1 ORDER BY sort_order ASC, id ASC"
         )->fetchAll();
-        // Kategori id'si guvenli sekilde normalize edilir: negatif, ondalikli
-        // veya devasa bir deger 0'a duser. Aksi halde -5 gibi bir deger
-        // "bu kategoride urun yok" basligi olan BOZUK bir kategori ekrani
-        // uretirdi (ve $quickProducts hic yuklenmezdi).
-        $categoryId = max(0, (int)($_POST['category_id'] ?? 0));
+        if (dvHasDiscountedProducts($db)) {
+            array_unshift($categories, [
+                'id' => -1,
+                'name' => 'İndirimli Ürünler',
+                'description' => 'İndirimdeki tüm ürünler',
+                'image' => '',
+                'status' => 1,
+                'sort_order' => -1,
+            ]);
+        }
+        // Kategori id'si guvenli sekilde normalize edilir: ondalikli veya
+        // devasa bir deger 0'a duser. Sanal indirim kategorisi (-1) OZEL
+        // olarak kabul edilir; diger negatifler 0'a duser.
+        $rawCategoryId = (int)($_POST['category_id'] ?? 0);
+        $categoryId = $rawCategoryId === -1 ? -1 : max(0, $rawCategoryId);
         $currentCategory = null;
         $products = [];
         $quickProducts = [];
+
+        if ($categoryId === -1) {
+            if (dvHasDiscountedProducts($db)) {
+                $currentCategory = [
+                    'id' => -1,
+                    'name' => 'İndirimli Ürünler',
+                    'description' => 'İndirimdeki tüm ürünler',
+                ];
+                $products = dvDiscountedProducts($db);
+            } else {
+                $categoryId = 0;
+            }
+        }
 
         if ($categoryId > 0) {
             $currentCategory = $db->query(

@@ -35,8 +35,8 @@ try {
     $db = new Database();
     $total = 0;
     foreach($_SESSION['cart'] as $pid => $item) {
-        $product = $db->query("SELECT price FROM products WHERE id = ?", [$pid])->fetch();
-        $total += $product['price'] * $item['quantity'];
+        $product = $db->query("SELECT price, discount_percent FROM products WHERE id = ?", [$pid])->fetch();
+        $total += dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0) * $item['quantity'];
     }
 
     echo json_encode([

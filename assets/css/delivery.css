@@ -786,3 +786,7 @@
 .dv-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .dv-toast.ok { background: rgba(25, 135, 84, .95); }
 .dv-toast.err { background: rgba(198, 40, 40, .95); }
+
+.dv-disc-badge{display:inline-block;background:#e74c3c;color:#fff;font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:10px;margin-right:4px;vertical-align:middle}
+.dv-old-price{text-decoration:line-through;color:#999;font-size:.85em;margin-right:4px}
+

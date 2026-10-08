@@ -35,7 +35,7 @@ try {
     foreach ($cart_items as $key => $item) {
         // Ürün bilgilerini veritabanından al
         $product = $db->query(
-            "SELECT id, price FROM products WHERE id = ?",
+            "SELECT id, price, discount_percent FROM products WHERE id = ?",
             [$key]
         )->fetch();
         
@@ -43,10 +43,10 @@ try {
             throw new Exception('Ürün bulunamadı!');
         }
 
-        // Sepetteki ürün bilgilerini güncelle
+        // Sepetteki ürün bilgilerini güncelle (indirimli fiyat)
         $cart_items[$key]['product_id'] = $product['id'];
-        $cart_items[$key]['price'] = $product['price'];
-        $total += $product['price'] * $item['quantity'];
+        $cart_items[$key]['price'] = dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0);
+        $total += $cart_items[$key]['price'] * $item['quantity'];
     }
 
     // JSON verisini al
@@ -136,7 +136,7 @@ try {
         // Sipariş detaylarını kaydet
         foreach ($cart_items as $key => $item) {
             $product = $db->query(
-                "SELECT id, price FROM products WHERE id = ?",
+                "SELECT id, price, discount_percent FROM products WHERE id = ?",
                 [$key]
             )->fetch();
 
@@ -152,7 +152,7 @@ try {
                     $order_id,
                     $product['id'],
                     $item['quantity'],
-                    $product['price']
+                    dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0)
                 ]
             );
         }

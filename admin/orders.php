@@ -823,6 +823,7 @@ select:disabled {
                                                     <option value="ready" <?= $order['status'] == 'ready' ? 'selected' : '' ?>>Hazır</option>
                                                     <option value="on_the_way" <?= $order['status'] == 'on_the_way' ? 'selected' : '' ?>>Yola Çıktı</option>
                                                     <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                                                    <option value="completed" <?= $order['status'] == 'completed' ? 'selected' : '' ?>>Tamamlandı</option>
                                                     <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>İptal Et</option>
                                                 <?php else: ?>
                                                     <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>Beklemede</option>

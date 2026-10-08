@@ -790,7 +790,7 @@ function buildDeliveryCart($db, $cartKey = DELIVERY_CART_KEY) {
         $quantity = min($quantity, 99);
 
         $product = $db->query(
-            "SELECT id, name, price, image, status, stock
+            "SELECT id, name, price, discount_percent, image, status, stock
              FROM products WHERE id = ?",
             [$productId]
         )->fetch();
@@ -800,7 +800,7 @@ function buildDeliveryCart($db, $cartKey = DELIVERY_CART_KEY) {
             continue;
         }
 
-        $price = (float)$product['price'];
+        $price = dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0);
         $lineTotal = round($price * $quantity, 2);
         $subtotal += $lineTotal;
 
@@ -935,6 +935,134 @@ function deductDeliveryStock($db, $item, $note) {
     );
 }
 
+/**
+ * Ürün indirim yüzdesini satırdan okur (0-100 aralığına kelepçelenir).
+ *
+ * @param array $row products satırı (discount_percent içerebilir)
+ */
+function dvDiscountRate($row): float
+{
+    $d = isset($row['discount_percent']) ? (float)$row['discount_percent'] : 0.0;
+    if ($d < 0) {
+        $d = 0.0;
+    }
+    if ($d > 100) {
+        $d = 100.0;
+    }
+    return $d;
+}
+
+/**
+ * İndirimli etkin fiyat: price * (1 - discount/100), 2 haneye yuvarlanır.
+ * Sipariş yazan TÜM kanallar (masa QR, admin masa, web adres, POS) fiyatı
+ * buradan hesaplar; böylece indirimli ürün her yerde aynı fiyattan satılır.
+ */
+function dvEffectivePrice($price, $discountPercent): float
+{
+    $rate = (float)$discountPercent;
+    if ($rate < 0) {
+        $rate = 0.0;
+    }
+    if ($rate > 100) {
+        $rate = 100.0;
+    }
+    return round(((float)$price) * (1 - $rate / 100), 2);
+}
+
+/**
+ * Sanal "İndirimli Ürünler" kategorisi için ürünler:
+ * aktif + indirimi olan ürünler. Stok filtresi uygulanmaz (tükenenler
+ * kartta "Tükendi" olarak görünür).
+ *
+ * @return array products satırları
+ */
+function dvDiscountedProducts($db, $limit = 0): array
+{
+    $sql = "SELECT p.*, c.name AS category_name
+            FROM products p
+            LEFT JOIN categories c ON c.id = p.category_id
+            WHERE p.status = 1 AND p.discount_percent > 0
+            ORDER BY p.discount_percent DESC, p.sort_order ASC, p.id ASC";
+    if ($limit > 0) {
+        $sql .= " LIMIT " . (int)$limit;
+    }
+    return $db->query($sql)->fetchAll();
+}
+
+/**
+ * İndirimli ürün varsa sanal kategori gösterilir, yoksa gizlenir.
+ */
+function dvHasDiscountedProducts($db): bool
+{
+    $row = $db->query(
+        "SELECT COUNT(*) AS c FROM products WHERE status = 1 AND discount_percent > 0"
+    )->fetch();
+    return $row && (int)$row['c'] > 0;
+}
+
+/**
+ * Masa siparişi kalemleri için stok düşer (teslim anında çağrılır).
+ * Adres siparişinden farklı olarak masa siparişi oluşurken stok düşülmez;
+ * satış, ürün masaya TESLİM EDİLDİĞİNDE gerçekleşmiş sayılır.
+ *
+ * @throws Exception Stok yetersizse
+ */
+function dvDeductTableStock($db, $orderId, $note) {
+    $items = $db->query(
+        "SELECT product_id, quantity FROM order_items WHERE order_id = ?",
+        [(int)$orderId]
+    )->fetchAll();
+
+    foreach ($items as $item) {
+        $product = $db->query(
+            "SELECT id, name, stock FROM products WHERE id = ? FOR UPDATE",
+            [(int)$item['product_id']]
+        )->fetch();
+        if (!$product) {
+            continue;
+        }
+        $oldStock = (int)$product['stock'];
+        $newStock = $oldStock - (int)$item['quantity'];
+        if ($newStock < 0) {
+            throw new Exception($product['name'] . ' stokta yok (Kalan: ' . $oldStock . ').');
+        }
+        $db->query("UPDATE products SET stock = ? WHERE id = ?", [$newStock, (int)$item['product_id']]);
+        $db->query(
+            "INSERT INTO stock_movements (product_id, movement_type, quantity, old_stock, new_stock, note, created_by, created_at)
+             VALUES (?, 'out', ?, ?, ?, ?, NULL, NOW())",
+            [(int)$item['product_id'], (int)$item['quantity'], $oldStock, $newStock, $note]
+        );
+    }
+}
+
+/**
+ * Daha önce teslimde düşülen masa siparişi stoğunu geri alır
+ * (teslim sonrası iptal durumu için).
+ */
+function dvRestoreTableStock($db, $orderId, $note) {
+    $items = $db->query(
+        "SELECT product_id, quantity FROM order_items WHERE order_id = ?",
+        [(int)$orderId]
+    )->fetchAll();
+
+    foreach ($items as $item) {
+        $product = $db->query(
+            "SELECT stock FROM products WHERE id = ? FOR UPDATE",
+            [(int)$item['product_id']]
+        )->fetch();
+        if (!$product) {
+            continue;
+        }
+        $oldStock = (int)$product['stock'];
+        $newStock = $oldStock + (int)$item['quantity'];
+        $db->query("UPDATE products SET stock = ? WHERE id = ?", [$newStock, (int)$item['product_id']]);
+        $db->query(
+            "INSERT INTO stock_movements (product_id, movement_type, quantity, old_stock, new_stock, note, created_by, created_at)
+             VALUES (?, 'in', ?, ?, ?, ?, NULL, NOW())",
+            [(int)$item['product_id'], (int)$item['quantity'], $oldStock, $newStock, $note]
+        );
+    }
+}
 /**
  * Adres siparişi iptal edildiğinde stoğu geri alır
  *

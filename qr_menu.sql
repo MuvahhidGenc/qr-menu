@@ -430,6 +430,7 @@ CREATE TABLE `products` (
   `name` varchar(100) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `price` decimal(10,2) DEFAULT NULL,
+  `discount_percent` decimal(5,2) NOT NULL DEFAULT 0,
   `image` varchar(255) DEFAULT NULL,
   `status` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),

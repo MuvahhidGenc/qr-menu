@@ -63,7 +63,7 @@ function dvSearchExecute($db, $rawTerm, $limit = 60, $candidateLimit = 500) {
     }
 
     $candidates = $db->query(
-        "SELECT p.id, p.name, p.description, p.price, p.image, p.stock,
+        "SELECT p.id, p.name, p.description, p.price, p.discount_percent, p.image, p.stock,
                 p.special, p.category_id, p.sort_order, c.name AS category_name
          FROM products p
          LEFT JOIN categories c ON c.id = p.category_id
@@ -103,6 +103,8 @@ function dvSearchExecute($db, $rawTerm, $limit = 60, $candidateLimit = 500) {
 function dvRenderProductCard(array $product, array $terms, $inCart = 0, $basePath = '') {
     $pid      = (int)$product['id'];
     $price    = (float)($product['price'] ?? 0);
+    $discRate = dvDiscountRate($product);
+    $effPrice = dvEffectivePrice($price, $discRate);
     $soldOut  = (int)($product['stock'] ?? 0) <= 0;
     $image    = (string)($product['image'] ?? '');
     $catName  = (string)($product['category_name'] ?? '');
@@ -136,10 +138,16 @@ function dvRenderProductCard(array $product, array $terms, $inCart = 0, $basePat
         $h .= '<p class="dv-product-desc">' . htmlspecialchars($desc, ENT_QUOTES, 'UTF-8') . '</p>';
     }
 
-    $h .= '<div class="dv-product-foot"><div class="dv-price">'
-       . number_format($price, 2, ',', '.') . ' ₺'
-       . ($special ? '<small>ÖZEL</small>' : '')
-       . '</div>';
+    $h .= '<div class="dv-product-foot"><div class="dv-price">';
+    if ($discRate > 0) {
+        $h .= '<span class="dv-disc-badge">%' . rtrim(rtrim(number_format($discRate, 2, ',', '.'), '0'), ',') . '</span> '
+           . '<span class="dv-old-price">' . number_format($price, 2, ',', '.') . ' ₺</span> '
+           . number_format($effPrice, 2, ',', '.') . ' ₺';
+    } else {
+        $h .= number_format($price, 2, ',', '.') . ' ₺'
+           . ($special ? '<small>ÖZEL</small>' : '');
+    }
+    $h .= '</div>';
 
     if ($soldOut) {
         $h .= '<button class="dv-btn-add" disabled>Tükendi</button>';

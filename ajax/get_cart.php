@@ -27,8 +27,9 @@ try {
             $product = $db->query("SELECT * FROM products WHERE id = ?", [$product_id])->fetch();
             if($product) {
                 error_log('Ürün bulundu: ' . print_r($product, true));
-                
-                $subtotal = $product['price'] * $item['quantity'];
+
+                $unitPrice = dvEffectivePrice($product['price'], $product['discount_percent'] ?? 0);
+                $subtotal = $unitPrice * $item['quantity'];
                 $total += $subtotal;
 
                 $html .= '<div class="cart-item mb-3">
@@ -43,7 +44,7 @@ try {
                                 <button type="button" class="btn btn-outline-secondary" onclick="updateQuantity('.$product_id.', 1)">+</button>
                             </div>
                             <div class="text-end">
-                                <div class="fw-bold">'.number_format($product['price'], 2).' ₺</div>
+                                <div class="fw-bold">'.number_format($unitPrice, 2).' ₺</div>
                                 <small class="text-muted">Toplam: '.number_format($subtotal, 2).' ₺</small>
                             </div>
                         </div>

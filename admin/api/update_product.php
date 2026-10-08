@@ -31,6 +31,7 @@ try {
         $price = (float)$input['price'];
         $status = isset($input['status']) ? (int)$input['status'] : 1;
         $image = isset($input['image']) ? cleanInput($input['image']) : '';
+        $discountPercent = isset($input['discount_percent']) ? (float)$input['discount_percent'] : 0.0;
 
         if (empty($name)) {
             throw new Exception('Ürün adı boş olamaz');
@@ -40,10 +41,14 @@ try {
             throw new Exception('Fiyat negatif olamaz');
         }
 
+        if ($discountPercent < 0 || $discountPercent > 100) {
+            throw new Exception('İndirim yüzdesi 0-100 arasında olmalıdır');
+        }
+
         // Yeni ürün ekle
         $db->query(
-            "INSERT INTO products (category_id, name, price, status, image) VALUES (?, ?, ?, ?, ?)",
-            [$categoryId, $name, $price, $status, $image]
+            "INSERT INTO products (category_id, name, price, discount_percent, status, image) VALUES (?, ?, ?, ?, ?, ?)",
+            [$categoryId, $name, $price, $discountPercent, $status, $image]
         );
 
         echo json_encode([
@@ -63,6 +68,7 @@ try {
         $name = cleanInput($input['name']);
         $price = (float)$input['price'];
         $status = isset($input['status']) ? (int)$input['status'] : 1;
+        $discountPercent = isset($input['discount_percent']) ? (float)$input['discount_percent'] : 0.0;
 
         if (empty($name)) {
             throw new Exception('Ürün adı boş olamaz');
@@ -72,10 +78,14 @@ try {
             throw new Exception('Fiyat negatif olamaz');
         }
 
+        if ($discountPercent < 0 || $discountPercent > 100) {
+            throw new Exception('İndirim yüzdesi 0-100 arasında olmalıdır');
+        }
+
         // Ürünü güncelle
         $db->query(
-            "UPDATE products SET name = ?, price = ?, status = ? WHERE id = ?",
-            [$name, $price, $status, $id]
+            "UPDATE products SET name = ?, price = ?, discount_percent = ?, status = ? WHERE id = ?",
+            [$name, $price, $discountPercent, $status, $id]
         );
 
         echo json_encode([
@@ -95,7 +105,7 @@ try {
         error_log("Updating product ID: $id, Field: $field, Value: $value");
 
         // İzin verilen alanları kontrol et
-        $allowedFields = ['name', 'description', 'price', 'image', 'status', 'sort_order', 'barcode', 'stock'];
+        $allowedFields = ['name', 'description', 'price', 'discount_percent', 'image', 'status', 'sort_order', 'barcode', 'stock'];
         if (!in_array($field, $allowedFields)) {
             throw new Exception('Geçersiz alan: ' . $field);
         }
@@ -110,6 +120,12 @@ try {
                 $value = (float)$value;
                 if ($value < 0) {
                     throw new Exception('Fiyat negatif olamaz');
+                }
+                break;
+            case 'discount_percent':
+                $value = (float)$value;
+                if ($value < 0 || $value > 100) {
+                    throw new Exception('İndirim yüzdesi 0-100 arasında olmalıdır');
                 }
                 break;
             case 'stock':
@@ -156,6 +172,7 @@ try {
                 'name' => '`name`',
                 'description' => '`description`',
                 'price' => '`price`',
+                'discount_percent' => '`discount_percent`',
                 'image' => '`image`',
                 'status' => '`status`',
                 'sort_order' => '`sort_order`',

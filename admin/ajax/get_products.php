@@ -25,11 +25,16 @@ try {
 
     // products.status tinyint(1): 1 = aktif
     $products = $db->query(
-        "SELECT id, name, price, image, description FROM products
+        "SELECT id, name, price, discount_percent, image, description FROM products
          WHERE category_id = ? AND status = 1
          ORDER BY name",
         [$categoryId]
     )->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($products as &$pr) {
+        $pr['effective_price'] = dvEffectivePrice($pr['price'], $pr['discount_percent'] ?? 0);
+    }
+    unset($pr);
 
     echo json_encode($products, JSON_UNESCAPED_UNICODE);
 

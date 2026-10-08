@@ -640,6 +640,22 @@ toastr.options = {
                                             <?php echo number_format($product['price'], 2); ?> ₺
                                         </span>
                                     </div>
+                                    <div class="product-discount mt-1">
+                                        <small class="text-muted">
+                                            <i class="fas fa-percent text-warning"></i> İndirim:
+                                        </small>
+                                        <span class="editable-field ms-1"
+                                              data-field="discount_percent"
+                                              data-type="discount"
+                                              style="cursor: pointer;">
+                                            <?php
+                                            $dp = (float)($product['discount_percent'] ?? 0);
+                                            echo $dp > 0
+                                                ? '<strong class="text-success">%' . rtrim(rtrim(number_format($dp, 2, ',', '.'), '0'), ',') . '</strong>'
+                                                : '<span class="text-muted">Yok</span>';
+                                            ?>
+                                        </span>
+                                    </div>
                                     
                                     <?php if ($barcodeSalesEnabled): ?>
                                     <!-- Barkod Bilgisi (POS Aktifse) -->
@@ -752,6 +768,14 @@ toastr.options = {
                                         <input type="number" class="form-control" id="productPrice" step="0.01" required>
                                         <span class="input-group-text">₺</span>
                                     </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">İndirim (%)</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="productDiscount" step="0.01" min="0" max="100" value="0">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <small class="text-muted">0 = indirimsiz</small>
                                 </div>
                                 
                                 <?php if ($barcodeSalesEnabled): ?>
@@ -1297,6 +1321,11 @@ toastr.options = {
                         // Başarılı - içeriği güncelle
                         if (fieldType === 'price') {
                             field.textContent = newValue + ' ₺';
+                        } else if (fieldName === 'discount_percent') {
+                            const dv = parseFloat(newValue) || 0;
+                            field.innerHTML = dv > 0
+                                ? `<strong class="text-success">%${dv}</strong>`
+                                : `<span class="text-muted">Yok</span>`;
                         } else if (fieldName === 'stock') {
                             // Stok için renk ve ikon güncelle
                             const stockVal = parseInt(newValue) || 0;
@@ -1319,6 +1348,11 @@ toastr.options = {
                     // Hata durumunda eski değeri geri yükle
                     if (fieldName === 'price') {
                         field.textContent = currentValue + ' ₺';
+                    } else if (fieldName === 'discount_percent') {
+                        const dv = parseFloat(currentValue) || 0;
+                        field.innerHTML = dv > 0
+                            ? `<strong class="text-success">%${currentValue}</strong>`
+                            : `<span class="text-muted">Yok</span>`;
                     } else {
                         field.textContent = currentValue;
                     }
@@ -1350,6 +1384,12 @@ toastr.options = {
                 if (fieldName === 'stock') {
                     currentValue = currentValue.replace(/[^\d]/g, ''); // Sadece rakamları al
                 }
+
+                // İndirim için özel işlem (% ve "Yok" yazısını temizle)
+                if (fieldName === 'discount_percent') {
+                    currentValue = currentValue.replace('Yok', '').replace('%', '').replace(',', '.').trim();
+                    if (currentValue === '') currentValue = '0';
+                }
                 
                 // Barkod için özel işlem
                 if (fieldName === 'barcode') {
@@ -1360,10 +1400,11 @@ toastr.options = {
                 const input = document.createElement('input');
                 
                 // Input tipini belirle
-                if (fieldType === 'price' || fieldName === 'stock') {
+                if (fieldType === 'price' || fieldName === 'stock' || fieldName === 'discount_percent') {
                     input.type = 'number';
-                    input.step = fieldType === 'price' ? '0.01' : '1';
+                    input.step = fieldType === 'price' ? '0.01' : (fieldName === 'discount_percent' ? '0.01' : '1');
                     input.min = '0';
+                    if (fieldName === 'discount_percent') input.max = '100';
                 } else {
                     input.type = 'text';
                 }
@@ -1371,6 +1412,9 @@ toastr.options = {
                 // Value'yu ayarla
                 if (fieldType === 'price') {
                     input.value = currentValue.replace('₺', '').trim();
+                } else if (fieldName === 'discount_percent') {
+                    input.value = currentValue;
+                    input.placeholder = '0-100';
                 } else if (fieldName === 'stock') {
                     input.value = currentValue;
                 } else if (fieldName === 'barcode') {
@@ -1909,6 +1953,8 @@ toastr.options = {
             const image = document.getElementById('productImage').value;
             const description = document.getElementById('productDescription').value.trim();
             const status = document.getElementById('productStatus').checked ? 1 : 0;
+            const discountEl = document.getElementById('productDiscount');
+            const discount_percent = discountEl ? discountEl.value : 0;
             
             // Barkod ve stok (varsa)
             const barcodeInput = document.getElementById('productBarcode');
@@ -1934,6 +1980,7 @@ toastr.options = {
             formData.append('image', image);
             formData.append('description', description);
             formData.append('status', status);
+            formData.append('discount_percent', discount_percent);
             if (barcode) formData.append('barcode', barcode);
             if (stockInput) formData.append('stock', stock);
 

@@ -22,6 +22,10 @@ if(isset($_POST['update_product'])) {
     $name = cleanInput($_POST['name']);
     $description = cleanInput($_POST['description']);
     $price = floatval($_POST['price']);
+    $discount_percent = isset($_POST['discount_percent']) ? floatval($_POST['discount_percent']) : 0.0;
+    if ($discount_percent < 0 || $discount_percent > 100) {
+        $discount_percent = 0.0;
+    }
     $category_id = (int)$_POST['category_id'];
     $status = isset($_POST['status']) ? 1 : 0;
     
@@ -32,11 +36,12 @@ if(isset($_POST['update_product'])) {
                 name = ?, 
                 description = ?, 
                 price = ?, 
+                discount_percent = ?,
                 category_id = ?, 
                 image = ?,
                 status = ? 
                 WHERE id = ?", 
-               [$name, $description, $price, $category_id, $image, $status, $id]);
+               [$name, $description, $price, $discount_percent, $category_id, $image, $status, $id]);
                
     $_SESSION['message'] = 'Ürün başarıyla güncellendi.';
     $_SESSION['message_type'] = 'success';
@@ -85,12 +90,19 @@ include 'navbar.php';
                    </div>
                </div>
                <div class="col-md-6">
-                   <div class="mb-3">
-                       <label>Fiyat</label>
-                       <input type="number" step="0.01" name="price" 
-                              value="<?= $product['price'] ?>" 
-                              class="form-control" required>
-                   </div>
+                    <div class="mb-3">
+                        <label>Fiyat</label>
+                        <input type="number" step="0.01" name="price" 
+                               value="<?= $product['price'] ?>" 
+                               class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>İndirim (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" name="discount_percent"
+                               value="<?= htmlspecialchars($product['discount_percent'] ?? 0) ?>"
+                               class="form-control">
+                        <small class="text-muted">0 = indirimsiz. Müşteri menüsünde indirimli fiyat gösterilir.</small>
+                    </div>
                    <div class="mb-3">
                        <label>Mevcut Resim</label>
                        <?php if($product['image']): ?>

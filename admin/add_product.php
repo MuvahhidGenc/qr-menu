@@ -19,6 +19,10 @@ try {
     $status = isset($_POST['status']) ? 1 : 0;
     $barcode = isset($_POST['barcode']) ? cleanInput($_POST['barcode']) : null;
     $stock = isset($_POST['stock']) ? intval($_POST['stock']) : 0;
+    $discount_percent = isset($_POST['discount_percent']) ? floatval($_POST['discount_percent']) : 0.0;
+    if ($discount_percent < 0 || $discount_percent > 100) {
+        throw new Exception('İndirim yüzdesi 0-100 arasında olmalıdır');
+    }
 
     // Zorunlu alanları kontrol et
     if (empty($name) || empty($category_id)) {
@@ -51,9 +55,9 @@ try {
     
     // Ürünü veritabanına ekle
     $db->query(
-        "INSERT INTO products (name, description, price, category_id, image, status, barcode, stock) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
-        [$name, $description, $price, $category_id, $image, $status, $barcode, $stock]
+        "INSERT INTO products (name, description, price, discount_percent, category_id, image, status, barcode, stock) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+        [$name, $description, $price, $discount_percent, $category_id, $image, $status, $barcode, $stock]
     );
 
     echo json_encode([

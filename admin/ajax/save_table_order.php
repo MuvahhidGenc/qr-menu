@@ -73,7 +73,7 @@ try {
 
         // products.status tinyint(1): 1 = aktif
         $pr = $db->query(
-            "SELECT id, name, price FROM products WHERE id = ? AND status = 1 LIMIT 1",
+            "SELECT id, name, price, discount_percent FROM products WHERE id = ? AND status = 1 LIMIT 1",
             [$productId]
         )->fetch();
         if (!$pr) {
@@ -83,7 +83,7 @@ try {
         $cleanItems[$productId] = [
             'product_id' => $productId,
             'quantity'   => $quantity,
-            'price'      => (float)$pr['price'],   // sunucu fiyatı
+            'price'      => dvEffectivePrice($pr['price'], $pr['discount_percent'] ?? 0),   // sunucu fiyatı (indirimli)
             'name'       => $pr['name'],
         ];
     }

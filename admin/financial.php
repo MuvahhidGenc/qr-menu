@@ -89,6 +89,10 @@ foreach ($cancelled_stats as $stat) {
     $total_cancelled += (float)$stat['total_amount'];
 }
 
+// Tahsil bekleyen teslimatlar (teslim edilmiş ama ödemesi alınmamış masa
+// siparişleri). Ciroya dahil DEĞİLDİR; yalnızca bekleyen tutarı gösterir.
+$pendingCollection = sales_pending_collection($db);
+
 // Saatlik satış grafiği.
 // ÖNEMLİ: Bu sorguda önceden `status` filtresi YOKTU; iptal edilen ödemeler
 // de grafiğe giriyordu ve saatlik ciro olduğundan yüksek görünüyordu.
@@ -186,6 +190,18 @@ function getPaymentMethodText($method) {
                         <button class="btn btn-sm btn-outline-light mt-2" onclick="showCancelledPayments()">
                             Detayları Gör
                         </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card card bg-warning text-dark h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Bekleyen Tahsilat</h6>
+                        <h3 class="card-text"><?= number_format($pendingCollection['total'], 2, ',', '.') ?> ₺</h3>
+                        <small><?= (int)$pendingCollection['count'] ?> teslimat (ödemesi alınmadı)</small>
+                        <?php if ((int)$pendingCollection['count'] > 0): ?>
+                        <br><a class="btn btn-sm btn-outline-dark mt-2" href="completed_payments.php?tab=pending">Listeyi Gör</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

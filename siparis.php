@@ -60,11 +60,30 @@ $categories = $db->query(
     "SELECT * FROM categories WHERE status = 1 ORDER BY sort_order ASC, id ASC"
 )->fetchAll();
 
+// Sanal "İndirimli Ürünler" kategorisi: indirimli ürün varsa başa eklenir.
+if (dvHasDiscountedProducts($db)) {
+    array_unshift($categories, [
+        'id'          => -1,
+        'name'        => 'İndirimli Ürünler',
+        'description' => 'İndirimdeki tüm ürünler',
+        'image'       => '',
+        'status'      => 1,
+        'sort_order'  => -1,
+    ]);
+}
+
 $categoryId = getSecureInt('category', 0);
 $currentCategory = null;
 $products = [];
 
-if ($categoryId > 0) {
+if ($categoryId === -1) {
+    $currentCategory = [
+        'id' => -1,
+        'name' => 'İndirimli Ürünler',
+        'description' => 'İndirimdeki tüm ürünler',
+    ];
+    $products = dvDiscountedProducts($db);
+} elseif ($categoryId > 0) {
     $currentCategory = $db->query("SELECT * FROM categories WHERE id = ? AND status = 1", [$categoryId])->fetch();
     if ($currentCategory) {
         $products = $db->query(
